@@ -56,23 +56,26 @@ const FENCE: &str = "````````````````````````````````"; // 32 backticks
 const FENCE_EXAMPLE_PREFIX: &str = "```````````````````````````````` example";
 const SEPARATOR: &str = ".";
 
-/// Match an example-opening fence line. Returns:
-/// - `None` if the line isn't an example opening.
-/// - `Some(None)` for bare `example` (CommonMark convention).
-/// - `Some(Some(tag))` for `example <tag>` (GFM annotates some examples with
-///   the extension they exercise, e.g. `example table`,
-///   `example strikethrough`).
-#[allow(clippy::option_option)]
-fn parse_example_opening(line: &str) -> Option<Option<String>> {
+/// Classification of an example-opening fence line.
+#[derive(Debug, PartialEq, Eq)]
+enum ExampleOpening {
+    /// Bare `example` — CommonMark convention.
+    Bare,
+    /// `example <tag>` — GFM annotates some examples with the extension they
+    /// exercise (e.g. `example table`, `example strikethrough`).
+    Tagged(String),
+}
+
+/// Match an example-opening fence line.
+/// Returns `None` if the line isn't an example opening.
+fn parse_example_opening(line: &str) -> Option<ExampleOpening> {
     let rest = line.strip_prefix(FENCE_EXAMPLE_PREFIX)?;
-    if rest.is_empty() {
-        return Some(None);
-    }
     let tag = rest.trim_start();
     if tag.is_empty() {
-        return Some(None);
+        Some(ExampleOpening::Bare)
+    } else {
+        Some(ExampleOpening::Tagged(tag.to_owned()))
     }
-    Some(Some(tag.to_owned()))
 }
 
 /// Convert `input_path` (a spec.txt) to a JSON fixture at `output_path`.
@@ -126,11 +129,14 @@ pub fn parse(source: &str) -> Result<Vec<SpecExample>> {
                     rest.trim().clone_into(&mut section);
                     continue;
                 }
-                if let Some(extension) = parse_example_opening(line) {
+                if let Some(opening) = parse_example_opening(line) {
                     example += 1;
                     md_buf.clear();
                     html_buf.clear();
-                    current_extension = extension;
+                    current_extension = match opening {
+                        ExampleOpening::Bare => None,
+                        ExampleOpening::Tagged(tag) => Some(tag),
+                    };
                     state = State::Markdown;
                     continue;
                 }
