@@ -271,3 +271,104 @@ fn unknown_subcommand_exits_nonzero() {
         "unknown subcommand must exit non-zero"
     );
 }
+
+// ---------------------------------------------------------------------------
+// --strict + diagnostics flow (G2)
+// ---------------------------------------------------------------------------
+
+/// Craft an input the lexer *will* complain about. The Phase 2
+/// balanced-stack walk flags an orphan `》` (ruby close with no
+/// matching open) as `afm::lex::unmatched_close` — stable across
+/// classifier iterations because the trigger table always pairs
+/// `《` with `》`. If a future rewrite elides this shape silently,
+/// the strict-mode test fails and forces the author to pick a
+/// replacement canary that actually fires.
+const DIAGNOSTIC_INPUT: &str = "orphan》close";
+
+#[test]
+fn check_without_strict_passes_even_with_diagnostics() {
+    // Plain `check` must remain a syntax sanity-check that succeeds
+    // on well-formed UTF-8 regardless of diagnostic count.
+    let path = write_temp_utf8("hello");
+    let out = run_afm(&["check", path.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "plain check must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn render_strict_without_diagnostics_succeeds() {
+    // --strict must NOT fail when the lexer produces zero diagnostics.
+    let path = write_temp_utf8("clean input");
+    let out = run_afm(&["--strict", "render", path.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "strict render on clean input must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).contains("<p>clean input</p>"),
+        "render output must appear on stdout under strict mode, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+/// When any lexer diagnostic fires under `--strict`, the binary
+/// must:
+///
+/// * exit non-zero
+/// * NOT print the HTML on stdout
+/// * print a short Japanese error including the count
+///
+/// The diagnostic body itself lands on stderr via `emit_diagnostics`
+/// so tooling can parse the `afm::…` code.
+#[test]
+fn render_strict_with_lexer_diagnostic_fails_nonzero() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let baseline = run_afm(&["check", path.to_str().unwrap()]);
+    // Sanity: non-strict check must succeed (prove the diagnostic is
+    // non-fatal in the default mode).
+    assert!(
+        baseline.status.success(),
+        "non-strict check must still exit 0 on diagnostic-heavy input"
+    );
+    let strict = run_afm(&["--strict", "render", path.to_str().unwrap()]);
+    assert!(
+        !strict.status.success(),
+        "--strict must turn the lexer diagnostic into a hard error"
+    );
+    let stderr = stderr_of(&strict);
+    assert!(
+        stderr.contains("--strict") || stderr.contains("診断"),
+        "strict failure message must reference --strict or 診断, got {stderr:?}"
+    );
+}
+
+#[test]
+fn check_strict_on_diagnostic_input_fails() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["--strict", "check", path.to_str().unwrap()]);
+    assert!(
+        !out.status.success(),
+        "check --strict with lexer diagnostic must exit non-zero"
+    );
+}
+
+#[test]
+fn diagnostics_print_to_stderr_with_afm_code() {
+    // Even without --strict, diagnostics surface on stderr so
+    // tooling (Language servers, CI grep) can react.
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", path.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "check on diagnostic-heavy input must still exit 0 without --strict"
+    );
+    let stderr = stderr_of(&out);
+    assert!(
+        stderr.contains("diagnostic [afm::"),
+        "stderr must carry `diagnostic [afm::…]` lines, got {stderr:?}"
+    );
+}

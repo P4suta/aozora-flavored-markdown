@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::{fs, process::ExitCode};
 
-use afm_parser::html::render_to_string;
+use afm_parser::{ComrakArena, Options, html::render_root_to_string, parse};
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -91,16 +91,48 @@ fn read_input(path: &Path, encoding: InputEncoding) -> Result<String> {
     }
 }
 
-fn render(path: &Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
+fn render(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
     let source = read_input(path, encoding)?;
-    let html = render_to_string(&source);
+    let arena = ComrakArena::new();
+    let options = Options::afm_default();
+    let result = parse(&arena, &source, &options);
+    emit_diagnostics(&result.diagnostics);
+    if strict && !result.diagnostics.is_empty() {
+        return Err(miette::miette!(
+            "lexer が {} 件の診断を報告しました (--strict)",
+            result.diagnostics.len()
+        ));
+    }
+    let html = render_root_to_string(result.root, &options);
     println!("{html}");
     Ok(())
 }
 
-fn check(path: &Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
-    let _source = read_input(path, encoding)?;
-    // Full diagnostic surfacing comes online with the parser — M0 Spike only validates
-    // that decoding succeeds.
+fn check(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
+    let source = read_input(path, encoding)?;
+    let arena = ComrakArena::new();
+    let options = Options::afm_default();
+    let result = parse(&arena, &source, &options);
+    emit_diagnostics(&result.diagnostics);
+    if strict && !result.diagnostics.is_empty() {
+        return Err(miette::miette!(
+            "lexer が {} 件の診断を報告しました (--strict)",
+            result.diagnostics.len()
+        ));
+    }
     Ok(())
+}
+
+/// Print every diagnostic on stderr with its miette-derived code so
+/// downstream tooling (language servers, CI gates, LSP JSON bridges)
+/// can key on the stable `afm::…` strings rather than free-form
+/// messages.
+fn emit_diagnostics(diagnostics: &[afm_parser::LexerDiagnostic]) {
+    use miette::Diagnostic as _;
+    for d in diagnostics {
+        let code = d
+            .code()
+            .map_or_else(|| "afm::unknown".to_owned(), |c| c.to_string());
+        eprintln!("diagnostic [{code}]: {d}");
+    }
 }
