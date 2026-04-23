@@ -41,7 +41,7 @@ use serde::Serialize;
 
 /// Single spec example, matching comrak's own `spec_runner` shape.
 #[derive(Debug, Serialize)]
-pub struct SpecExample {
+struct SpecExample {
     pub example: u32,
     pub section: String,
     pub markdown: String,
@@ -110,7 +110,7 @@ pub fn refresh_one(input_path: &Path, output_path: &Path) -> Result<usize> {
 /// Returns an error on malformed input: an `example` fence that never sees a
 /// separator `.` or a closing fence; a closing fence that isn't preceded by an
 /// opening one.
-pub fn parse(source: &str) -> Result<Vec<SpecExample>> {
+fn parse(source: &str) -> Result<Vec<SpecExample>> {
     let mut out = Vec::new();
     let mut section = String::new();
     let mut example = 0u32;
