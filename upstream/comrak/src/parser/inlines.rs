@@ -144,12 +144,6 @@ impl<'a, 'r, 'o, 'd, 'c, 'p> Subject<'a, 'r, 'o, 'd, 'c, 'p> {
             s.special_char_bytes[b'{' as usize] = true;
             s.special_char_bytes[b'<' as usize] = true;
         }
-        // Note: the afm extension does NOT mark its trigger-leading bytes
-        // (0xEF / 0xE3 / 0xE2) as single-byte special_chars — those bytes lead
-        // many non-trigger characters (hiragana, kanji) that would falsely stop
-        // text runs and break comrak's forward-progress invariant. Instead the
-        // aozora text-run terminator is handled inside `find_special_char` via
-        // a precise multi-byte lookup.
         for &b in b"*_" {
             s.emph_delim_bytes[b as usize] = true;
         }
@@ -159,48 +153,6 @@ impl<'a, 'r, 'o, 'd, 'c, 'p> Subject<'a, 'r, 'o, 'd, 'c, 'p> {
     //////////////////
     // Constructors //
     //////////////////
-
-    /// afm extension: dispatch to the registered [`AozoraExtension`] when the
-    /// cursor is at a recognised trigger (`｜`, `《`, `［`, or `※`). Returns the
-    /// constructed inline node. Guarantees forward progress: when the extension
-    /// declines, the trigger character is emitted as plain text and the cursor
-    /// advances past it — crucial because `find_special_char` halts text runs at
-    /// these trigger codepoints (see `find_aozora_trigger_offset`), so a stall
-    /// here would infinite-loop the outer parse driver.
-    fn try_parse_aozora_inline(&mut self) -> Option<Node<'a>> {
-        let pos = self.scanner.pos;
-        let head = self.input.get(pos..)?;
-        let first = head.chars().next()?;
-        if !matches!(first, '｜' | '《' | '［' | '※') {
-            return None;
-        }
-        let char_len = first.len_utf8();
-
-        if let Some(ext) = self.options.extension.aozora.as_ref() {
-            // Preceding text for implicit-delimiter ruby base recovery: current
-            // line segment up to the cursor. A grapheme-aware walk on the afm
-            // side picks out the trailing kanji run.
-            let line_start = self.input[..pos].rfind('\n').map_or(0, |i| i + 1);
-            let preceding = &self.input[line_start..pos];
-            let ctx = afm_syntax::InlineCtx::new(&self.input, pos, preceding);
-            if let Some(m) = ext.try_parse_inline(ctx) {
-                let consumed = m.consumed.get();
-                self.scanner.pos = pos + consumed;
-                return Some(self.make_inline(
-                    NodeValue::Aozora(Box::new(m.node)),
-                    pos,
-                    pos + consumed - 1,
-                ));
-            }
-        }
-
-        // Extension absent or declined — emit the trigger char as plain text
-        // and advance. Preserves the text in the document while preventing a
-        // parser stall.
-        self.scanner.pos = pos + char_len;
-        let text: String = first.into();
-        Some(self.make_inline(NodeValue::Text(text.into()), pos, pos + char_len - 1))
-    }
 
     fn make_inline(&self, value: NodeValue, start_column: usize, end_column: usize) -> Node<'a> {
         let start_column =
@@ -259,17 +211,6 @@ impl<'a, 'r, 'o, 'd, 'c, 'p> Subject<'a, 'r, 'o, 'd, 'c, 'p> {
 
         let adjusted_line = self.line - ast.sourcepos.start.line;
         self.line_offset = ast.line_offsets[adjusted_line];
-
-        // afm extension: give Aozora recognition first crack at the current cursor
-        // so ｜／《 never reach the byte-level dispatch below as ambiguous text.
-        // Gated on the extension being registered; no cost for pure-CommonMark
-        // callers.
-        if self.options.extension.aozora.is_some()
-            && let Some(inl) = self.try_parse_aozora_inline()
-        {
-            node.append(inl);
-            return true;
-        }
 
         let new_inl: Option<Node<'a>> = match b {
             b'\r' | b'\n' => Some(self.handle_newline()),
@@ -2083,17 +2024,7 @@ impl<'a, 'r, 'o, 'd, 'c, 'p> Subject<'a, 'r, 'o, 'd, 'c, 'p> {
             .position(|&value| self.is_special_char(value))
             .unwrap_or(input.len());
 
-        // afm extension: halt text runs at Aozora inline triggers so the hook
-        // can dispatch them. Done as a separate multi-byte scan (rather than
-        // single-byte special_char_bytes) so non-trigger characters sharing the
-        // same UTF-8 lead bytes do not falsely interrupt text.
-        let aozora_index = if self.options.extension.aozora.is_some() {
-            find_aozora_trigger_offset(&self.input[self.scanner.pos..]).unwrap_or(usize::MAX)
-        } else {
-            usize::MAX
-        };
-
-        self.scanner.pos + byte_index.min(aozora_index)
+        self.scanner.pos + byte_index
     }
 
     fn is_special_char(&self, value: u8) -> bool {
@@ -2482,37 +2413,6 @@ struct Bracket<'a> {
 struct WikilinkComponents {
     url: String,
     link_label: Option<(String, usize, usize)>,
-}
-
-/// afm extension: scan `input` for the first byte offset that starts an Aozora
-/// inline trigger character (`｜`, `《`, `［`, or `※`). Returns `None` when no
-/// trigger is present. Single linear pass over `input.as_bytes()` with a
-/// lead-byte filter so non-trigger code points (the majority, e.g. hiragana)
-/// cost one byte comparison each.
-///
-/// Accent-decomposition spans (`〔...〕` with ASCII accent markers like
-/// `\`` inside) are NOT handled here; afm-parser rewrites those at the preparse
-/// stage (see `afm_parser::preparse`) so comrak never sees the ambiguous
-/// backticks.
-fn find_aozora_trigger_offset(input: &str) -> Option<usize> {
-    const PIPE_FULLWIDTH: [u8; 3] = [0xEF, 0xBD, 0x9C]; // ｜ U+FF5C
-    const BRACKET_FULLWIDTH: [u8; 3] = [0xEF, 0xBC, 0xBB]; // ［ U+FF3B
-    const DOUBLE_ANGLE_LEFT: [u8; 3] = [0xE3, 0x80, 0x8A]; // 《 U+300A
-    const REFERENCE_MARK: [u8; 3] = [0xE2, 0x80, 0xBB]; // ※ U+203B
-
-    let bytes = input.as_bytes();
-    let mut i = 0;
-    while i + 3 <= bytes.len() {
-        let window = &bytes[i..i + 3];
-        match window[0] {
-            0xEF if window == PIPE_FULLWIDTH || window == BRACKET_FULLWIDTH => return Some(i),
-            0xE3 if window == DOUBLE_ANGLE_LEFT => return Some(i),
-            0xE2 if window == REFERENCE_MARK => return Some(i),
-            _ => {}
-        }
-        i += 1;
-    }
-    None
 }
 
 pub(crate) fn manual_scan_link_url(input: &str) -> Option<(&str, usize)> {
