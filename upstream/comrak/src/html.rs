@@ -403,16 +403,20 @@ pub fn format_node_default<T>(
     }
 }
 
-/// Placeholder renderer for `NodeValue::Aozora`. Emits an HTML comment carrying the
-/// canonical `xml_node_name` so the presence of the node is visible in round-trip
-/// output. The extension-dispatched renderer lands in a follow-up commit once the
-/// `Extension.aozora` field is wired through.
+/// Render a `NodeValue::Aozora` via the registered extension. When no extension is
+/// registered, fall back to an HTML comment carrying the canonical `xml_node_name`
+/// so the presence of the node is still visible in round-trip output.
 fn render_aozora<T>(
     context: &mut Context<T>,
     node: &afm_syntax::AozoraNode,
     entering: bool,
 ) -> Result<ChildRendering, fmt::Error> {
-    if entering {
+    if !entering {
+        return Ok(ChildRendering::HTML);
+    }
+    if let Some(ext) = context.options.extension.aozora.clone() {
+        ext.render_html(node, context)?;
+    } else {
         context.write_str("<!-- ")?;
         context.write_str(node.xml_node_name())?;
         context.write_str(" -->")?;

@@ -627,6 +627,15 @@ pub struct Extension<'c> {
     /// ```
     #[cfg_attr(feature = "bon", builder(default))]
     pub block_directive: bool,
+
+    /// afm extension: registers an
+    /// [`afm_syntax::AozoraExtension`](../../afm_syntax/trait.AozoraExtension.html)
+    /// implementation that receives inline / block / render callbacks for Aozora
+    /// Bunko typography (ruby, bouten, 縦中横, `［＃...］` annotations, …).
+    /// `None` (default) disables the extension entirely; no overhead is paid by
+    /// pure-CommonMark callers.
+    #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
+    pub aozora: Option<Arc<dyn afm_syntax::AozoraExtension + 'c>>,
 }
 
 impl Extension<'_> {

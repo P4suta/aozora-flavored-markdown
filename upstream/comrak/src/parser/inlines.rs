@@ -154,6 +154,52 @@ impl<'a, 'r, 'o, 'd, 'c, 'p> Subject<'a, 'r, 'o, 'd, 'c, 'p> {
     // Constructors //
     //////////////////
 
+    /// afm extension: dispatch to the registered [`AozoraExtension`] if the cursor
+    /// head starts with a recognised trigger (`｜`, `《`, `［`, or `※`). Returns
+    /// the constructed inline node on success; leaves the cursor untouched on
+    /// `None`.
+    fn try_parse_aozora_inline(&mut self) -> Option<Node<'a>> {
+        // Trigger sniff on the first byte of the multi-byte characters we care
+        // about. All Aozora inline triggers share the 3-byte UTF-8 lead prefix:
+        //   ｜ = U+FF5C → 0xEF 0xBC 0x9C
+        //   ［ = U+FF3B → 0xEF 0xBC 0xBB
+        //   《 = U+300A → 0xE3 0x80 0x8A
+        //   ※ = U+203B → 0xE2 0x80 0xBB
+        let pos = self.scanner.pos;
+        let bytes = self.input.as_bytes();
+        let lead = *bytes.get(pos)?;
+        if lead != 0xEF && lead != 0xE3 && lead != 0xE2 {
+            return None;
+        }
+        let head = &self.input[pos..];
+        if !(head.starts_with('｜')
+            || head.starts_with('《')
+            || head.starts_with('［')
+            || head.starts_with('※'))
+        {
+            return None;
+        }
+
+        let ext = self.options.extension.aozora.as_ref()?;
+
+        // Preceding text for implicit-delimiter ruby base recovery: limited to the
+        // current line segment up to the cursor. A grapheme-aware walk will pick
+        // out the trailing kanji run on the afm side.
+        let line_start = self.input[..pos].rfind('\n').map_or(0, |i| i + 1);
+        let preceding = &self.input[line_start..pos];
+
+        let ctx = afm_syntax::InlineCtx::new(&self.input, pos, preceding);
+        let m = ext.try_parse_inline(ctx)?;
+        let consumed = m.consumed.get();
+
+        let start = pos;
+        let end = pos + consumed - 1;
+        self.scanner.pos = pos + consumed;
+
+        let inl = self.make_inline(NodeValue::Aozora(Box::new(m.node)), start, end);
+        Some(inl)
+    }
+
     fn make_inline(&self, value: NodeValue, start_column: usize, end_column: usize) -> Node<'a> {
         let start_column =
             start_column as isize + 1 + self.column_offset + self.line_offset as isize;
@@ -211,6 +257,17 @@ impl<'a, 'r, 'o, 'd, 'c, 'p> Subject<'a, 'r, 'o, 'd, 'c, 'p> {
 
         let adjusted_line = self.line - ast.sourcepos.start.line;
         self.line_offset = ast.line_offsets[adjusted_line];
+
+        // afm extension: give Aozora recognition first crack at the current cursor
+        // so ｜／《 never reach the byte-level dispatch below as ambiguous text.
+        // Gated on the extension being registered; no cost for pure-CommonMark
+        // callers.
+        if self.options.extension.aozora.is_some()
+            && let Some(inl) = self.try_parse_aozora_inline()
+        {
+            node.append(inl);
+            return true;
+        }
 
         let new_inl: Option<Node<'a>> = match b {
             b'\r' | b'\n' => Some(self.handle_newline()),
