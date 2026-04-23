@@ -205,7 +205,11 @@ fn normalise(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::io::Write;
+    use std::path::PathBuf;
+    use std::process;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     #[test]
     fn parses_single_example() {
@@ -269,13 +273,12 @@ mod tests {
     }
 
     // Minimal tempdir helper — avoids pulling in the `tempfile` crate for a
-    // two-test use case. Builds a per-test dir under std::env::temp_dir().
-    fn tempdir() -> std::path::PathBuf {
-        use std::sync::atomic::{AtomicU64, Ordering};
+    // two-test use case. Builds a per-test dir under `env::temp_dir()`.
+    fn tempdir() -> PathBuf {
         static SEQ: AtomicU64 = AtomicU64::new(0);
         let id = SEQ.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let dir = std::env::temp_dir().join(format!("afm-xtask-{pid}-{id}"));
+        let pid = process::id();
+        let dir = env::temp_dir().join(format!("afm-xtask-{pid}-{id}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

@@ -9,8 +9,11 @@
 
 #![forbid(unsafe_code)]
 
-use std::{fs, path::PathBuf, process::ExitCode};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::{fs, process::ExitCode};
 
+use afm_parser::html::render_to_string;
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -65,7 +68,7 @@ fn run() -> Result<()> {
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
         )
-        .with_writer(std::io::stderr)
+        .with_writer(io::stderr)
         .init();
 
     let cli = Cli::parse();
@@ -76,7 +79,7 @@ fn run() -> Result<()> {
     }
 }
 
-fn read_input(path: &std::path::Path, encoding: InputEncoding) -> Result<String> {
+fn read_input(path: &Path, encoding: InputEncoding) -> Result<String> {
     let bytes = fs::read(path)
         .into_diagnostic()
         .wrap_err_with(|| format!("入力ファイルを読めません: {}", path.display()))?;
@@ -88,14 +91,14 @@ fn read_input(path: &std::path::Path, encoding: InputEncoding) -> Result<String>
     }
 }
 
-fn render(path: &std::path::Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
+fn render(path: &Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
     let source = read_input(path, encoding)?;
-    let html = afm_parser::html::render_to_string(&source);
+    let html = render_to_string(&source);
     println!("{html}");
     Ok(())
 }
 
-fn check(path: &std::path::Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
+fn check(path: &Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
     let _source = read_input(path, encoding)?;
     // Full diagnostic surfacing comes online with the parser — M0 Spike only validates
     // that decoding succeeds.
