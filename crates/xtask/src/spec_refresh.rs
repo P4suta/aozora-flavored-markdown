@@ -3,7 +3,7 @@
 //!
 //! Input format (cmark convention):
 //!
-//! ```text
+//! ~~~text
 //! # Section heading
 //!
 //! ... prose ...
@@ -13,7 +13,7 @@
 //! .
 //! <expected html>
 //! ````````````````````````````````
-//! ```
+//! ~~~
 //!
 //! The fence width is always 32 backticks. The `example` keyword follows the
 //! opening fence. A lone `.` on its own line separates the source from the
