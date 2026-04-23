@@ -1,0 +1,183 @@
+/*
+ * afm-vertical.css — vertical-rl (tategaki) writing mode theme.
+ *
+ * Class contract: every class token the afm-parser renderer can
+ * emit MUST have at least one rule in this file. The integration
+ * test `css_class_contract.rs` walks this file plus a pinned list
+ * of emitted classes and fails CI when a new class lands without a
+ * style.
+ *
+ * Difference from `afm-horizontal.css`:
+ *   - Root sets `writing-mode: vertical-rl`.
+ *   - Bouten "right" side becomes visually ABOVE the base (over)
+ *     and "left" becomes BELOW (under) in the inline axis — which
+ *     is what `text-emphasis-position` already does for vertical
+ *     writing modes, so no override is needed.
+ *   - Indent / align-end swap from the horizontal axis to the
+ *     vertical axis (margin-top / margin-bottom).
+ *
+ * Keeping the class list IDENTICAL with `afm-horizontal.css` is a
+ * hard contract — the `css_class_contract.rs` test walks both
+ * files.
+ */
+
+/* ----- Opt-in root ----------------------------------------------- */
+
+.afm-root {
+  font-family: "Hiragino Mincho ProN", "Noto Serif JP", "Yu Mincho", serif;
+  line-height: 1.75;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* ----- Ruby ------------------------------------------------------ */
+
+.afm-root ruby rt {
+  font-size: 0.5em;
+  line-height: 1;
+}
+
+/* ----- Bouten ---------------------------------------------------- */
+
+.afm-bouten {
+  font-style: normal;
+}
+
+.afm-bouten-goma         { text-emphasis: filled sesame; }
+.afm-bouten-white-sesame { text-emphasis: open sesame;   }
+.afm-bouten-circle       { text-emphasis: filled circle; }
+.afm-bouten-white-circle { text-emphasis: open circle;   }
+.afm-bouten-double-circle { text-emphasis: filled double-circle; }
+.afm-bouten-janome       { text-emphasis: open double-circle; }
+.afm-bouten-cross        { text-emphasis: "✕"; }
+.afm-bouten-white-triangle { text-emphasis: open triangle; }
+.afm-bouten-wavy-line    { text-decoration: wavy underline; text-emphasis: none; }
+.afm-bouten-under-line   { text-decoration: underline;      text-emphasis: none; }
+.afm-bouten-double-under-line {
+  text-decoration: underline double;
+  text-emphasis: none;
+}
+.afm-bouten-other        { text-emphasis: filled sesame; }
+
+/*
+ * In vertical writing `over` points to the right side of each
+ * character (traditional furigana side) and `under` to the left.
+ * So the HTML class ordering lines up with Aozora semantics.
+ */
+.afm-bouten-right { text-emphasis-position: over; }
+.afm-bouten-left  { text-emphasis-position: under; }
+
+/* ----- Tate-chu-yoko --------------------------------------------- */
+
+.afm-tcy {
+  text-combine-upright: all;
+}
+
+/* ----- Gaiji / Kaeriten / Annotation ----------------------------- */
+
+.afm-gaiji {
+  font-style: normal;
+}
+
+.afm-kaeriten {
+  font-size: 0.6em;
+  margin: 0 0.1em;
+  /*
+   * In vertical mode a superscript doesn't mean the same thing;
+   * position the kaeriten as a small inset against the base
+   * character.
+   */
+  vertical-align: super;
+}
+
+.afm-annotation {
+  display: none;
+}
+
+/* ----- Double angle brackets ------------------------------------- */
+
+.afm-double-ruby {
+  font-style: italic;
+}
+
+/* ----- Block leaves ---------------------------------------------- */
+
+.afm-page-break {
+  display: block;
+  /* Swap to the block-axis dimension in vertical mode. */
+  margin: 0 3em;
+  border-right: 1px solid currentColor;
+  opacity: 0.2;
+  page-break-before: always;
+}
+
+.afm-section-break {
+  display: block;
+  margin: 0 2em;
+  text-align: center;
+}
+
+.afm-section-break::before {
+  content: "❦";
+  opacity: 0.5;
+}
+
+.afm-section-break-choho  { border-right: 3px double currentColor; }
+.afm-section-break-dan    { border-right: 1px solid currentColor; margin-right: 1em; }
+.afm-section-break-spread { page-break-before: always; }
+
+/* ----- Indent / align-end leaf markers --------------------------- */
+
+.afm-indent {
+  /* Indent in vertical mode is margin-TOP (block-axis start). */
+  display: inline-block;
+  height: 1em;
+}
+
+.afm-indent-1 { height: 1em; }
+.afm-indent-2 { height: 2em; }
+.afm-indent-3 { height: 3em; }
+
+.afm-align-end {
+  display: block;
+  /* Push to the end of the vertical block axis. */
+  margin-top: auto;
+}
+
+.afm-align-end-1 { margin-bottom: 1em; }
+.afm-align-end-2 { margin-bottom: 2em; }
+.afm-align-end-3 { margin-bottom: 3em; }
+
+/* ----- Paired block containers ----------------------------------- */
+
+.afm-container {
+  display: block;
+  margin: 0 1em;
+}
+
+.afm-container-indent {
+  margin-top: 2em;
+}
+
+.afm-container-indent-1 { margin-top: 1em; }
+.afm-container-indent-2 { margin-top: 2em; }
+.afm-container-indent-3 { margin-top: 3em; }
+
+.afm-container-align-end {
+  /* In vertical writing, align-end shifts toward the block-end. */
+  margin-bottom: auto;
+}
+
+.afm-container-keigakomi {
+  border: 1px solid currentColor;
+  padding: 0.5em;
+}
+
+.afm-container-warichu {
+  /*
+   * Warichu in vertical mode shares the same semantics — small
+   * parallel text. Columns here don't work the same way, so use
+   * a tighter writing context.
+   */
+  font-size: 0.85em;
+}
