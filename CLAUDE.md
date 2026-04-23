@@ -42,6 +42,7 @@ Read these before touching anything the ADR governs. `docs/adr/` on disk.
 - **ADR-0003** — afm-parser architecture: `Arc<dyn AozoraExtension + 'c>` trait object on comrak's `Extension.aozora`; single `NodeValue::Aozora(AozoraNode)` variant.
 - **ADR-0004** — accent decomposition preparse: rewrite 〔…〕 bodies to Unicode before comrak sees them (prevents lone `` ` `` from opening a CommonMark code span).
 - **ADR-0005** (M1) — paired block annotation container hook. TBD.
+- **ADR-0006** (M1) — lint profile policy & scope discipline: `[workspace.lints]` is the single source of truth; `-W clippy::<group>` flags are banned on the `just clippy` command line because they silently override per-lint carve-outs.
 
 ## Development environment
 
