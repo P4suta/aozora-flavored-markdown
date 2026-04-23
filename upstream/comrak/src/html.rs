@@ -412,12 +412,9 @@ fn render_aozora<T>(
     node: &afm_syntax::AozoraNode,
     entering: bool,
 ) -> Result<ChildRendering, fmt::Error> {
-    if !entering {
-        return Ok(ChildRendering::HTML);
-    }
     if let Some(render_fn) = context.options.extension.render_aozora {
-        render_fn(node, context)?;
-    } else {
+        render_fn(node, entering, context)?;
+    } else if entering {
         context.write_str("<!-- ")?;
         context.write_str(node.xml_node_name())?;
         context.write_str(" -->")?;

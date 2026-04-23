@@ -637,8 +637,15 @@ pub struct Extension<'c> {
     /// seam is this render hook. The `fn` pointer shape — rather than
     /// `Arc<dyn AozoraExtension>` — keeps the upstream diff minimal and
     /// avoids a virtual call per rendered Aozora node.
+    ///
+    /// The `entering` flag lets container-type Aozora nodes (paired
+    /// `［＃ここから…］` block wrappers) emit an opening tag on the
+    /// enter pass and the closing tag on exit while comrak walks the
+    /// children in between — exactly matching the contract
+    /// `render_list` and friends use.
     #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
-    pub render_aozora: Option<fn(&afm_syntax::AozoraNode, &mut dyn fmt::Write) -> fmt::Result>,
+    pub render_aozora:
+        Option<fn(&afm_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
 }
 
 impl Extension<'_> {
