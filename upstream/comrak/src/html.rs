@@ -399,7 +399,25 @@ pub fn format_node_default<T>(
         NodeValue::WikiLink(ref nwl) => render_wiki_link(context, node, entering, nwl),
         NodeValue::Subtext => render_subtext(context, node, entering),
         NodeValue::BlockDirective(ref nbd) => render_block_directive(context, node, entering, nbd),
+        NodeValue::Aozora(ref n) => render_aozora(context, n, entering),
     }
+}
+
+/// Placeholder renderer for `NodeValue::Aozora`. Emits an HTML comment carrying the
+/// canonical `xml_node_name` so the presence of the node is visible in round-trip
+/// output. The extension-dispatched renderer lands in a follow-up commit once the
+/// `Extension.aozora` field is wired through.
+fn render_aozora<T>(
+    context: &mut Context<T>,
+    node: &afm_syntax::AozoraNode,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<!-- ")?;
+        context.write_str(node.xml_node_name())?;
+        context.write_str(" -->")?;
+    }
+    Ok(ChildRendering::HTML)
 }
 
 // Commonmark

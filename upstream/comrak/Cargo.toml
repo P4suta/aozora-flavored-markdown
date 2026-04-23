@@ -52,6 +52,10 @@ phf = "0.13"
 rustc-hash = "2"
 smallvec = "1.13"
 finl_unicode = { version = "1.4.0", features = ["categories"] }
+# afm extension — forked addition. Carries the AozoraNode AST variant and the
+# AozoraExtension trait that comrak's Extension.aozora field accepts as a
+# trait object. Path-local dep (afm-syntax lives in the parent workspace).
+afm-syntax = { path = "../../crates/afm-syntax" }
 
 [dev-dependencies]
 ntest = "0.9"

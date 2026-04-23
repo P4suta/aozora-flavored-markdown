@@ -265,6 +265,14 @@ pub enum NodeValue {
     /// :::
     /// ```
     BlockDirective(Box<NodeBlockDirective>),
+
+    /// afm extension: Aozora Bunko typography (ruby, bouten, 縦中横, ［＃...］
+    /// block annotations, …). All afm-specific sub-variants live inside
+    /// `AozoraNode`, keeping this single arm the entire upstream surface.
+    ///
+    /// Boxed to keep the enum size aligned with the existing `Box<NodeXxx>`
+    /// variants and pass the `AST_SIZE_ASSERTION` size-of check further down.
+    Aozora(Box<afm_syntax::AozoraNode>),
 }
 
 /// Alignment of a single table cell.
@@ -639,12 +647,16 @@ impl NodeValue {
             NodeValue::BlockDirective(_) => true,
             #[cfg(feature = "phoenix_heex")]
             NodeValue::HeexBlock(..) => true,
+            NodeValue::Aozora(ref n) => n.is_block(),
             _ => false,
         }
     }
 
     /// Whether the type the node is of can contain inline nodes.
     pub fn contains_inlines(&self) -> bool {
+        if let NodeValue::Aozora(ref n) = *self {
+            return n.contains_inlines();
+        }
         matches!(
             *self,
             NodeValue::Paragraph
@@ -730,6 +742,7 @@ impl NodeValue {
             NodeValue::Alert(_) => "alert",
             NodeValue::Subtext => "subtext",
             NodeValue::BlockDirective(_) => "block_directive",
+            NodeValue::Aozora(ref n) => n.xml_node_name(),
         }
     }
 
@@ -1087,6 +1100,12 @@ impl<'a> arena_tree::Node<'a, RefCell<Ast>> {
 
             #[cfg(feature = "phoenix_heex")]
             NodeValue::HeexBlock(_) | NodeValue::HeexInline(_) => false,
+
+            NodeValue::Aozora(ref n) => {
+                // Containers (Indent / Warichu / …) hold inline children; leaves
+                // (PageBreak / Ruby / …) don't take children.
+                n.contains_inlines() && !child.block()
+            }
         }
     }
 

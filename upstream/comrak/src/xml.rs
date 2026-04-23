@@ -331,6 +331,10 @@ impl<'o, 'c> XmlFormatter<'o, 'c> {
                     self.escape(&nbd.info)?;
                     self.output.write_str("\"")?;
                 }
+                NodeValue::Aozora(_) => {
+                    // afm extension nodes carry their own XML representation via
+                    // `AozoraNode::xml_node_name`; no extra attributes needed here.
+                }
             }
 
             if node.first_child().is_some() {
