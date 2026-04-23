@@ -1,8 +1,24 @@
 # 0005. Paired block annotation container hook
 
-- Status: accepted
+- Status: **superseded by ADR-0008 (2026-04-24)**
 - Date: 2026-04-23
 - Tags: parser, upstream-diff, aozora-compat
+
+> **Superseded.** This ADR proposed adding a paired-block container
+> dispatch hook to upstream comrak's block-start loop. ADR-0008 inverts
+> the architecture entirely: Aozora parsing runs in a pure-functional
+> pre-pass (afm-lexer) that emits a normalized text with PUA sentinel
+> characters, and a post-comrak AST walk (afm-parser::post_process)
+> substitutes sentinels with AozoraNode children. Paired containers are
+> now produced by the post_process block pass without any upstream
+> block dispatch. The "rejected alternative B (post-process the AST)"
+> below no longer applies because the block markers are pre-labeled as
+> single-char sentinel lines, so post-process does not have to undo
+> comrak's container splitting — comrak simply parses each marker as
+> an isolated single-char paragraph that post_process pairs up.
+>
+> This ADR is kept for historical record. Follow ADR-0008 for the
+> current design.
 
 ## Context
 
