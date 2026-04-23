@@ -1,0 +1,29 @@
+[book]
+title    = "aozora-flavored-markdown"
+authors  = ["afm contributors"]
+language = "ja"
+multilingual = false
+src      = "src"
+
+[rust]
+edition = "2024"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/yasunobu/afm"
+edit-url-template = "https://github.com/yasunobu/afm/edit/main/crates/afm-book/{path}"
+site-url = "/"
+additional-css = []
+
+[output.html.fold]
+enable = true
+level  = 1
+
+[output.html.search]
+enable = true
+use-boolean-and = true
+
+[output.linkcheck]
+follow-web-links = false
+warning-policy   = "error"

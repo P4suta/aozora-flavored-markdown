@@ -1,0 +1,30 @@
+[package]
+name        = "afm-cli"
+description = "Command-line interface for aozora-flavored-markdown"
+version.workspace     = true
+edition.workspace     = true
+rust-version.workspace = true
+license.workspace     = true
+repository.workspace  = true
+authors.workspace     = true
+readme.workspace      = true
+keywords.workspace    = true
+categories.workspace  = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "afm"
+path = "src/main.rs"
+
+[dependencies]
+afm-syntax   = { workspace = true }
+afm-parser   = { workspace = true }
+afm-encoding = { workspace = true }
+clap      = { workspace = true }
+miette    = { workspace = true }
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
+tracing   = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -1,0 +1,103 @@
+//! `afm` — command-line interface.
+//!
+//! Sub-commands:
+//!   - `afm render <input>`: render an afm (.md) file to HTML on stdout.
+//!   - `afm check <input>`:  parse and surface diagnostics only; no rendering.
+//!
+//! Input files may be UTF-8 (default) or Shift_JIS (with `--encoding sjis`) to read
+//! original Aozora Bunko .txt distributions without pre-conversion.
+
+#![forbid(unsafe_code)]
+
+use std::{fs, path::PathBuf, process::ExitCode};
+
+use clap::{Parser, Subcommand, ValueEnum};
+use miette::{IntoDiagnostic, Result, WrapErr};
+
+#[derive(Parser, Debug)]
+#[command(
+    name = "afm",
+    version,
+    about = "aozora-flavored-markdown CLI",
+    long_about = None,
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+
+    /// Input encoding. Defaults to UTF-8; use `sjis` for raw Aozora Bunko files.
+    #[arg(long, global = true, value_enum, default_value_t = InputEncoding::Utf8)]
+    encoding: InputEncoding,
+
+    /// Treat any unknown annotation as a hard error (default: warn and pass through).
+    #[arg(long, global = true)]
+    strict: bool,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Render the input to HTML on stdout.
+    Render {
+        /// Path to the afm source. Use `-` for stdin.
+        input: PathBuf,
+    },
+    /// Parse the input and report diagnostics without rendering.
+    Check { input: PathBuf },
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum InputEncoding {
+    Utf8,
+    Sjis,
+}
+
+fn main() -> ExitCode {
+    if let Err(err) = run() {
+        eprintln!("{err:?}");
+        return ExitCode::FAILURE;
+    }
+    ExitCode::SUCCESS
+}
+
+fn run() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    let cli = Cli::parse();
+
+    match cli.command {
+        Command::Render { input } => render(&input, cli.encoding, cli.strict),
+        Command::Check { input } => check(&input, cli.encoding, cli.strict),
+    }
+}
+
+fn read_input(path: &std::path::Path, encoding: InputEncoding) -> Result<String> {
+    let bytes = fs::read(path)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("入力ファイルを読めません: {}", path.display()))?;
+    match encoding {
+        InputEncoding::Utf8 => String::from_utf8(bytes)
+            .into_diagnostic()
+            .wrap_err("UTF-8 としてデコードできません — --encoding sjis を試してください"),
+        InputEncoding::Sjis => afm_encoding::decode_sjis(&bytes).map_err(Into::into),
+    }
+}
+
+fn render(path: &std::path::Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
+    let source = read_input(path, encoding)?;
+    let html = afm_parser::html::render_to_string(&source);
+    println!("{html}");
+    Ok(())
+}
+
+fn check(path: &std::path::Path, encoding: InputEncoding, _strict: bool) -> Result<()> {
+    let _source = read_input(path, encoding)?;
+    // Full diagnostic surfacing comes online with the parser — M0 Spike only validates
+    // that decoding succeeds.
+    Ok(())
+}
