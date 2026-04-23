@@ -403,9 +403,10 @@ pub fn format_node_default<T>(
     }
 }
 
-/// Render a `NodeValue::Aozora` via the registered extension. When no extension is
-/// registered, fall back to an HTML comment carrying the canonical `xml_node_name`
-/// so the presence of the node is still visible in round-trip output.
+/// Render a `NodeValue::Aozora` via the registered render callback.
+/// When no callback is registered, fall back to an HTML comment carrying
+/// the canonical `xml_node_name` so the presence of the node is still
+/// visible in round-trip output.
 fn render_aozora<T>(
     context: &mut Context<T>,
     node: &afm_syntax::AozoraNode,
@@ -414,8 +415,8 @@ fn render_aozora<T>(
     if !entering {
         return Ok(ChildRendering::HTML);
     }
-    if let Some(ext) = context.options.extension.aozora.clone() {
-        ext.render_html(node, context)?;
+    if let Some(render_fn) = context.options.extension.render_aozora {
+        render_fn(node, context)?;
     } else {
         context.write_str("<!-- ")?;
         context.write_str(node.xml_node_name())?;

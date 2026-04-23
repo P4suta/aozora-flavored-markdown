@@ -628,14 +628,17 @@ pub struct Extension<'c> {
     #[cfg_attr(feature = "bon", builder(default))]
     pub block_directive: bool,
 
-    /// afm extension: registers an
-    /// [`afm_syntax::AozoraExtension`](../../afm_syntax/trait.AozoraExtension.html)
-    /// implementation that receives inline / block / render callbacks for Aozora
-    /// Bunko typography (ruby, bouten, 縦中横, `［＃...］` annotations, …).
-    /// `None` (default) disables the extension entirely; no overhead is paid by
-    /// pure-CommonMark callers.
+    /// afm extension: registers the render-side callback for
+    /// `NodeValue::Aozora` arms. `None` (default) disables the extension
+    /// entirely; no overhead is paid by pure-CommonMark callers.
+    ///
+    /// Parse-side Aozora handling happens in `afm-lexer` + `afm-parser`
+    /// entirely before comrak runs (ADR-0008); the only surviving comrak
+    /// seam is this render hook. The `fn` pointer shape — rather than
+    /// `Arc<dyn AozoraExtension>` — keeps the upstream diff minimal and
+    /// avoids a virtual call per rendered Aozora node.
     #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
-    pub aozora: Option<Arc<dyn afm_syntax::AozoraExtension + 'c>>,
+    pub render_aozora: Option<fn(&afm_syntax::AozoraNode, &mut dyn fmt::Write) -> fmt::Result>,
 }
 
 impl Extension<'_> {
