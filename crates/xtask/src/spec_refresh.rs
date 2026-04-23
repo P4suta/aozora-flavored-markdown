@@ -85,7 +85,7 @@ fn parse_example_opening(line: &str) -> Option<ExampleOpening> {
 /// Returns an error if the file cannot be read, the format is malformed
 /// (orphan fence, missing separator, unterminated example block), or the JSON
 /// output cannot be written.
-pub fn refresh_one(input_path: &Path, output_path: &Path) -> Result<usize> {
+pub(crate) fn refresh_one(input_path: &Path, output_path: &Path) -> Result<usize> {
     let raw = fs::read_to_string(input_path)
         .with_context(|| format!("reading spec source {}", input_path.display()))?;
     let examples =
