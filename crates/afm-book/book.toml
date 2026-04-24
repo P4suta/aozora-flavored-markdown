@@ -2,7 +2,6 @@
 title    = "aozora-flavored-markdown"
 authors  = ["afm contributors"]
 language = "ja"
-multilingual = false
 src      = "src"
 
 [rust]
@@ -11,9 +10,9 @@ edition = "2024"
 [output.html]
 default-theme = "light"
 preferred-dark-theme = "ayu"
-git-repository-url = "https://github.com/yasunobu/afm"
-edit-url-template = "https://github.com/yasunobu/afm/edit/main/crates/afm-book/{path}"
-site-url = "/"
+git-repository-url = "https://github.com/P4suta/afm"
+edit-url-template = "https://github.com/P4suta/afm/edit/main/crates/afm-book/{path}"
+site-url = "/afm/"
 additional-css = []
 
 [output.html.fold]
@@ -24,6 +23,9 @@ level  = 1
 enable = true
 use-boolean-and = true
 
-[output.linkcheck]
-follow-web-links = false
-warning-policy   = "error"
+# [output.linkcheck] is disabled here because mdbook-linkcheck upstream has
+# not yet caught up to the RenderContext schema change in recent mdbook
+# releases. Re-enable once compatible versions align.
+# [output.linkcheck]
+# follow-web-links = false
+# warning-policy   = "error"

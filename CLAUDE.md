@@ -137,6 +137,16 @@ just book-serve           # mdbook preview on http://localhost:3000
 just ci                   # replicate the full CI pipeline locally
 just adr '<title>'        # scaffold a new ADR via xtask
 just upstream-sync <tag>  # sync vendored comrak to a new tag
+
+just watch [JOB]          # bacon watcher (default job: check). Keybinds:
+                          #   t=test c=clippy d=doc f=failing-only esc=back
+                          #   q=quit  Ctrl-J=list jobs
+just hooks                # install lefthook git hooks (pre-commit fmt+re-stage,
+                          # clippy, typos, upstream-diff; pre-push test+deny;
+                          # commit-msg Conventional Commits)
+just hooks-uninstall      # remove them
+just sccache-stats        # sccache hit/miss ratio + cache size
+just sccache-zero         # reset counters before a measurement window
 ```
 
 Bootstrap steps for a fresh clone:
@@ -144,7 +154,7 @@ Bootstrap steps for a fresh clone:
 ```
 docker compose build dev      # ~5 min first time, cached after
 jj git init --colocate        # if jj isn't already initialised
-docker compose run --rm dev lefthook install   # optional
+just hooks                    # wire lefthook pre-commit / commit-msg / pre-push
 just test                     # confirm green
 ```
 
