@@ -175,9 +175,22 @@
 
 .afm-container-warichu {
   /*
-   * Warichu in vertical mode shares the same semantics — small
-   * parallel text. Columns here don't work the same way, so use
-   * a tighter writing context.
+   * Legacy block warichu — vertical mode variant. See
+   * `.afm-container-warichu` in the horizontal theme for the
+   * deprecation note.
+   */
+  font-size: 0.85em;
+}
+
+.afm-warichu {
+  /*
+   * Inline warichu in tategaki — pure-CSS attempts to reproduce
+   * the print convention (two short vertical mini-lines tightly
+   * packed inside one body-line's width, with surrounding
+   * parentheses hugging the block) always end up worse than the
+   * plain small-font baseline, so we keep it simple. Downstream
+   * applications that want the authentic 2-column layout can
+   * override this rule.
    */
   font-size: 0.85em;
 }

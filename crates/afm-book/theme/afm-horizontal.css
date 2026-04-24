@@ -189,9 +189,26 @@
 
 .afm-container-warichu {
   /*
-   * Warichu renders as small parallel two-line notes inside
-   * horizontal text — approximated here with a tighter column.
+   * Legacy block warichu (`［＃ここから割り注］` / `［＃ここで割り注終わり］`).
+   * The Aozora spec deprecates this form in favour of the inline
+   * `［＃割り注］…［＃割り注終わり］` shape (see `.afm-warichu`), but
+   * the rule stays to cover any vendored text that still uses it.
    */
   columns: 2;
+  font-size: 0.85em;
+}
+
+.afm-warichu {
+  /*
+   * Inline warichu — small-font side note kept in the flow of
+   * surrounding prose. The Aozora print convention of stacking
+   * two short lines of half-size text inside a single body-line
+   * cannot be faithfully reproduced with pure CSS, so we settle
+   * for the inline small-font approximation; anything more
+   * elaborate ends up worse than this baseline. If a downstream
+   * application wants the authentic look, it can override this
+   * rule with its own layout (e.g. a JS pass that measures
+   * content length and sets an explicit width).
+   */
   font-size: 0.85em;
 }
