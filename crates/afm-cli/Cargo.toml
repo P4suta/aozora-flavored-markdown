@@ -1,6 +1,6 @@
 [package]
 name        = "afm-cli"
-description = "Command-line interface for aozora-flavored-markdown"
+description = "Aozora Flavored Markdown (afm): command-line interface"
 version.workspace     = true
 edition.workspace     = true
 rust-version.workspace = true
