@@ -115,6 +115,22 @@ Read these before touching anything the ADR governs. `docs/adr/` on disk.
 - **ADR-0006** — lint profile policy & scope discipline: `[workspace.lints]` is the single source of truth; `-W clippy::<group>` flags are banned on the `just clippy` command line because they silently override per-lint carve-outs.
 - **ADR-0007** — corpus sweep strategy: `afm-corpus` + I1/I2/I3/I4/I5 invariants over 17 k real Aozora works as a regression floor.
 - **ADR-0008** — **zero-parser-hook Aozora-first pipeline**. The architecture above: Aozora recognition happens in `afm-lexer` before comrak, is spliced back into the AST afterwards, and leaves comrak parse phase untouched. **Current architecture.**
+- **ADR-0009** — authoring tools (formatter / LSP / editor plugins) live in a sibling repository (tentatively `P4suta/aozora-tools`). Defines the stable v0.1 public API surface consumed via git dep, and explicitly defers core-library extraction (a future `afm-core` split) until a real downstream consumer exists.
+
+## Sibling projects
+
+Authoring tools — an `afm fmt` formatter, an `afm-lsp` Language Server,
+a VS Code extension, and any future editor plugin — are developed in a
+**separate repository** (tentatively `P4suta/aozora-tools`), not inside
+this workspace. This repo exposes its library crates (`afm-syntax`,
+`afm-lexer`, `afm-parser`, `afm-encoding`) as the stable v0.1 public
+surface that the sibling project consumes via git dep pinned to a tag.
+The rationale, the exact API contract, and the deferred-for-later
+core extraction are documented in ADR-0009. **Do not add formatter /
+LSP / editor-plugin code to this repo** — that work belongs in the
+sibling project so the parser's release cadence, ADR constraints
+(200-line comrak diff budget, corpus sweep, CommonMark/GFM spec
+gates), and contributor surface stay focused on parser correctness.
 
 ## Development environment
 
