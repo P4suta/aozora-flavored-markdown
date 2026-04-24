@@ -1,7 +1,7 @@
 [book]
-title    = "aozora-flavored-markdown"
+title    = "Aozora Flavored Markdown (afm)"
 authors  = ["afm contributors"]
-language = "ja"
+language = "en"
 src      = "src"
 
 [rust]
