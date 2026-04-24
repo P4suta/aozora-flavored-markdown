@@ -273,7 +273,7 @@ fn unknown_subcommand_exits_nonzero() {
 }
 
 // ---------------------------------------------------------------------------
-// --strict + diagnostics flow (G2)
+// --strict + diagnostics flow
 // ---------------------------------------------------------------------------
 
 /// Craft an input the lexer *will* complain about. The Phase 2

@@ -66,13 +66,11 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::UpstreamDiff => anyhow::bail!("xtask upstream-diff は未実装 (M1 E2 予定)"),
-        Command::UpstreamSync { .. } => {
-            anyhow::bail!("xtask upstream-sync は未実装 (M2 予定)")
-        }
-        Command::CorpusRefresh => anyhow::bail!("xtask corpus-refresh は未実装 (M2 予定)"),
-        Command::CorpusTest { .. } => anyhow::bail!("xtask corpus-test は未実装 (M2 予定)"),
-        Command::NewAdr { .. } => anyhow::bail!("xtask new-adr は未実装 (M1 E3 予定)"),
+        Command::UpstreamDiff => anyhow::bail!("xtask upstream-diff は未実装"),
+        Command::UpstreamSync { .. } => anyhow::bail!("xtask upstream-sync は未実装"),
+        Command::CorpusRefresh => anyhow::bail!("xtask corpus-refresh は未実装"),
+        Command::CorpusTest { .. } => anyhow::bail!("xtask corpus-test は未実装"),
+        Command::NewAdr { .. } => anyhow::bail!("xtask new-adr は未実装"),
         Command::SpecRefresh { input, output } => {
             let n = spec_refresh::refresh_one(&input, &output).with_context(|| {
                 format!(
