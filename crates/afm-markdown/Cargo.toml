@@ -1,0 +1,41 @@
+[package]
+name        = "afm-markdown"
+description = "Aozora Flavored Markdown: CommonMark + GFM + Aozora Bunko notation integration over a vendored comrak fork"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+authors.workspace      = true
+readme.workspace       = true
+keywords.workspace     = true
+categories.workspace   = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aozora-syntax   = { workspace = true }
+aozora-lexer    = { workspace = true }
+aozora-parser   = { workspace = true }
+aozora-encoding = { workspace = true }
+comrak               = { workspace = true }
+unicode-segmentation = { workspace = true }
+miette               = { workspace = true }
+thiserror            = { workspace = true }
+tracing              = { workspace = true }
+
+[dev-dependencies]
+aozora-corpus     = { workspace = true }
+aozora-test-utils = { workspace = true }
+insta             = { workspace = true }
+proptest          = { workspace = true }
+pretty_assertions = { workspace = true }
+serde             = { workspace = true }
+serde_json        = { workspace = true }
+
+[features]
+default = ["html"]
+# HTML renderer. Enabled by default but kept behind a feature so
+# downstream tools can parse without pulling in the renderer.
+html = []

@@ -409,7 +409,7 @@ pub fn format_node_default<T>(
 /// visible in round-trip output.
 fn render_aozora<T>(
     context: &mut Context<T>,
-    node: &afm_syntax::AozoraNode,
+    node: &aozora_syntax::AozoraNode,
     entering: bool,
 ) -> Result<ChildRendering, fmt::Error> {
     if let Some(render_fn) = context.options.extension.render_aozora {

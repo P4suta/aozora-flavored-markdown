@@ -19,9 +19,9 @@ name = "afm"
 path = "src/main.rs"
 
 [dependencies]
-afm-syntax   = { workspace = true }
-afm-parser   = { workspace = true }
-afm-encoding = { workspace = true }
+aozora-syntax   = { workspace = true }
+aozora-encoding = { workspace = true }
+afm-markdown    = { workspace = true }
 clap      = { workspace = true }
 miette    = { workspace = true }
 anyhow    = { workspace = true }

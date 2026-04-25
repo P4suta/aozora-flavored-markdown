@@ -47,7 +47,7 @@ test-doc:
     {{_dev}} cargo test --workspace --doc
 
 # Property-based tests only. Default 128 cases per proptest block
-# (AFM_PROPTEST_CASES override via afm-test-utils::config). Fast
+# (AOZORA_PROPTEST_CASES override via aozora-test-utils::config). Fast
 # enough to live in `just ci` — see `just prop-deep` for a stress run.
 prop:
     {{_dev}} cargo nextest run --workspace --all-features --test 'property_*' --run-ignored default
@@ -55,82 +55,29 @@ prop:
 # Deep property sweep — 4096 cases per block, used before cutting a
 # release to exercise invariants beyond the default CI budget.
 prop-deep:
-    {{_dev}} bash -c 'AFM_PROPTEST_CASES=4096 cargo nextest run --workspace --all-features --test "property_*" --run-ignored default'
+    {{_dev}} bash -c 'AOZORA_PROPTEST_CASES=4096 cargo nextest run --workspace --all-features --test "property_*" --run-ignored default'
 
 # Unit-test-only predicate pinning — runs every `invariant_unit_` test
 # in `afm_parser::test_support`. Narrow target for regression hunts
 # that don't need the full proptest sweep.
 invariants:
-    {{_dev}} cargo nextest run --package afm-parser --lib -E 'test(invariant_unit_)'
+    {{_dev}} cargo nextest run --package afm-markdown --lib -E 'test(invariant_unit_)'
 
 # CommonMark 0.31.2 spec compliance (652 cases, pass = 652/652)
 spec-commonmark:
-    {{_dev}} cargo nextest run --package afm-parser --test commonmark_spec
+    {{_dev}} cargo nextest run --package afm-markdown --test commonmark_spec
 
 # GitHub Flavored Markdown spec compliance
 spec-gfm:
-    {{_dev}} cargo nextest run --package afm-parser --test gfm_spec
+    {{_dev}} cargo nextest run --package afm-markdown --test gfm_spec
 
-# Aozora annotation fixtures (hand-written, ~40 cases)
-spec-aozora:
-    {{_dev}} cargo nextest run --package afm-parser --test aozora_spec
-
-# Golden fixture: 罪と罰 (card 56656) — Tier-A acceptance gate
-# (panic-free + zero unconsumed ［＃ markers in the rendered HTML).
-spec-golden-56656:
-    {{_dev}} cargo nextest run --package afm-parser --test golden_56656
-
-# Aozora regression corpus (currently a thin xtask front-end; the actual
-# invariant sweep lives in `corpus-sweep` below). Kept for forward
-# compatibility with the xtask-driven corpus refresh flow.
-corpus *ARGS:
-    {{_dev}} cargo run --package xtask --quiet -- corpus-test {{ARGS}}
-
-# Property-based sweep over whatever directory `AFM_CORPUS_ROOT` points at.
-# Bind-mounts the corpus dir into the container at a stable path so the
-# test binary reads it from the same location regardless of the host path.
-# Runtime-skips with an informational message if the env var is unset —
-# this is *not* a failure, just an indication that no corpus is configured.
-#
-# Usage:
-#   export AFM_CORPUS_ROOT=$HOME/aozora-corpus
-#   just corpus-sweep
-#
-# Invariants checked (report/enforcement split documented in the test
-# itself at crates/afm-parser/tests/corpus_sweep.rs, and in ADR-0007):
-#   I1 — no panic on any input (hard).
-#   I2 — no unconsumed ［＃ markers (hard).
-#   I3 — serialize ∘ parse fixed point (hard).
-#   I4 — emitted HTML is tag-balanced (hard).
-#   I5 — SJIS decode stable (report-only).
-#   I6 — no PUA sentinel U+E001–U+E004 in HTML (hard, budget=0).
-#   I7 — every afm-* class is in AFM_CLASSES (hard, budget=0).
-#   I8 — no <script / javascript: / on<event>= markers (hard, budget=0).
-#   I9 — afm-annotation wrapper shape is well-formed (hard, budget=0).
-#   I10 — no afm-indent / afm-annotation inside <h1>-<h6> (hard, budget=0).
-# Per-invariant budget overrides via AFM_CORPUS_I{2,3,4,6,7,8,9,10}_BUDGET.
-corpus-sweep:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ -z "${AFM_CORPUS_ROOT:-}" ]]; then
-        echo "AFM_CORPUS_ROOT is not set; sweep has nothing to walk."
-        echo "Set it to a directory of aozora-format .txt files, e.g.:"
-        echo "  export AFM_CORPUS_ROOT=\$HOME/aozora-corpus"
-        echo "Then re-run 'just corpus-sweep'."
-        exit 0
-    fi
-    if [[ ! -d "$AFM_CORPUS_ROOT" ]]; then
-        echo "AFM_CORPUS_ROOT=$AFM_CORPUS_ROOT is not a directory." >&2
-        exit 1
-    fi
-    docker compose run --rm \
-        -v "$AFM_CORPUS_ROOT":/corpus:ro \
-        -e AFM_CORPUS_ROOT=/corpus \
-        dev cargo nextest run --package afm-parser --test corpus_sweep --no-capture
+# Aozora-layer fixtures (annotation cases, golden 56656, corpus sweep)
+# now live in the sibling `aozora` repo; run `just spec-aozora`
+# / `just spec-golden-56656` / `just corpus-sweep` from there.
 
 # Fuzz smoke (60s per harness) — runs the registered cargo-fuzz harnesses
 fuzz *ARGS:
-    {{_dev}} bash -c 'cd crates/afm-parser && cargo +nightly fuzz run {{ARGS}}'
+    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
 
 # Benchmarks (criterion)
 bench *ARGS:
@@ -294,7 +241,7 @@ strict-code:
     # demos, not library code. This complements clippy::print_stdout /
     # clippy::print_stderr, which cannot be selectively enabled per-crate
     # while still inheriting [workspace.lints] (rust-lang/cargo#12697).
-    lib_files=(crates/afm-syntax/**/*.rs crates/afm-parser/**/*.rs crates/afm-encoding/**/*.rs)
+    lib_files=(crates/afm-markdown/**/*.rs)
     print_hits=$(grep -nE '(^|[^[:alnum:]_])e?print(ln)?!\s*\(' "${lib_files[@]}" 2>/dev/null \
         | grep -vE '/(tests|benches|examples|fuzz_targets)/' || true)
     if [[ -n "$print_hits" ]]; then
@@ -356,10 +303,6 @@ upstream-diff:
 upstream-sync TAG:
     {{_dev}} cargo run --package xtask --quiet -- upstream-sync {{TAG}}
 
-# Refresh the Aozora corpus lockfile (re-pins 120 works by current SHA256)
-corpus-refresh:
-    {{_dev}} cargo run --package xtask --quiet -- corpus-refresh
-
 # Regenerate `spec/*.json` from the vendored cmark-format sources under
 # `spec/sources/*.txt`. Offline-pure: both the sources and the generated
 # fixtures are committed to the repo. Add new `spec/sources/<name>.txt`
@@ -416,8 +359,6 @@ ci:
     just prop
     just spec-commonmark
     just spec-gfm
-    just spec-aozora
-    just spec-golden-56656
     just deny
     just audit
     just udeps

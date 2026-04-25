@@ -272,7 +272,7 @@ pub enum NodeValue {
     ///
     /// Boxed to keep the enum size aligned with the existing `Box<NodeXxx>`
     /// variants and pass the `AST_SIZE_ASSERTION` size-of check further down.
-    Aozora(Box<afm_syntax::AozoraNode>),
+    Aozora(Box<aozora_syntax::AozoraNode>),
 }
 
 /// Alignment of a single table cell.

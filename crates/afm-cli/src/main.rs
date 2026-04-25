@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::{fs, process::ExitCode};
 
-use afm_parser::{ComrakArena, Options, html::render_root_to_string, parse};
+use afm_markdown::{ComrakArena, Options, html::render_root_to_string, parse};
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -87,7 +87,7 @@ fn read_input(path: &Path, encoding: InputEncoding) -> Result<String> {
         InputEncoding::Utf8 => String::from_utf8(bytes)
             .into_diagnostic()
             .wrap_err("UTF-8 としてデコードできません — --encoding sjis を試してください"),
-        InputEncoding::Sjis => afm_encoding::decode_sjis(&bytes).map_err(Into::into),
+        InputEncoding::Sjis => aozora_encoding::decode_sjis(&bytes).map_err(Into::into),
     }
 }
 
@@ -127,7 +127,7 @@ fn check(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
 /// downstream tooling (language servers, CI gates, LSP JSON bridges)
 /// can key on the stable `afm::…` strings rather than free-form
 /// messages.
-fn emit_diagnostics(diagnostics: &[afm_parser::LexerDiagnostic]) {
+fn emit_diagnostics(diagnostics: &[afm_markdown::LexerDiagnostic]) {
     use miette::Diagnostic as _;
     for d in diagnostics {
         let code = d

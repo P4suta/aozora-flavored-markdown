@@ -645,7 +645,7 @@ pub struct Extension<'c> {
     /// `render_list` and friends use.
     #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
     pub render_aozora:
-        Option<fn(&afm_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
+        Option<fn(&aozora_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
 
     /// afm extension: registers the CommonMark-side (afm text)
     /// serialisation callback for `NodeValue::Aozora` arms. Mirrors
@@ -655,7 +655,7 @@ pub struct Extension<'c> {
     /// `format_commonmark` output, preserving the pre-M2-S5 behaviour.
     #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
     pub serialize_aozora:
-        Option<fn(&afm_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
+        Option<fn(&aozora_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
 }
 
 impl Extension<'_> {
