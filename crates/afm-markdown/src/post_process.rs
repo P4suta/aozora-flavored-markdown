@@ -31,7 +31,7 @@
 //! in-order AST walk is always the N-th entry in `registry.inline`.
 //! The same ordering logic applies to each block-sentinel class.
 //!
-use std::{mem, ptr};
+use std::ptr;
 
 use aozora_lexer::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
@@ -105,31 +105,38 @@ fn split_at_sentinels(
     cursor: &mut usize,
     registry: &PlaceholderRegistry,
 ) -> Vec<Chunk> {
+    // Bulk-copy text spans between sentinels via `match_indices` —
+    // the predecessor walked char-by-char, allocating a fresh
+    // `String` and `push`-ing every codepoint of every text node.
+    // For 3-byte Japanese prose between sentinels that meant ~3
+    // pushes per visible character; the bulk path emits one
+    // `to_owned()` per inter-sentinel slice instead.
+    //
+    // `match_indices(INLINE_SENTINEL)` lowers to memchr in stdlib
+    // for single-codepoint patterns, so the scan itself is SIMD on
+    // capable targets.
     let mut chunks = Vec::new();
-    let mut buf = String::new();
-    for ch in text.chars() {
-        if ch == INLINE_SENTINEL {
-            // The lexer guarantees one inline-registry entry per
-            // sentinel. If we walk off the end, something upstream
-            // desynced (empty registry passed in, or normalized text
-            // and registry drifted) — preserve the sentinel character
-            // as plain text so the desync is visible in the output
-            // rather than silently dropped.
-            if let Some((_, node)) = registry.inline.get(*cursor) {
-                if !buf.is_empty() {
-                    chunks.push(Chunk::Text(mem::take(&mut buf)));
-                }
-                chunks.push(Chunk::Aozora(node.clone()));
-                *cursor += 1;
-            } else {
-                buf.push(ch);
-            }
-        } else {
-            buf.push(ch);
+    let mut chunk_start = 0usize;
+    for (sentinel_pos, sentinel_str) in text.match_indices(INLINE_SENTINEL) {
+        if sentinel_pos > chunk_start {
+            chunks.push(Chunk::Text(text[chunk_start..sentinel_pos].to_owned()));
         }
+        // The lexer guarantees one inline-registry entry per
+        // sentinel. If we walk off the end, something upstream
+        // desynced (empty registry passed in, or normalized text
+        // and registry drifted) — preserve the sentinel character
+        // as plain text so the desync is visible in the output
+        // rather than silently dropped.
+        if let Some((_, node)) = registry.inline.get(*cursor) {
+            chunks.push(Chunk::Aozora(node.clone()));
+            *cursor += 1;
+        } else {
+            chunks.push(Chunk::Text(sentinel_str.to_owned()));
+        }
+        chunk_start = sentinel_pos + sentinel_str.len();
     }
-    if !buf.is_empty() {
-        chunks.push(Chunk::Text(buf));
+    if chunk_start < text.len() {
+        chunks.push(Chunk::Text(text[chunk_start..].to_owned()));
     }
     chunks
 }
