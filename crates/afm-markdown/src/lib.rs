@@ -7,7 +7,7 @@
 //! - [`parse`] — run the parser over a UTF-8 source into a comrak arena,
 //!   returning a [`ParseResult`] carrying the root node, any lexer
 //!   diagnostics, and the [`ParseArtifacts`] needed by [`serialize`].
-//! - [`serialize`] — re-export of [`aozora_parser::serialize`]: invert
+//! - [`serialize`] — re-export of [`aozora_parser::serialize()`]: invert
 //!   the pipeline, emitting Aozora-format text from a [`ParseResult`]
 //!   via registry-driven PUA-sentinel substitution.
 //! - [`html::render_to_string`] — render the parsed tree to HTML.

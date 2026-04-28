@@ -212,7 +212,7 @@ pub fn splice_block_leaf<'a>(
 ///    registry entry correspond).
 /// 2. Walk the tagged sequence: push each Open on a stack; when a
 ///    Close arrives, pop the top Open and wrap everything between
-///    them via [`wrap_between`].
+///    them via the private `wrap_between` helper.
 ///
 /// Because we wrap when we see the *close* (i.e. innermost first),
 /// subsequent outer wraps naturally pick up the wrapper as a single
@@ -330,12 +330,13 @@ pub fn splice_paired_container<'a>(
 /// Classify two [`aozora_syntax::ContainerKind`] values as "same family"
 /// for the purposes of implicit-close cascading.
 ///
-/// Two [`ContainerKind::Indent`] variants with different `amount` are
-/// the same family — a `ここから５字下げ` following a `ここから２字下げ`
-/// does not nest; it ends the outer scope. Same for
-/// [`ContainerKind::AlignEnd`] (`ここから地付き`). [`ContainerKind::Warichu`]
-/// and [`ContainerKind::Keigakomi`] are singletons — each is only
-/// same-family with itself.
+/// Two [`aozora_syntax::ContainerKind::Indent`] variants with different
+/// `amount` are the same family — a `ここから５字下げ` following a
+/// `ここから２字下げ` does not nest; it ends the outer scope. Same for
+/// [`aozora_syntax::ContainerKind::AlignEnd`] (`ここから地付き`).
+/// [`aozora_syntax::ContainerKind::Warichu`] and
+/// [`aozora_syntax::ContainerKind::Keigakomi`] are singletons — each is
+/// only same-family with itself.
 ///
 /// This function is kept total over the current `ContainerKind`
 /// variants; new variants default to their own family (no
