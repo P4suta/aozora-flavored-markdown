@@ -122,7 +122,15 @@ bench *ARGS:
 #   section/container/double-ruby unit tests; measured 96.07%.
 #   Remaining gaps are mostly non-exhaustive `_` arms on
 #   `#[non_exhaustive]` enums (structurally unreachable in-crate).
-_COV_FLOOR := "96"
+# 93 (Aozora-Split, post-v0.2.0): afm-parser → afm-markdown rename
+#   moved the lexer/AST/encoding tests out into the sibling aozora
+#   repo. The afm-markdown test surface is now ~half its previous
+#   size; total regions dropped from 96.07% to 93.44%. The 96% gate
+#   was set against a workspace that included those crates, so we
+#   ratchet down to the new measurement and tighten back up as the
+#   afm-markdown-specific test suite grows (post_process invariants,
+#   aozora_parity differential, html-shape proptests).
+_COV_FLOOR := "93"
 _COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/)"
 
 coverage:
