@@ -4,10 +4,18 @@
 
 <p align="center">
   <a href="https://github.com/P4suta/afm/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/P4suta/afm/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/afm/actions/workflows/docs.yml"><img alt="docs deploy" src="https://github.com/P4suta/afm/actions/workflows/docs.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/afm/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/P4suta/afm?display_name=tag&sort=semver"></a>
   <a href="./LICENSE-APACHE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue"></a>
   <a href="./rust-toolchain.toml"><img alt="msrv" src="https://img.shields.io/badge/rust-1.95%2B-orange"></a>
-  <a href="https://p4suta.github.io/afm/"><img alt="docs" src="https://img.shields.io/badge/docs-GitHub%20Pages-blue"></a>
   <a href="https://codespaces.new/P4suta/afm"><img alt="open in github codespaces" src="https://github.com/codespaces/badge.svg" height="20"></a>
+</p>
+
+<p align="center">
+  📖 <a href="https://p4suta.github.io/afm/"><strong>Documentation site</strong></a>
+  · 🧪 <a href="https://p4suta.github.io/afm/api/"><strong>API reference (rustdoc)</strong></a>
+  · 📦 <a href="https://github.com/P4suta/afm/releases"><strong>Releases &amp; binaries</strong></a>
+  · 📝 <a href="./CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
 **Aozora Flavored Markdown** (afm) is a Markdown dialect, modelled after
@@ -23,12 +31,10 @@ extension remains `.md`. A single Rust crate set and a single `afm`
 binary drop into the same slot you would otherwise use a CommonMark
 parser in.
 
-This repository hosts both the **specification** of afm (under the
-mdbook site in [`crates/afm-book/`](./crates/afm-book/)) and its
-**reference implementation** — the same split GFM uses.
-
-**Status**: v0.1.0 public preview — feature-complete for the headline
-notations, SemVer 0.x contract.
+This repository hosts both the **specification** of afm (rendered as
+the [mdbook site](https://p4suta.github.io/afm/) under
+[`crates/afm-book/`](./crates/afm-book/)) and its **reference
+implementation** — the same split GFM uses.
 
 ## The lineage
 
@@ -50,20 +56,20 @@ result in any pipeline that speaks CommonMark.
 
 ## Hard guarantees
 
-- **100% CommonMark / GFM compatibility** — the full spec test suites pass
-  verbatim (652 CommonMark 0.31.2 cases + the GFM 0.29 cases).
+- **100% CommonMark / GFM compatibility** — the full spec test suites
+  pass verbatim (652 CommonMark 0.31.2 cases + the GFM 0.29 cases).
 - **100% Aozora Bunko compatibility target** — every notation listed at
-  <https://www.aozora.gr.jp/annotation/> parses, and the flagship 『罪と罰』
-  fixture (Aozora Bunko card 56656) holds a Tier-A acceptance gate
-  (panic-free, no unconsumed `［＃` markers in the rendered HTML).
+  <https://www.aozora.gr.jp/annotation/> parses, and the flagship
+  『罪と罰』 fixture (Aozora Bunko card 56656) holds a Tier-A acceptance
+  gate (panic-free, no unconsumed `［＃` markers in the rendered HTML).
 - **17 k-work corpus sweep** — four invariants gated in CI: I1 no panic,
   I2 no bare `［＃` leak, I3 `serialize ∘ parse` fixed point, I4 HTML
-  tag-balanced. See `crates/afm-parser/tests/corpus_sweep.rs` and
-  ADR-0007.
+  tag-balanced. See ADR-0007.
 - **Single binary**, no runtime process dependencies.
-- **Pure-functional parse pipeline** (ADR-0008) — zero parse-time hooks in
-  vendored comrak; Aozora recognition lives in `afm-lexer` + a
-  post-process AST splice in `afm-parser`.
+- **Pure-functional parse pipeline** (ADR-0008) — zero parse-time hooks
+  in vendored comrak; Aozora recognition lives in
+  [`aozora`](https://github.com/P4suta/aozora) (sibling repo) and is
+  spliced into the comrak AST by `afm-markdown::post_process`.
 
 ## What you can write
 
@@ -86,17 +92,26 @@ result in any pipeline that speaks CommonMark.
 afm/
   upstream/comrak/           # vendored comrak 0.52.0, ADR-0001 200-line diff budget
   crates/
-    afm-syntax/              # AozoraNode AST types (no parser dep)
-    afm-lexer/               # 7-phase pure-functional Aozora recogniser (ADR-0008)
-    afm-parser/              # post_process AST splice + HTML renderer
-    afm-encoding/            # Shift_JIS + Aozora gaiji resolution
-    afm-cli/                 # `afm` binary
-    afm-corpus/              # 17 k-work corpus regression harness
-    afm-book/                # mdbook documentation site (not a Rust crate)
+    afm-markdown/            # post_process AST splice + HTML renderer + spec test runners
+    afm-cli/                 # `afm` binary (render / check)
+    afm-book/                # mdbook documentation site (excluded from cargo workspace)
     xtask/                   # upstream-sync, upstream-diff, spec-refresh, new-adr
   spec/                      # CommonMark / GFM / Aozora fixtures
   docs/adr/                  # Architecture Decision Records
 ```
+
+The Aozora-specific lexer / AST / renderer (`aozora-syntax`,
+`aozora-lexer`, `aozora-parser`, `aozora-encoding`, `aozora-corpus`,
+`aozora-test-utils`) live in the sibling
+[`P4suta/aozora`](https://github.com/P4suta/aozora) repository and are
+consumed here as a tag-pinned `git` dependency (ADR-0010).
+
+## Sibling repositories
+
+| Repo | What it is |
+|---|---|
+| [`P4suta/aozora`](https://github.com/P4suta/aozora) | Pure 青空文庫記法 parser — lexer, AST, renderer, gaiji table. |
+| [`P4suta/aozora-tools`](https://github.com/P4suta/aozora-tools) | Authoring tools: `aozora-fmt` formatter, `aozora-lsp` Language Server, tree-sitter grammar, VS Code extension. |
 
 ## Development
 
@@ -114,11 +129,8 @@ just spec-golden-56656 # 罪と罰 Tier-A acceptance gate
 just corpus-sweep      # 17 k-work invariant sweep (I1–I4)
 just upstream-diff     # enforce 200-line budget against upstream comrak
 just ci                # replicate the full CI matrix locally
-just book-serve        # mdbook live preview
+just book-serve        # mdbook live preview at http://localhost:3000
 ```
-
-**At a glance**: 519 tests passing · 96% regions coverage (CI gate) ·
-~22-line upstream-comrak diff · zero parse-time hooks in vendored comrak.
 
 See [CLAUDE.md](./CLAUDE.md) for the project guide, [docs/adr/](./docs/adr/)
 for architectural decisions, and [CONTRIBUTING.md](./CONTRIBUTING.md) for
@@ -127,18 +139,37 @@ how to hack on afm.
 ## Examples
 
 Short end-to-end snippets live under
-[`crates/afm-parser/examples/`](./crates/afm-parser/examples/):
+[`crates/afm-markdown/examples/`](./crates/afm-markdown/examples/):
 
 - `render-utf8.rs` — parse a UTF-8 file and emit HTML on stdout.
-- `render-sjis.rs` — parse a Shift_JIS Aozora Bunko text via `afm-encoding`.
+- `render-sjis.rs` — parse a Shift_JIS Aozora Bunko text via `aozora-encoding`.
 - `ast-walk.rs` — walk the parsed AST and tally AozoraNode variants.
 - `serialize-round-trip.rs` — verify `serialize ∘ parse ≡ id` on one file.
 
 Run any of them with:
 
 ```sh
-cargo run --example <name> -p afm-parser -- <path/to/input.md>
+cargo run --example <name> -p afm-markdown -- <path/to/input.md>
 ```
+
+## Install
+
+Pre-built binaries for **Linux x86_64**, **macOS arm64**, and **Windows
+x86_64** are attached to every GitHub Release — see
+[the releases page](https://github.com/P4suta/afm/releases) and pick a
+`afm-vX.Y.Z-<target>.{tar.gz,zip}`. SHA256 sums are published as
+`SHA256SUMS` next to the archives.
+
+Or build from source:
+
+```sh
+cargo install --git https://github.com/P4suta/afm --tag v0.2.3 --locked afm-cli
+```
+
+## Security
+
+Vulnerabilities go through GitHub Security Advisories — see
+[`SECURITY.md`](./SECURITY.md) for the disclosure flow.
 
 ## License
 

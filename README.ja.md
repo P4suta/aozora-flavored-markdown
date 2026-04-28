@@ -4,10 +4,18 @@
 
 <p align="center">
   <a href="https://github.com/P4suta/afm/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/P4suta/afm/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/afm/actions/workflows/docs.yml"><img alt="docs deploy" src="https://github.com/P4suta/afm/actions/workflows/docs.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/afm/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/P4suta/afm?display_name=tag&sort=semver"></a>
   <a href="./LICENSE-APACHE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue"></a>
   <a href="./rust-toolchain.toml"><img alt="msrv" src="https://img.shields.io/badge/rust-1.95%2B-orange"></a>
-  <a href="https://p4suta.github.io/afm/"><img alt="docs" src="https://img.shields.io/badge/docs-GitHub%20Pages-blue"></a>
   <a href="https://codespaces.new/P4suta/afm"><img alt="open in github codespaces" src="https://github.com/codespaces/badge.svg" height="20"></a>
+</p>
+
+<p align="center">
+  📖 <a href="https://p4suta.github.io/afm/"><strong>ドキュメント</strong></a>
+  · 🧪 <a href="https://p4suta.github.io/afm/api/"><strong>API リファレンス (rustdoc)</strong></a>
+  · 📦 <a href="https://github.com/P4suta/afm/releases"><strong>リリース &amp; バイナリ</strong></a>
+  · 📝 <a href="./CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
 **Aozora Flavored Markdown** (afm) は、[GitHub Flavored Markdown (GFM)](https://github.github.com/gfm/)
