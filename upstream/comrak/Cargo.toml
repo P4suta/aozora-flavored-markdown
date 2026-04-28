@@ -58,7 +58,7 @@ finl_unicode = { version = "1.4.0", features = ["categories"] }
 # repo's v0.1.0 tag (file:// URL during pre-publication; the parent
 # workspace's `[workspace.dependencies]` mirror this URL and `sd`-replace
 # them as a unit when going public).
-aozora-syntax = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
+aozora-syntax = { version = "0.1.0", git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
 
 [dev-dependencies]
 ntest = "0.9"
