@@ -122,7 +122,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 [[package]]
 name = "aozora-corpus"
 version = "0.1.0"
-source = "git+file:///home/yasunobu/projects/aozora?tag=v0.1.0#f2fe8b509e3e594892d28f1d3da6ab4e5b2ea290"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
 dependencies = [
  "thiserror",
  "walkdir",
@@ -131,7 +131,7 @@ dependencies = [
 [[package]]
 name = "aozora-encoding"
 version = "0.1.0"
-source = "git+file:///home/yasunobu/projects/aozora?tag=v0.1.0#f2fe8b509e3e594892d28f1d3da6ab4e5b2ea290"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
 dependencies = [
  "aozora-syntax",
  "encoding_rs",
@@ -144,7 +144,7 @@ dependencies = [
 [[package]]
 name = "aozora-lexer"
 version = "0.1.0"
-source = "git+file:///home/yasunobu/projects/aozora?tag=v0.1.0#f2fe8b509e3e594892d28f1d3da6ab4e5b2ea290"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
 dependencies = [
  "aozora-encoding",
  "aozora-syntax",
@@ -155,7 +155,7 @@ dependencies = [
 [[package]]
 name = "aozora-parser"
 version = "0.1.0"
-source = "git+file:///home/yasunobu/projects/aozora?tag=v0.1.0#f2fe8b509e3e594892d28f1d3da6ab4e5b2ea290"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
 dependencies = [
  "aozora-encoding",
  "aozora-lexer",
@@ -169,7 +169,7 @@ dependencies = [
 [[package]]
 name = "aozora-syntax"
 version = "0.1.0"
-source = "git+file:///home/yasunobu/projects/aozora?tag=v0.1.0#f2fe8b509e3e594892d28f1d3da6ab4e5b2ea290"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
 dependencies = [
  "miette",
  "thiserror",
@@ -178,7 +178,7 @@ dependencies = [
 [[package]]
 name = "aozora-test-utils"
 version = "0.1.0"
-source = "git+file:///home/yasunobu/projects/aozora?tag=v0.1.0#f2fe8b509e3e594892d28f1d3da6ab4e5b2ea290"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
 dependencies = [
  "proptest",
 ]
