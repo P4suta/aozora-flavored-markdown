@@ -154,16 +154,13 @@ redundant_pub_crate     = "allow"
 # Internal crate (the Markdown-integration layer that lives in this repo)
 afm-markdown = { version = "0.2.0", path = "crates/afm-markdown" }
 
-# Sibling repo aozora — pure 青空文庫記法 parser. Pinned to a tag on the
-# local file:// URL during pre-publication; swap to
-# `https://github.com/P4suta/aozora` via a single `sd` pass before going
-# public.
-aozora-syntax     = { git = "file:///home/yasunobu/projects/aozora", tag = "v0.1.0" }
-aozora-lexer      = { git = "file:///home/yasunobu/projects/aozora", tag = "v0.1.0" }
-aozora-parser     = { git = "file:///home/yasunobu/projects/aozora", tag = "v0.1.0" }
-aozora-encoding   = { git = "file:///home/yasunobu/projects/aozora", tag = "v0.1.0" }
-aozora-corpus     = { git = "file:///home/yasunobu/projects/aozora", tag = "v0.1.0" }
-aozora-test-utils = { git = "file:///home/yasunobu/projects/aozora", tag = "v0.1.0" }
+# Sibling repo aozora — pure 青空文庫記法 parser. Pinned to a tag.
+aozora-syntax     = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
+aozora-lexer      = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
+aozora-parser     = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
+aozora-encoding   = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
+aozora-corpus     = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
+aozora-test-utils = { git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
 
 # comrak vendored fork (path, not crates.io).
 # `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
