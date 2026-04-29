@@ -7,6 +7,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-30
+
+Major release. Tracks aozora `0.2.6` (released same day) and locks in
+the **brand boundary** between `aozora-*` (pure 青空文庫記法) and
+`afm-*` (Aozora Flavored Markdown).
+
+### Changed (breaking)
+
+- **Bumped pinned `aozora-*` crates from v0.2.5 → v0.2.6.** Picks up
+  upstream PR #4 (afm-* → aozora-* class prefix flip + gaiji
+  `data-codepoint` / `data-description` attrs + wasm-pack pipe fix),
+  PR #5 (docs overhaul / driver build integration / ADR cleanup),
+  PR #6 (pymodule rename for maturin).
+- **Brand boundary in `post_process::splice_aozora_html`.** The
+  upstream `aozora-render` crate now emits `aozora-*` CSS classes;
+  afm-markdown's HTML output continues to carry the `afm-*` brand
+  (Aozora Flavored Markdown). A new
+  `rebrand_aozora_classes_to_afm` post-process pass rewrites every
+  `aozora-*` class token in the spliced HTML to its `afm-*`
+  counterpart. Touches only `class="..."` attribute values; data-*
+  attributes, link targets and text bodies are preserved verbatim.
+
+### Internal
+
+- `aozora_parity` test runner switched to a stem-based histogram
+  (`class_stem_histogram(html, prefix)`) so the differential against
+  `aozora-render` compares the family of recognisers fired, not the
+  brand prefix.
+- Coverage measured at 98.77 % regions across 179 tests, no ignored
+  cases, all eleven integration tests + four examples building
+  against the new public API.
+
 ## [0.2.6] - 2026-04-30
 
 Closes every v0.2.5 follow-up by **resolving** them (no `#[ignore]`, no

@@ -66,18 +66,20 @@ fn aozora_only_render(src: &str) -> String {
     aozora_html::render_to_string(&lex_out)
 }
 
-/// Tally every `class="afm-*"` token in `html`. Returns a histogram
-/// (token → count). Token order doesn't matter for the differential;
-/// counts do.
-fn afm_class_histogram(html: &str) -> HashMap<String, usize> {
+/// Tally every class token starting with `prefix` in `html`. The
+/// histogram key is the **stem** (the substring after `prefix`), so
+/// the `aozora-*` brand surface from `aozora-render` and the
+/// `afm-*` brand from `afm-markdown` can be compared shape-for-shape
+/// despite the different prefixes.
+fn class_stem_histogram(html: &str, prefix: &str) -> HashMap<String, usize> {
     let mut hist = HashMap::new();
     for token_run in html.split("class=\"").skip(1) {
         let Some(end) = token_run.find('"') else {
             continue;
         };
         for token in token_run[..end].split_ascii_whitespace() {
-            if token.starts_with("afm-") {
-                *hist.entry(token.to_owned()).or_insert(0) += 1;
+            if let Some(stem) = token.strip_prefix(prefix) {
+                *hist.entry(stem.to_owned()).or_insert(0) += 1;
             }
         }
     }
@@ -85,61 +87,68 @@ fn afm_class_histogram(html: &str) -> HashMap<String, usize> {
 }
 
 #[test]
-fn both_renderers_agree_on_afm_class_histogram_for_pure_aozora_input() {
+fn both_renderers_agree_on_class_histogram_for_pure_aozora_input() {
+    // The two surfaces emit different brands (`aozora-*` vs `afm-*`)
+    // by design — see the brand-boundary doc in
+    // `afm_markdown::post_process`. The differential compares stems
+    // (the part after the prefix) so divergence flags a recogniser
+    // drift, not the brand difference.
     let mut diffs = Vec::new();
     for (label, src) in pure_aozora_fixtures() {
         let aozora_out = aozora_only_render(src);
         let afm_out = afm_html::render_to_string(src);
-        let aozora_hist = afm_class_histogram(&aozora_out);
-        let afm_hist = afm_class_histogram(&afm_out);
+        let aozora_hist = class_stem_histogram(&aozora_out, "aozora-");
+        let afm_hist = class_stem_histogram(&afm_out, "afm-");
         if aozora_hist != afm_hist {
             diffs.push(format!(
-                "{label} ({src:?})\n  aozora: {aozora_hist:?}\n  afm:    {afm_hist:?}"
+                "{label} ({src:?})\n  aozora-: {aozora_hist:?}\n  afm-:    {afm_hist:?}"
             ));
         }
     }
     assert!(
         diffs.is_empty(),
-        "afm-* class histograms diverge between renderers:\n\n{}",
+        "class stem histograms diverge between renderers:\n\n{}",
         diffs.join("\n\n"),
     );
 }
 
 #[test]
 fn every_afm_class_emitted_is_in_the_pinned_contract() {
-    // Both renderers must source their afm-* classes from the same
-    // pinned list. A regression that emitted, say, `afm-bouten-foo`
-    // for a previously-unknown bouten kind would surface here.
+    // The pinned list (`AFM_CLASSES`) tracks the `afm-*` stems
+    // afm-markdown emits. The `aozora-*` brand from `aozora-render`
+    // is checked against the same stems with a `aozora-` prefix
+    // strip — same family of stems, different brand prefix.
     let known: HashSet<&'static str> = AFM_CLASSES.iter().copied().collect();
     let mut violations = Vec::new();
     for (label, src) in pure_aozora_fixtures() {
-        for (renderer, html) in [
-            ("aozora", aozora_only_render(src)),
-            ("afm-md", afm_html::render_to_string(src)),
+        for (renderer, html, prefix) in [
+            ("aozora", aozora_only_render(src), "aozora-"),
+            ("afm-md", afm_html::render_to_string(src), "afm-"),
         ] {
-            for (token, _count) in afm_class_histogram(&html) {
-                if known.contains(token.as_str()) {
+            for (stem, _count) in class_stem_histogram(&html, prefix) {
+                let full = format!("afm-{stem}");
+                if known.contains(full.as_str()) {
                     continue;
                 }
                 // Family-suffix variants — `afm-indent-2`,
                 // `afm-section-break-choho`, `afm-bouten-goma`-suffixed
-                // forms, etc. The pinned list carries the family stem;
-                // we accept any suffix as long as the stem is known.
-                if let Some(stem_end) = token.rfind('-') {
-                    let stem = &token[..stem_end];
-                    if known.contains(stem) {
+                // forms, etc. Accept any suffix when the family stem
+                // is in the pinned list.
+                if let Some(stem_end) = full.rfind('-') {
+                    let family = &full[..stem_end];
+                    if known.contains(family) {
                         continue;
                     }
                 }
                 violations.push(format!(
-                    "{renderer} emitted unknown afm-* class {token:?} for {label} ({src:?})"
+                    "{renderer} emitted unknown stem {stem:?} for {label} ({src:?})"
                 ));
             }
         }
     }
     assert!(
         violations.is_empty(),
-        "unknown afm-* classes:\n  {}",
+        "unknown class stems:\n  {}",
         violations.join("\n  "),
     );
 }

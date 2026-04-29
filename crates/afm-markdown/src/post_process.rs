@@ -72,14 +72,57 @@ pub(crate) fn splice_aozora_html(comrak_html: &str, lex_out: &BorrowedLexOutput<
     while let Some(kind) = state.container_stack.pop() {
         render_node_into(AozoraNode::Container(Container { kind }), false, &mut out);
     }
+    // Brand boundary: the upstream `aozora-render` crate emits
+    // `aozora-*` CSS classes (its own brand for pure 青空文庫記法
+    // output). afm-markdown is a different surface — Aozora Flavored
+    // Markdown — and its output uses the `afm-*` brand. Rewrite every
+    // `aozora-*` class token to its `afm-*` counterpart before emit.
+    let rebranded = rebrand_aozora_classes_to_afm(&out);
     // Defensive Tier-A guard: every `［＃…］` that the upstream lexer
     // failed to claim (e.g. an empty annotation `［＃］` nested inside
     // a baseless ruby pair `《》`, which the aozora-lex Phase 3
     // replay path drops on the floor) gets wrapped in an
-    // `aozora-annotation` hidden span here so the canary can't leak.
+    // `afm-annotation` hidden span here so the canary can't leak.
     // No-op on the happy path because clean inputs leave no bare
     // `［＃` in the spliced HTML.
-    wrap_orphan_brackets_in_place(&out)
+    wrap_orphan_brackets_in_place(&rebranded)
+}
+
+/// Rewrite every `aozora-*` class token in `class="..."` attribute
+/// values to `afm-*`. Touches only class attributes — the brand on
+/// `data-*` attributes, on link targets, on text bodies, etc. is
+/// preserved verbatim.
+fn rebrand_aozora_classes_to_afm(html: &str) -> String {
+    if !html.contains("aozora-") {
+        return html.to_owned();
+    }
+    let mut out = String::with_capacity(html.len());
+    let mut cursor = 0;
+    while let Some(rel) = html[cursor..].find("class=\"") {
+        let attr_start = cursor + rel + "class=\"".len();
+        out.push_str(&html[cursor..attr_start]);
+        let Some(close_rel) = html[attr_start..].find('"') else {
+            out.push_str(&html[attr_start..]);
+            return out;
+        };
+        let attr_end = attr_start + close_rel;
+        let attr_value = &html[attr_start..attr_end];
+        for (i, token) in attr_value.split_ascii_whitespace().enumerate() {
+            if i > 0 {
+                out.push(' ');
+            }
+            if let Some(rest) = token.strip_prefix("aozora-") {
+                out.push_str("afm-");
+                out.push_str(rest);
+            } else {
+                out.push_str(token);
+            }
+        }
+        out.push('"');
+        cursor = attr_end + 1;
+    }
+    out.push_str(&html[cursor..]);
+    out
 }
 
 /// Find every `［＃…］` in `html` that lives outside an HTML tag and
