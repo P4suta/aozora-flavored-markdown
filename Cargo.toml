@@ -12,7 +12,7 @@ members = [
 exclude = ["upstream/comrak", "crates/afm-book"]
 
 [workspace.package]
-version       = "0.2.6"
+version       = "0.3.0"
 edition       = "2024"
 rust-version  = "1.95.0"
 license       = "Apache-2.0 OR MIT"
@@ -152,7 +152,7 @@ redundant_pub_crate     = "allow"
 
 [workspace.dependencies]
 # Internal crate (the Markdown-integration layer that lives in this repo)
-afm-markdown = { version = "0.2.6", path = "crates/afm-markdown" }
+afm-markdown = { version = "0.3.0", path = "crates/afm-markdown" }
 
 # Sibling repo aozora — pure 青空文庫記法 parser. Pinned to a tag.
 # v0.2.0 retired the legacy `aozora-parser` crate (Phase F.1) and migrated
@@ -160,13 +160,13 @@ afm-markdown = { version = "0.2.6", path = "crates/afm-markdown" }
 # afm-markdown drives the borrowed pipeline directly via `aozora-lex`
 # and renders Aozora spans with `aozora-render::{html, serialize}`,
 # so comrak no longer needs any Aozora-aware hooks (ADR-0001 budget = 0).
-aozora-syntax     = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
-aozora-lex        = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
-aozora-render     = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
-aozora-encoding   = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
-aozora-spec       = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
-aozora-corpus     = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
-aozora-test-utils = { version = "0.2.5", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.5" }
+aozora-syntax     = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
+aozora-lex        = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
+aozora-render     = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
+aozora-encoding   = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
+aozora-spec       = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
+aozora-corpus     = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
+aozora-test-utils = { version = "0.2.6", git = "https://github.com/P4suta/aozora.git", tag = "v0.2.6" }
 
 # comrak vendored fork (path, not crates.io).
 # `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
