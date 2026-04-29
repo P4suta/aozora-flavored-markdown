@@ -1,4 +1,3 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Integration tests for the forward-reference heading-hint path.
 //!
 //! Covers the end-to-end rendering contract for
@@ -150,27 +149,17 @@ fn short_setext_heading_still_works() {
 fn heading_hint_round_trips_through_serialize() {
     // I3 (serialize ∘ parse fixed point) demands that a heading hint
     // reconstructs its original `［＃「…」は…見出し］` form through
-    // the serializer even though post_process promoted the host
-    // paragraph. The serializer works from the lexer's placeholder
-    // registry, so the heading's AST-side promotion does not lose
-    // round-trip information.
-    use comrak::Arena;
-    let arena = Arena::new();
-    let opts = afm_markdown::Options::afm_default();
-
+    // the serializer even though the HTML pipeline promotes the host
+    // paragraph to `<h{level}>`. The serializer works off the lexer's
+    // placeholder registry, so the heading's HTML-side promotion does
+    // not lose round-trip information.
     let input = "第一篇［＃「第一篇」は大見出し］";
-    let parsed = afm_markdown::parse(&arena, input, &opts);
-    let serialised = afm_markdown::serialize(&parsed);
-
+    let serialised = afm_markdown::serialize(input);
     assert!(
         serialised.contains("［＃「第一篇」は大見出し］"),
         "heading-hint markup must survive round-trip; got: {serialised}"
     );
-
-    // Second round-trip to lock fixed-point: parse again and confirm
-    // the serializer emits the same bytes.
-    let reparsed = afm_markdown::parse(&arena, &serialised, &opts);
-    let second = afm_markdown::serialize(&reparsed);
+    let second = afm_markdown::serialize(&serialised);
     assert_eq!(
         serialised, second,
         "serialize ∘ parse must be a fixed point after one iteration"

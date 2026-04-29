@@ -299,28 +299,35 @@ upstream/comrak/             # v0.52.0 verbatim — 0-line diff (ADR-0001)
   `aozora` dependency — bumping it requires walking the borrowed-AST
   surface for breaking changes.
 
-## At a glance (v0.2.4)
+## At a glance (v0.2.5)
 
-- **Workspace tests**: 76 passing — lib-internal unit tests + `afm-cli`
-  integration + `test_support` HTML invariants.
+- **Workspace tests**: 159 passing (1 ignored — fenced-code-block
+  Aozora literalness still pending). Includes lib internals, `afm-cli`
+  integration, `test_support` HTML invariants, all 11 integration
+  tests (`commonmark_spec` — 652 cases, `gfm_spec` — extension-tagged,
+  `css_class_contract`, `html_well_formed`, `block_structure_interaction`,
+  `paired_container`, `heading_promotion`, `property_html_shape`,
+  `property_heading_integrity`, `post_process_invariants`,
+  `aozora_parity`), plus all 4 examples.
 - **Lint**: workspace-level clippy with `dead_code = "deny"`;
   `just strict-code` clean.
 - **Upstream comrak diff**: **0 lines** (`upstream/comrak/` is verbatim
   v0.52.0).
 - **Public API**: `render_to_string(input, &options) -> Rendered` and
   `serialize(input) -> String` — both stateless; arena management is
-  internal.
+  internal. `Options::aozora_enabled` toggles the lex pre-pass off so
+  `commonmark_only()` / `gfm_only()` exercise vanilla comrak.
 - **Pinned aozora tag**: see `Cargo.toml [workspace.dependencies]`. As
-  of v0.2.4 → `aozora.git tag = "v0.2.5"`.
+  of v0.2.5 → `aozora.git tag = "v0.2.5"`.
 
-## v0.2.5 follow-ups
+## Open follow-ups (no urgency)
 
-- Rewrite the 11 integration tests in `crates/afm-markdown/tests/` and
-  the 4 examples in `crates/afm-markdown/examples/` against the new
-  HTML-output API. They are currently gated behind `#![cfg(any())]`
-  with `TODO(ADR-0008 …)` markers.
-- Re-enable `just spec-commonmark` / `spec-gfm` / `spec-aozora` /
-  `spec-golden-56656` / `corpus-sweep` once the integration tests
-  carry the spec runners.
-- Restore the 96 % regions coverage floor in `Justfile` (`_COV_FLOOR`)
-  once the rewritten integration tests cover the post_process module.
+- `block_structure_interaction::fenced_code_block_preserves_aozora_markup_as_code`
+  is `#[ignore]`d. Aozora-lex does not skip CommonMark fenced code
+  blocks, so trigger characters get sentinel-replaced and the original
+  literal markup cannot be recovered post-format. Either teach the
+  lexer to honour a code-block context, or accept the documented
+  limitation.
+- The corpus sweep, golden, and `_COV_FLOOR = 96` regions floor in
+  `Justfile` are wired but not currently re-enabled in CI; bring them
+  back when the v0.2.5 test surface settles.

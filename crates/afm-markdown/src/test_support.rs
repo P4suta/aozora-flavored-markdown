@@ -764,16 +764,19 @@ fn collect_class_tokens(html: &str) -> HashSet<String> {
 /// or of the form `<listed-base>-N` where `N` is a non-negative
 /// decimal integer.
 fn is_recognised_afm_class(class: &str) -> bool {
-    const NUMERIC_SUFFIX_BASES: &[&str] = &["afm-indent", "afm-align-end", "afm-container-indent"];
     if AFM_CLASSES.contains(&class) {
         return true;
     }
-    for &base in NUMERIC_SUFFIX_BASES {
-        if let Some(rest) = class.strip_prefix(base)
-            && let Some(tail) = rest.strip_prefix('-')
-            && !tail.is_empty()
-            && tail.bytes().all(|b| b.is_ascii_digit())
-        {
+    // Family-suffix variants: any `<base>-<suffix>` where `<base>` is
+    // in the pinned list. Covers numeric modifiers
+    // (`afm-indent-2`, `afm-container-indent-3`, `afm-align-end-1`)
+    // and slug modifiers (`afm-section-break-choho`,
+    // `afm-bouten-goma`, `afm-section-break-dan`, …) emitted by
+    // aozora-render.
+    if let Some(stem_end) = class.rfind('-') {
+        let stem = &class[..stem_end];
+        let suffix = &class[stem_end + 1..];
+        if !suffix.is_empty() && AFM_CLASSES.contains(&stem) {
             return true;
         }
     }

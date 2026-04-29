@@ -7,34 +7,53 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Re-enabled after v0.2.4 borrowed-AST migration
+## [0.2.5] - 2026-04-30
 
-- 6 of the 11 integration tests are back in CI: `commonmark_spec`,
-  `gfm_spec`, `css_class_contract`, `html_well_formed`,
-  `block_structure_interaction` (1 case `#[ignore]`d as a v0.2.5 task —
-  fenced code block contents need a CommonMark-aware lex skip), and
-  `paired_container`. All 4 examples (`render-utf8` / `render-sjis` /
-  `serialize-round-trip` / `ast-walk`) build against the new public API.
-- `Options::aozora_enabled` flag added. `commonmark_only()` /
-  `gfm_only()` set it to `false` so the spec runners exercise vanilla
-  comrak without the lex pre-pass perturbing setext-heading and
-  similar text-level constructs.
-- `AFM_CLASSES` corrected to match what `aozora-render` v0.2.5 actually
-  emits.
+Closes the v0.2.5 follow-up list from v0.2.4. Every integration test
+and example is now back on the new public API; `just test` runs the
+full 159-test suite.
 
-### Still gated for v0.2.5 (`#![cfg(any())]`)
+### Added
 
-- `heading_promotion` — needs paragraph-tag rewriting on top of the
-  HTML post-process (HeadingHint inline → wrap host paragraph as
-  `<h1>`/`<h2>`/`<h3>`).
-- `post_process_invariants` — the proptest is shaped around the
-  removed AST-surgery API and needs to be redrafted against HTML.
-- `property_html_shape` — pathological inputs hit unbalanced
-  container-close paragraphs (open-less `</div>`); needs a stack-aware
-  splice in `post_process.rs`.
-- `property_heading_integrity` — same dependency as `heading_promotion`.
-- `aozora_parity` — the differential test against `aozora-render`'s own
-  HTML output needs a fresh comparison harness.
+- **Heading-hint promotion.** A paragraph carrying a `HeadingHint`
+  inline sentinel (`［＃「X」は大見出し／中見出し／小見出し］`) now
+  renders as `<h{level}>{target}</h{level}>`. `post_process` peeks at
+  the registry from inside the paragraph, rewrites the wrapper, and
+  consumes the hint's siblings so indent / annotation classes don't
+  leak into the heading body.
+- **Stack-balanced container splice.** `BlockOpen` paragraphs push
+  onto a `Vec<ContainerKind>`; `BlockClose` paragraphs pop. Open-less
+  closes are silently dropped, and any container left open at end-of-
+  document is auto-closed so the Tier-D HTML tag-balance invariant
+  holds for malformed inputs too.
+- **Family-suffix CSS class recognition.** `is_recognised_afm_class`
+  now accepts any `<base>-<suffix>` where `<base>` is in
+  `AFM_CLASSES`, covering both numeric modifiers (`afm-indent-2`,
+  `afm-container-indent-3`) and slug modifiers (`afm-section-break-
+  choho`, `afm-bouten-goma`-suffixed forms) without expanding the
+  pinned list per variant.
+
+### Re-enabled
+
+- All 11 integration tests are back in CI:
+  `commonmark_spec` (652 examples), `gfm_spec` (extension-tagged 0.29
+  spec), `css_class_contract`, `html_well_formed`,
+  `block_structure_interaction` (1 case `#[ignore]`d — fenced code
+  block contents still need a CommonMark-aware lex skip),
+  `paired_container`, `heading_promotion`, `property_html_shape`,
+  `property_heading_integrity`, `post_process_invariants` (redrafted
+  against HTML; the AST helpers it used are gone), `aozora_parity`
+  (redrafted around `aozora_lex` + `aozora_render`).
+
+### Internal
+
+- `splice_aozora_html` is now paragraph-aware *and* still inline-aware
+  outside `<p>...</p>` boundaries (so headings, list items,
+  blockquotes, table cells keep getting their inline sentinels
+  resolved). The two-stage loop is documented in the module header.
+- `SpliceState` replaces the previous `IntoIter` plumbing so
+  `process_paragraph` can `peek()` ahead before deciding between
+  heading promotion and a regular inline pass.
 
 ## [0.2.4] - 2026-04-30
 

@@ -1,5 +1,3 @@
-#![cfg(any())]
-// TODO(ADR-0008 v0.2.5): unbalanced container-close handling needs a stack-aware splice; deferred together with heading promotion and post_process invariants.
 //! Property test — "must-never-be" invariants for rendered HTML shape.
 //!
 //! Runs every tier-A/B/D/E/G/H/I/J/K/L predicate from
