@@ -130,8 +130,13 @@ bench *ARGS:
 #   ratchet down to the new measurement and tighten back up as the
 #   afm-markdown-specific test suite grows (post_process invariants,
 #   aozora_parity differential, html-shape proptests).
-_COV_FLOOR := "93"
-_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/)"
+# 96 (post-v0.2.5 production-only): test_support.rs was extracted
+#   from the coverage measurement because it is `#[doc(hidden)]
+#   pub mod` shipped only so integration tests in `tests/*.rs` can
+#   share invariant helpers — it is not production code. The
+#   measured surface is now lib.rs / post_process.rs / html.rs.
+_COV_FLOOR := "96"
+_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|test_support\\.rs$)"
 
 coverage:
     {{_dev}} cargo llvm-cov nextest \

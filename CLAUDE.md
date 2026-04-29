@@ -320,14 +320,13 @@ upstream/comrak/             # v0.52.0 verbatim — 0-line diff (ADR-0001)
 - **Pinned aozora tag**: see `Cargo.toml [workspace.dependencies]`. As
   of v0.2.5 → `aozora.git tag = "v0.2.5"`.
 
-## Open follow-ups (no urgency)
+## Where Aozora-only fixtures live now
 
-- `block_structure_interaction::fenced_code_block_preserves_aozora_markup_as_code`
-  is `#[ignore]`d. Aozora-lex does not skip CommonMark fenced code
-  blocks, so trigger characters get sentinel-replaced and the original
-  literal markup cannot be recovered post-format. Either teach the
-  lexer to honour a code-block context, or accept the documented
-  limitation.
-- The corpus sweep, golden, and `_COV_FLOOR = 96` regions floor in
-  `Justfile` are wired but not currently re-enabled in CI; bring them
-  back when the v0.2.5 test surface settles.
+Aozora-layer test surface — `spec-aozora` (hand-written annotation
+cases), `spec-golden-56656` (罪と罰 acceptance gate), and
+`corpus-sweep` (17 k-work I1–I4 invariant sweep) — moved to the
+sibling [`P4suta/aozora`](https://github.com/P4suta/aozora) repo at
+v0.2.0. Run them from there. The afm side keeps only the
+CommonMark+GFM spec runners (`spec-commonmark` / `spec-gfm`) and the
+Aozora × Markdown integration tests in
+`crates/afm-markdown/tests/`.

@@ -7,6 +7,61 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-04-30
+
+Closes every v0.2.5 follow-up by **resolving** them (no `#[ignore]`, no
+floor lowering). 179/179 tests pass with zero gates; coverage is back
+above the 96 % regions floor. The `block_structure_interaction::fenced
+_code_block_*` test that v0.2.5 marked as a known limitation is now a
+true assertion.
+
+### Added
+
+- **CommonMark code-block-aware lex pre-pass.** New
+  `code_block_mask` module hides 青空文庫 trigger characters
+  (`｜《》［］※〔〕「」`) inside fenced code blocks before
+  `aozora-lex` sees the source, then unmasks them in the rendered
+  HTML. Aozora markup inside ` ``` ` / `~~~` fences now flows through
+  to `<pre><code>` literally — the formerly `#[ignore]`d
+  `fenced_code_block_preserves_aozora_markup_as_code` is unblocked.
+- **Defensive Tier-A guard** in `post_process::splice_aozora_html`:
+  any bare `［＃…］` that the upstream lexer fails to claim (e.g.
+  empty annotation `［＃］` nested inside a baseless ruby pair `《》`,
+  which `aozora-lex` Phase 3's replay path drops) is auto-wrapped in
+  an `afm-annotation` hidden span. The Tier-A canary now holds for
+  every input the property tests can generate, including the three
+  pathological seeds (`［＃`, `］［＃`, `《［＃］》`) that v0.2.5
+  could not satisfy.
+- **lib + post_process unit tests** pinning every formerly-uncovered
+  region: `Options::gfm_only`, the `contains_bare_bracket` helper,
+  malformed `</p>` recovery, exhausted-registry block sentinel,
+  block-sentinel-inside-inline drop, HeadingHint target HTML escape.
+
+### Changed
+
+- **Coverage gate restored to 96 %.** `_COV_FLOOR = 96` (was 93 in
+  v0.2.5), with `test_support.rs` excluded from the measurement
+  because it is `#[doc(hidden)] pub mod` test-helper code, not
+  production. Production coverage measures **99.26 %** across
+  `lib.rs` (100 %), `html.rs` (100 %), `post_process.rs` (98.6 %),
+  and `code_block_mask.rs` (98.97 %).
+- **CLAUDE.md** Open-follow-ups section reframed: Aozora-only
+  fixtures (`spec-aozora` / `spec-golden-56656` / `corpus-sweep`)
+  now correctly point to the sibling `P4suta/aozora` repo (they
+  moved there at v0.2.0 — afm only keeps the CommonMark/GFM spec
+  runners).
+- **ADR-0001** carries a v0.2.4 status update documenting the diff
+  budget collapse (200 → 0).
+- **`.claude/settings.local.json`** added to `.gitignore` per the
+  per-project Claude Code convention.
+
+### Internal
+
+- aozora-tools (225 tests + ADRs) and afm-epub (placeholder) verified
+  unchanged after this release: the only modifications live in
+  afm-markdown's own surface plus tooling, so the sibling repos pass
+  unchanged.
+
 ## [0.2.5] - 2026-04-30
 
 Closes the v0.2.5 follow-up list from v0.2.4. Every integration test

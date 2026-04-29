@@ -58,3 +58,6 @@ fuzz/artifacts/
 
 # macOS junk in WSL mounts
 :2e*
+
+# Personal Claude Code settings (do not check in)
+.claude/settings.local.json

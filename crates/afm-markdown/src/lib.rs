@@ -36,6 +36,7 @@
 
 #![forbid(unsafe_code)]
 
+mod code_block_mask;
 pub mod html;
 mod post_process;
 
@@ -157,8 +158,14 @@ pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
         };
     }
 
+    // Pre-process: hide aozora trigger characters that live inside a
+    // CommonMark fenced code block from the lexer. `aozora_lex` is
+    // CommonMark-blind by design (ADR-0010), so this lives here. See
+    // `code_block_mask` module docs for the masking scheme.
+    let (masked_source, mask_originals) = code_block_mask::mask_code_block_triggers(input);
+
     let arena = Arena::new();
-    let lex_out = aozora_lex::lex_into_arena(input, &arena);
+    let lex_out = aozora_lex::lex_into_arena(&masked_source, &arena);
 
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
@@ -166,7 +173,9 @@ pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
     comrak::format_html(root, &options.comrak, &mut comrak_html)
         .expect("formatting to a String never fails");
 
-    let html = post_process::splice_aozora_html(&comrak_html, &lex_out);
+    let spliced = post_process::splice_aozora_html(&comrak_html, &lex_out);
+    let html = code_block_mask::unmask_html(&spliced, &mask_originals);
+
     Rendered {
         html,
         diagnostics: lex_out.diagnostics,
@@ -237,6 +246,49 @@ mod tests {
         let r = render_to_string("# Hello\n\nworld", &Options::afm_default());
         assert!(r.html.contains("<h1>Hello</h1>"), "html: {}", r.html);
         assert!(r.html.contains("world"));
+    }
+
+    #[test]
+    fn gfm_only_options_have_aozora_disabled_and_gfm_extensions_enabled() {
+        let opts = Options::gfm_only();
+        assert!(!opts.aozora_enabled, "gfm_only must skip the aozora pass");
+        assert!(opts.comrak.extension.strikethrough);
+        assert!(opts.comrak.extension.table);
+        assert!(opts.comrak.extension.autolink);
+        assert!(opts.comrak.extension.tasklist);
+        assert!(opts.comrak.extension.tagfilter);
+        assert!(opts.comrak.render.r#unsafe);
+    }
+
+    #[test]
+    fn gfm_only_renders_strikethrough_and_does_not_recognise_ruby() {
+        // gfm_only's contract: GFM extensions on, Aozora pre-pass off.
+        // The strikethrough must produce `<del>`; the ruby-shaped
+        // `｜...《》` source must survive verbatim because the lexer
+        // never ran.
+        let opts = Options::gfm_only();
+        let html = render_to_string("~~strike~~ ｜青梅《おうめ》", &opts).html;
+        assert!(html.contains("<del>strike</del>"), "html: {html}");
+        assert!(
+            html.contains("｜青梅"),
+            "ruby trigger must survive raw: {html}"
+        );
+        assert!(
+            !html.contains("<ruby>"),
+            "ruby must NOT render in gfm-only: {html}"
+        );
+    }
+
+    #[test]
+    fn contains_bare_bracket_helper_detects_leaked_marker() {
+        // Pins the "bare bracket leaked" branch of the helper itself.
+        // The needle appears outside any tag and outside an
+        // `afm-annotation` wrapper.
+        assert!(contains_bare_bracket("plain ［＃ leak"));
+        assert!(!contains_bare_bracket(
+            "<span class=\"afm-annotation\" hidden>［＃</span>"
+        ));
+        assert!(!contains_bare_bracket("no marker at all"));
     }
 
     /// Tier-A canary: every occurrence of `［＃` must be inside an

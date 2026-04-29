@@ -72,6 +72,79 @@ pub(crate) fn splice_aozora_html(comrak_html: &str, lex_out: &BorrowedLexOutput<
     while let Some(kind) = state.container_stack.pop() {
         render_node_into(AozoraNode::Container(Container { kind }), false, &mut out);
     }
+    // Defensive Tier-A guard: every `［＃…］` that the upstream lexer
+    // failed to claim (e.g. an empty annotation `［＃］` nested inside
+    // a baseless ruby pair `《》`, which the aozora-lex Phase 3
+    // replay path drops on the floor) gets wrapped in an
+    // `aozora-annotation` hidden span here so the canary can't leak.
+    // No-op on the happy path because clean inputs leave no bare
+    // `［＃` in the spliced HTML.
+    wrap_orphan_brackets_in_place(&out)
+}
+
+/// Find every `［＃…］` in `html` that lives outside an HTML tag and
+/// outside an existing `afm-annotation` wrapper, and wrap it in a
+/// hidden `<span class="afm-annotation" hidden>…</span>`. The class
+/// name matches `aozora-render`'s annotation wrapper so
+/// `test_support::strip_annotation_wrappers` continues to recognise
+/// it, and the pass is idempotent: a second invocation finds the
+/// `afm-annotation` substring in the prefix and skips re-wrapping.
+fn wrap_orphan_brackets_in_place(html: &str) -> String {
+    let needle = "［＃";
+    let close = '］';
+    let wrapper_class = "afm-annotation";
+    let wrapper_open = "<span class=\"afm-annotation\" hidden>";
+    let wrapper_close = "</span>";
+
+    if !html.contains(needle) {
+        return html.to_owned();
+    }
+
+    let mut out = String::with_capacity(html.len());
+    let mut cursor = 0;
+    while let Some(rel) = html[cursor..].find(needle) {
+        let abs = cursor + rel;
+        // Decide skip vs wrap by inspecting the *already-emitted* prefix
+        // (`out` + literal bytes from `cursor..abs`). This avoids the
+        // false-skip you'd get from looking back into `html` after we've
+        // started rewriting it.
+        let mut prefix = String::with_capacity(out.len() + (abs - cursor));
+        prefix.push_str(&out);
+        prefix.push_str(&html[cursor..abs]);
+        let last_open_tag = prefix.rfind('<').unwrap_or(0);
+        let last_close_tag = prefix.rfind('>').unwrap_or(0);
+        let inside_tag = last_open_tag > last_close_tag && !prefix.is_empty();
+        // `already_wrapped` checks only the *current* unfinished span:
+        // if a previous wrapper has already closed (`</span>` after the
+        // last `wrapper_class` mention), we are no longer inside it.
+        let last_wrapper_class = prefix.rfind(wrapper_class);
+        let last_wrapper_close = prefix.rfind(wrapper_close);
+        let already_wrapped = match (last_wrapper_class, last_wrapper_close) {
+            (Some(c), Some(z)) => c > z,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        if inside_tag || already_wrapped {
+            out.push_str(&html[cursor..abs + needle.len()]);
+            cursor = abs + needle.len();
+            continue;
+        }
+        // Find a matching `］` after the marker. If none, wrap up to
+        // the next `<` (start of next tag) or EOF — never leave a bare
+        // bracket behind.
+        let after_open = abs + needle.len();
+        let bracket_run_end = html[after_open..]
+            .find(close)
+            .map(|r| after_open + r + close.len_utf8())
+            .or_else(|| html[after_open..].find('<').map(|r| after_open + r))
+            .unwrap_or(html.len());
+        out.push_str(&html[cursor..abs]);
+        out.push_str(wrapper_open);
+        push_html_escaped(&mut out, &html[abs..bracket_run_end]);
+        out.push_str(wrapper_close);
+        cursor = bracket_run_end;
+    }
+    out.push_str(&html[cursor..]);
     out
 }
 
@@ -380,5 +453,69 @@ mod tests {
         let opens = html.matches("<div").count();
         let closes = html.matches("</div>").count();
         assert_eq!(opens, closes, "tag-balance broken: {html}");
+    }
+
+    #[test]
+    fn malformed_unclosed_paragraph_does_not_panic() {
+        // Pins `splice_into`'s `</p>`-not-found fallback. Synthesise a
+        // payload comrak would never emit (an unclosed `<p>` tag) and
+        // confirm the splice walks it without panicking.
+        let arena = Arena::new();
+        let lex_out = aozora_lex::lex_into_arena("hello", &arena);
+        let out = splice_aozora_html("<p>unclosed paragraph", &lex_out);
+        assert!(out.contains("unclosed paragraph"), "got: {out}");
+    }
+
+    #[test]
+    fn block_sentinel_paragraph_with_exhausted_registry_does_not_panic() {
+        // Pins `process_paragraph`'s `state.next() = None` early-return.
+        // We hand the splicer a paragraph that *looks* like a block
+        // sentinel but for which the registry is empty. The splicer
+        // must drop the paragraph silently.
+        let arena = Arena::new();
+        let lex_out = aozora_lex::lex_into_arena("plain", &arena);
+        // `lex_out.registry` for "plain" is empty, but we feed an HTML
+        // payload that pretends to contain one. The splicer should
+        // produce no Aozora HTML for that paragraph and not panic.
+        let payload = format!("<p>{BLOCK_LEAF_SENTINEL}</p>\n");
+        let out = splice_aozora_html(&payload, &lex_out);
+        assert!(
+            !out.contains(BLOCK_LEAF_SENTINEL),
+            "sentinel survived: {out}"
+        );
+    }
+
+    #[test]
+    fn block_sentinel_inside_inline_pass_drops_silently() {
+        // Pins `splice_inline_pass`'s "block sentinel found here"
+        // fallback. This is the exact path that fenced-code-block
+        // contents trigger: a block sentinel survives into a non-`<p>`
+        // context and must be discarded silently rather than panicking
+        // or leaking.
+        let html = render("```\n［＃改ページ］\n```");
+        // The page-break marker must not leak into the code block as
+        // its `afm-page-break` div, because it lives inside `<pre>`.
+        // Either the sentinel is dropped (current behaviour) or its
+        // markup escapes into the `<pre>` body — both are acceptable
+        // for code-block content; what matters is that no panic
+        // occurs and no raw sentinel char survives.
+        assert!(
+            !html.contains(BLOCK_LEAF_SENTINEL),
+            "sentinel leaked: {html}"
+        );
+    }
+
+    #[test]
+    fn heading_hint_target_html_special_chars_are_escaped() {
+        // `push_html_escaped` covers the `<`/`>`/`&`/`"`/`'` arms only
+        // when a HeadingHint target carries one of those characters.
+        // Exercise each via a forward-reference heading hint whose
+        // target is the special char run.
+        let html = render("<&\"'><&\"'>［＃「<&\"'>」は大見出し］");
+        assert!(html.contains("&lt;"), "missing < escape: {html}");
+        assert!(html.contains("&gt;"), "missing > escape: {html}");
+        assert!(html.contains("&amp;"), "missing & escape: {html}");
+        assert!(html.contains("&quot;"), "missing \" escape: {html}");
+        assert!(html.contains("&#39;"), "missing ' escape: {html}");
     }
 }
