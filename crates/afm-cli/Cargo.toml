@@ -19,7 +19,6 @@ name = "afm"
 path = "src/main.rs"
 
 [dependencies]
-aozora-syntax   = { workspace = true }
 aozora-encoding = { workspace = true }
 afm-markdown    = { workspace = true }
 clap      = { workspace = true }

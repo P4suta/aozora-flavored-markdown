@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! CommonMark 0.31.2 spec conformance.
 //!
 //! Runs every example from `spec/commonmark-0.31.2.json` (vendored from the

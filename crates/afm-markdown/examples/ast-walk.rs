@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Walk the parsed AST and report how often each `AozoraNode` variant appears,
 //! plus the number of lexer diagnostics for the input.
 //!

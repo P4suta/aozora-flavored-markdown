@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::{fs, process::ExitCode};
 
-use afm_markdown::{ComrakArena, Options, html::render_root_to_string, parse};
+use afm_markdown::{Options, render_to_string};
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -93,9 +93,8 @@ fn read_input(path: &Path, encoding: InputEncoding) -> Result<String> {
 
 fn render(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
     let source = read_input(path, encoding)?;
-    let arena = ComrakArena::new();
     let options = Options::afm_default();
-    let result = parse(&arena, &source, &options);
+    let result = render_to_string(&source, &options);
     emit_diagnostics(&result.diagnostics);
     if strict && !result.diagnostics.is_empty() {
         return Err(miette::miette!(
@@ -103,16 +102,14 @@ fn render(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
             result.diagnostics.len()
         ));
     }
-    let html = render_root_to_string(result.root, &options);
-    println!("{html}");
+    println!("{}", result.html);
     Ok(())
 }
 
 fn check(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
     let source = read_input(path, encoding)?;
-    let arena = ComrakArena::new();
     let options = Options::afm_default();
-    let result = parse(&arena, &source, &options);
+    let result = render_to_string(&source, &options);
     emit_diagnostics(&result.diagnostics);
     if strict && !result.diagnostics.is_empty() {
         return Err(miette::miette!(
@@ -127,7 +124,7 @@ fn check(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
 /// downstream tooling (language servers, CI gates, LSP JSON bridges)
 /// can key on the stable `afm::…` strings rather than free-form
 /// messages.
-fn emit_diagnostics(diagnostics: &[afm_markdown::LexerDiagnostic]) {
+fn emit_diagnostics(diagnostics: &[afm_markdown::Diagnostic]) {
     use miette::Diagnostic as _;
     for d in diagnostics {
         let code = d

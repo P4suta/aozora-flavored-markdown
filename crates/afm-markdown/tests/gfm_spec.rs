@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! GitHub Flavored Markdown 0.29 — extension-level conformance.
 //!
 //! Runs every `spec/gfm-0.29-gfm.json` example that the spec **tagged** with

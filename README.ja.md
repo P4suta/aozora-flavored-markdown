@@ -91,21 +91,27 @@ CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 
 ## ワークスペース構成
 
+v0.2.0 で青空文庫記法のパーサ本体は sibling repo
+[`P4suta/aozora`](https://github.com/P4suta/aozora) に切り出されました
+(ADR-0010)。afm リポジトリには、その上に乗る Markdown ダイアレクト統合
+レイヤと CLI のみが残ります。
+
 ```
 afm/
-  upstream/comrak/           # vendored comrak 0.52.0、ADR-0001 の 200 行 diff 予算
+  upstream/comrak/           # vendored comrak 0.52.0、verbatim (v0.2.4 以降 0 行 diff)
   crates/
-    afm-syntax/              # AozoraNode AST 型(パーサ依存なし)
-    afm-lexer/               # 7-phase pure-functional な青空文庫 lexer (ADR-0008)
-    afm-parser/              # post_process AST splice + HTML renderer
-    afm-encoding/            # Shift_JIS decode + 青空文庫外字解決
-    afm-cli/                 # `afm` バイナリ
-    afm-corpus/              # 17 k 作品コーパス回帰 harness
+    afm-markdown/            # CommonMark + GFM + 青空文庫記法の HTML 統合レイヤ
+    afm-cli/                 # `afm` バイナリ(render / check)
     afm-book/                # mdbook ドキュメントサイト(Rust crate ではない)
-    xtask/                   # upstream-sync / upstream-diff / spec-refresh / new-adr
+    xtask/                   # upstream-sync / spec-refresh / new-adr
   spec/                      # CommonMark / GFM / 青空文庫 fixture
   docs/adr/                  # Architecture Decision Records
 ```
+
+青空文庫記法の lex / 借用 AST / per-node HTML / serialize は別リポ
+`aozora` (v0.2.5) の `aozora-syntax` / `aozora-lex` / `aozora-render` /
+`aozora-encoding` から git tag 経由で引いています。Cargo.toml の
+`[workspace.dependencies]` を見れば pin 先がわかります。
 
 ## 開発
 
@@ -126,8 +132,9 @@ just ci                # full CI matrix のローカル再現
 just book-serve        # mdbook 即時プレビュー
 ```
 
-**At a glance**: 519 tests passing · 96% regions coverage (CI gate) ·
-上流 comrak 比 ~22 行 diff · vendored comrak 内に parse-time hook 0 本。
+**At a glance**: 76 tests passing · 上流 comrak 比 **0 行 diff**
+(v0.2.4 以降 vanilla 維持)· parse-time hook 0 本 · render-time hook も 0 本
+(青空文庫部分は HTML 出力後の sentinel 置換で合成)。
 
 詳しくは [CLAUDE.md](./CLAUDE.md) (プロジェクトガイド)、
 [docs/adr/](./docs/adr/) (Architecture Decisions)、
@@ -136,8 +143,9 @@ just book-serve        # mdbook 即時プレビュー
 ## サンプル
 
 ライブラリ利用向けの短いサンプルが
-[`crates/afm-parser/examples/`](./crates/afm-parser/examples/) に
-あります。
+[`crates/afm-markdown/examples/`](./crates/afm-markdown/examples/) に
+あります(v0.2.4 では borrowed-AST API への書き換え中で `cfg(any())`
+ガード済み、v0.2.5 で復活予定)。
 
 - `render-utf8.rs` —— UTF-8 ファイルを parse して HTML を stdout へ。
 - `render-sjis.rs` —— Shift_JIS の青空文庫テキストを `afm-encoding`

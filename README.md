@@ -90,12 +90,12 @@ result in any pipeline that speaks CommonMark.
 
 ```
 afm/
-  upstream/comrak/           # vendored comrak 0.52.0, ADR-0001 200-line diff budget
+  upstream/comrak/           # vendored comrak 0.52.0, verbatim (0-line diff since v0.2.4)
   crates/
-    afm-markdown/            # post_process AST splice + HTML renderer + spec test runners
+    afm-markdown/            # CommonMark + GFM + 青空文庫記法 HTML integration layer
     afm-cli/                 # `afm` binary (render / check)
     afm-book/                # mdbook documentation site (excluded from cargo workspace)
-    xtask/                   # upstream-sync, upstream-diff, spec-refresh, new-adr
+    xtask/                   # upstream-sync, spec-refresh, new-adr
   spec/                      # CommonMark / GFM / Aozora fixtures
   docs/adr/                  # Architecture Decision Records
 ```
@@ -127,7 +127,7 @@ just spec-gfm          # GFM 0.29 spec
 just spec-aozora       # hand-written Aozora fixtures
 just spec-golden-56656 # 罪と罰 Tier-A acceptance gate
 just corpus-sweep      # 17 k-work invariant sweep (I1–I4)
-just upstream-diff     # enforce 200-line budget against upstream comrak
+just upstream-diff     # verify the upstream comrak tree stays 0-line (verbatim v0.52.0)
 just ci                # replicate the full CI matrix locally
 just book-serve        # mdbook live preview at http://localhost:3000
 ```

@@ -508,10 +508,6 @@ impl<'a, 'o, 'c, 'w> CommonMarkFormatter<'a, 'o, 'c, 'w> {
             NodeValue::Alert(ref alert) => self.format_alert(alert, entering)?,
             NodeValue::Subtext => self.format_subtext(entering)?,
             NodeValue::BlockDirective(ref nbd) => self.format_block_directive(nbd, entering)?,
-            NodeValue::Aozora(_) => {
-                // afm extension nodes don't have a CommonMark serialisation yet;
-                // they survive only in HTML / XML / (future) afm-native output.
-            }
         };
         Ok(true)
     }

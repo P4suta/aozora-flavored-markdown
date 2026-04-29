@@ -52,13 +52,6 @@ phf = "0.13"
 rustc-hash = "2"
 smallvec = "1.13"
 finl_unicode = { version = "1.4.0", features = ["categories"] }
-# aozora extension — forked addition. Carries the AozoraNode AST variant
-# and the render-side `fn` pointer that comrak's
-# `Extension.render_aozora` field invokes. Pinned to the sibling `aozora`
-# repo's v0.1.0 tag (file:// URL during pre-publication; the parent
-# workspace's `[workspace.dependencies]` mirror this URL and `sd`-replace
-# them as a unit when going public).
-aozora-syntax = { version = "0.1.0", git = "https://github.com/P4suta/aozora.git", tag = "v0.1.0" }
 
 [dev-dependencies]
 ntest = "0.9"

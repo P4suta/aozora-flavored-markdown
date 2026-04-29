@@ -19,11 +19,10 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "afm-cli"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "afm-markdown",
  "aozora-encoding",
- "aozora-syntax",
  "clap",
  "miette",
  "thiserror",
@@ -33,11 +32,12 @@ dependencies = [
 
 [[package]]
 name = "afm-markdown"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "aozora-encoding",
- "aozora-lexer",
- "aozora-parser",
+ "aozora-lex",
+ "aozora-render",
+ "aozora-spec",
  "aozora-syntax",
  "aozora-test-utils",
  "comrak",
@@ -116,58 +116,109 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "aozora-encoding"
-version = "0.1.0"
-source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
 dependencies = [
- "aozora-syntax",
  "encoding_rs",
  "miette",
  "phf",
+ "phf_codegen",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "aozora-lex"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
+dependencies = [
+ "aozora-encoding",
+ "aozora-lexer",
+ "aozora-scan",
+ "aozora-spec",
+ "aozora-syntax",
+ "aozora-veb",
+ "bumpalo",
+ "memchr",
 ]
 
 [[package]]
 name = "aozora-lexer"
-version = "0.1.0"
-source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
 dependencies = [
+ "aho-corasick",
  "aozora-encoding",
+ "aozora-scan",
+ "aozora-spec",
  "aozora-syntax",
+ "bumpalo",
+ "memchr",
  "miette",
+ "phf",
+ "smallvec",
  "thiserror",
 ]
 
 [[package]]
-name = "aozora-parser"
-version = "0.1.0"
-source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
+name = "aozora-render"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
 dependencies = [
- "aozora-encoding",
- "aozora-lexer",
+ "aozora-lex",
+ "aozora-spec",
  "aozora-syntax",
+ "memchr",
+]
+
+[[package]]
+name = "aozora-scan"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
+dependencies = [
+ "aho-corasick",
+ "aozora-spec",
+ "bumpalo",
+ "memchr",
+ "regex-automata",
+]
+
+[[package]]
+name = "aozora-spec"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
+dependencies = [
  "miette",
+ "phf",
  "thiserror",
- "tracing",
- "unicode-segmentation",
 ]
 
 [[package]]
 name = "aozora-syntax"
-version = "0.1.0"
-source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
 dependencies = [
+ "aozora-encoding",
+ "aozora-spec",
+ "aozora-veb",
+ "bumpalo",
  "miette",
+ "phf",
  "thiserror",
 ]
 
 [[package]]
 name = "aozora-test-utils"
-version = "0.1.0"
-source = "git+https://github.com/P4suta/aozora.git?tag=v0.1.0#9d77d8ae45183ef5715e24c70215ff96b8bf5e6b"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
 dependencies = [
  "proptest",
 ]
+
+[[package]]
+name = "aozora-veb"
+version = "0.2.5"
+source = "git+https://github.com/P4suta/aozora.git?tag=v0.2.5#71a2badfd60bd643d55eae2e485f759de285f98e"
 
 [[package]]
 name = "autocfg"
@@ -219,6 +270,12 @@ name = "bitflags"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
+
+[[package]]
+name = "bumpalo"
+version = "3.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
 name = "caseless"
@@ -286,7 +343,6 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 name = "comrak"
 version = "0.52.0"
 dependencies = [
- "aozora-syntax",
  "caseless",
  "entities",
  "finl_unicode",
@@ -1097,12 +1153,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "unicode-segmentation"
-version = "1.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9629274872b2bfaf8d66f5f15725007f635594914870f65218920345aa11aa8c"
-
-[[package]]
 name = "unicode-width"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1304,7 +1354,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "clap",

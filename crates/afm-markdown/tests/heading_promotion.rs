@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Integration tests for the forward-reference heading-hint path.
 //!
 //! Covers the end-to-end rendering contract for

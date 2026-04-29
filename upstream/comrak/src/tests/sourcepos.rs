@@ -474,7 +474,7 @@ fn node_values() -> HashMap<NodeValueDiscriminants, TestCase> {
     NodeValueDiscriminants::VARIANTS
         .iter()
         // Exclude variants that don't carry a sourcepos text fixture in this harness.
-        .filter(|v| !matches!(v, Raw | Aozora))
+        .filter(|v| !matches!(v, Raw))
         .map(|v| {
             let text = match v {
                 Document => DOCUMENT,
@@ -523,7 +523,7 @@ fn node_values() -> HashMap<NodeValueDiscriminants, TestCase> {
                 Alert => ALERT,
                 Subtext => SUBTEXT,
                 BlockDirective => BLOCK_DIRECTIVE,
-                Raw | Aozora => unreachable!(),
+                Raw => unreachable!(),
                 #[cfg(feature = "phoenix_heex")]
                 HeexBlock => HEEX_BLOCK,
                 #[cfg(feature = "phoenix_heex")]

@@ -627,35 +627,6 @@ pub struct Extension<'c> {
     /// ```
     #[cfg_attr(feature = "bon", builder(default))]
     pub block_directive: bool,
-
-    /// afm extension: registers the render-side callback for
-    /// `NodeValue::Aozora` arms. `None` (default) disables the extension
-    /// entirely; no overhead is paid by pure-CommonMark callers.
-    ///
-    /// Parse-side Aozora handling happens in `afm-lexer` + `afm-parser`
-    /// entirely before comrak runs (ADR-0008); the only surviving comrak
-    /// seam is this render hook. The `fn` pointer shape — rather than
-    /// `Arc<dyn AozoraExtension>` — keeps the upstream diff minimal and
-    /// avoids a virtual call per rendered Aozora node.
-    ///
-    /// The `entering` flag lets container-type Aozora nodes (paired
-    /// `［＃ここから…］` block wrappers) emit an opening tag on the
-    /// enter pass and the closing tag on exit while comrak walks the
-    /// children in between — exactly matching the contract
-    /// `render_list` and friends use.
-    #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
-    pub render_aozora:
-        Option<fn(&aozora_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
-
-    /// afm extension: registers the CommonMark-side (afm text)
-    /// serialisation callback for `NodeValue::Aozora` arms. Mirrors
-    /// [`Self::render_aozora`] shape-for-shape so the HTML and
-    /// afm-native output paths share a single registration ritual.
-    /// `None` (default) means Aozora nodes are elided from
-    /// `format_commonmark` output, preserving the pre-M2-S5 behaviour.
-    #[cfg_attr(feature = "arbitrary", arbitrary(value = None))]
-    pub serialize_aozora:
-        Option<fn(&aozora_syntax::AozoraNode, entering: bool, &mut dyn fmt::Write) -> fmt::Result>,
 }
 
 impl Extension<'_> {

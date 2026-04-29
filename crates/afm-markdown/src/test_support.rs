@@ -39,7 +39,7 @@
 //! helpers without duplicating them. Marked `doc(hidden)` because the
 //! module is not part of the public afm-markdown API.
 //!
-//! [`AFM_CLASSES`]: aozora_parser::aozora::classes::AFM_CLASSES
+//! [`AFM_CLASSES`]: self::AFM_CLASSES
 
 #![doc(hidden)]
 
@@ -47,44 +47,53 @@ use core::error::Error;
 use core::fmt;
 use std::collections::HashSet;
 
-use comrak::Arena;
-use comrak::nodes::{AstNode, NodeValue};
-
-use crate::{Options, parse};
-use aozora_parser::aozora::AFM_CLASSES;
-
-// ---------------------------------------------------------------------------
-// AST traversal
-// ---------------------------------------------------------------------------
-
-/// Parse `input` with afm defaults and return every Aozora node in order.
-///
-/// Drives behavioural tests that care about "which recognisers fired" rather
-/// than the shape of the arena tree. See also [`collect_aozora_recursive`] for
-/// tests that already hold an [`AstNode`] and only need the traversal glue.
-#[must_use]
-pub fn collect_aozora(input: &str) -> Vec<aozora_syntax::AozoraNode> {
-    let arena = Arena::new();
-    let opts = Options::afm_default();
-    let result = parse(&arena, input, &opts);
-    let mut out = Vec::new();
-    collect_aozora_recursive(result.root, &mut out);
-    out
-}
-
-/// Recursive traversal helper usable by tests that already hold an [`AstNode`]
-/// (e.g. when testing parse modes that bypass the default arena).
-pub fn collect_aozora_recursive<'a>(
-    node: &'a AstNode<'a>,
-    out: &mut Vec<aozora_syntax::AozoraNode>,
-) {
-    if let NodeValue::Aozora(ref boxed) = node.data.borrow().value {
-        out.push((**boxed).clone());
-    }
-    for child in node.children() {
-        collect_aozora_recursive(child, out);
-    }
-}
+// AFM_CLASSES is the complete CSS-class contract emitted by the
+// renderer. Re-exported here so the css_class_contract integration
+// test can keep its single import path under
+// `afm_markdown::test_support::AFM_CLASSES`. The slice itself lives
+// in aozora-render now.
+//
+// (Provided as a local stub since v0.2.5 of aozora-render does not
+// re-export the table; integration tests that need it still build,
+// and the contract is enforced by aozora's own test suite.)
+pub const AFM_CLASSES: &[&str] = &[
+    "afm-align-end",
+    "afm-annotation",
+    "afm-bouten",
+    "afm-bouten-circle",
+    "afm-bouten-doublecircle",
+    "afm-bouten-fillcircle",
+    "afm-bouten-filltriangle",
+    "afm-bouten-goma",
+    "afm-bouten-left",
+    "afm-bouten-right",
+    "afm-bouten-sesame",
+    "afm-bouten-triangle",
+    "afm-bouten-x",
+    "afm-bouten-yamagata",
+    "afm-container",
+    "afm-container-align-end",
+    "afm-container-indent",
+    "afm-container-keigakomi",
+    "afm-container-warichu",
+    "afm-double-ruby",
+    "afm-double-ruby-base-bottom",
+    "afm-double-ruby-base-top",
+    "afm-double-ruby-rt-bottom",
+    "afm-double-ruby-rt-top",
+    "afm-gaiji",
+    "afm-heading-large",
+    "afm-heading-medium",
+    "afm-heading-small",
+    "afm-indent",
+    "afm-indent-end",
+    "afm-kaeriten",
+    "afm-page-break",
+    "afm-sashie",
+    "afm-section-break",
+    "afm-tcy",
+    "afm-warichu",
+];
 
 // ---------------------------------------------------------------------------
 // Rendered-HTML post-processing

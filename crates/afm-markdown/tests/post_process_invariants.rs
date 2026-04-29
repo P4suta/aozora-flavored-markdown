@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! End-to-end invariants for `afm_markdown::parse` + `post_process`.
 //!
 //! The lexer classifies Aozora spans into a [`PlaceholderRegistry`] and

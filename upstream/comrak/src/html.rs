@@ -399,27 +399,7 @@ pub fn format_node_default<T>(
         NodeValue::WikiLink(ref nwl) => render_wiki_link(context, node, entering, nwl),
         NodeValue::Subtext => render_subtext(context, node, entering),
         NodeValue::BlockDirective(ref nbd) => render_block_directive(context, node, entering, nbd),
-        NodeValue::Aozora(ref n) => render_aozora(context, n, entering),
     }
-}
-
-/// Render a `NodeValue::Aozora` via the registered render callback.
-/// When no callback is registered, fall back to an HTML comment carrying
-/// the canonical `xml_node_name` so the presence of the node is still
-/// visible in round-trip output.
-fn render_aozora<T>(
-    context: &mut Context<T>,
-    node: &aozora_syntax::AozoraNode,
-    entering: bool,
-) -> Result<ChildRendering, fmt::Error> {
-    if let Some(render_fn) = context.options.extension.render_aozora {
-        render_fn(node, entering, context)?;
-    } else if entering {
-        context.write_str("<!-- ")?;
-        context.write_str(node.xml_node_name())?;
-        context.write_str(" -->")?;
-    }
-    Ok(ChildRendering::HTML)
 }
 
 // Commonmark

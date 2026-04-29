@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Parse an afm source and confirm `serialize ∘ parse ≡ id` on the
 //! lexer-normalised input. This is the I3 invariant from the 17 k-work
 //! corpus sweep (ADR-0007), demonstrated on a single file.

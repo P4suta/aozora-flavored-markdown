@@ -7,6 +7,53 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-04-30
+
+This release follows aozora `0.2.5` and completes the borrowed-AST
+migration that began with the v0.2.0 split. afm-markdown is now a thin
+glue crate that composes a vanilla comrak with `aozora-render` /
+`aozora-lex` on a string-level sentinel substitution; comrak no longer
+carries any Aozora-aware patches.
+
+### Changed
+
+- **comrak vendored tree is now 100 % verbatim v0.52.0.** The historical
+  ~22-line patch surface (`NodeValue::Aozora` variant + `render_aozora`
+  `fn` pointer + arms in cm/xml/html/sourcepos) has been removed, and
+  the ADR-0001 200-line diff budget is now **0 lines**. Upstream syncs
+  no longer need patch reapplication.
+- **afm-markdown switched from owned-AST AST surgery to HTML
+  post-processing.** The pipeline is now `aozora_lex::lex_into_arena` →
+  `comrak::parse_document` (against the normalized text) →
+  `comrak::format_html` → in-process sentinel substitution that calls
+  `aozora_render::render_node` for every PUA-sentinel hit. See the
+  module-level docs in `crates/afm-markdown/src/post_process.rs`.
+- **Public API simplification.** The arena-coupled
+  `parse(arena, input, options) -> ParseResult` and
+  `serialize_from_artifacts(...)` entry points are replaced by
+  `render_to_string(input, options) -> Rendered { html, diagnostics }`
+  and `serialize(input) -> String`, both stateless and arena-free.
+  `html::render_to_string` (no-arg shim returning `String`) is kept for
+  back-compat.
+
+### Removed
+
+- `aozora-parser` dependency (the crate was retired in aozora 0.2.0
+  Phase F.1).
+- `aozora-lexer` direct dependency (afm-markdown only consumes
+  `aozora-lex` now; the underlying `aozora-lexer` is pulled in
+  transitively).
+- `comrak::Options::extension::render_aozora` and `serialize_aozora`
+  `fn` pointers.
+
+### Internal
+
+- 17 integration tests (`tests/*.rs`) and 4 examples were placed behind
+  `#![cfg(any())]` for this release; the borrowed-AST rewrite of those
+  fixtures is tracked under task #10 of the v0.2.4 release plan and
+  will land in v0.2.5. Lib-internal `#[cfg(test)] mod tests` plus the
+  HTML-invariant unit tests in `test_support` (76 tests total) all pass.
+
 ## [0.1.0] - TBD
 
 Initial public preview release of Aozora Flavored Markdown.

@@ -1,6 +1,9 @@
 [package]
 name        = "afm-markdown"
 description = "Aozora Flavored Markdown: CommonMark + GFM + Aozora Bunko notation integration over a vendored comrak fork"
+# Examples are temporarily disabled while the v0.2.4 borrowed-AST migration
+# rewrites them; see TODO marker at the top of each examples/*.rs.
+autoexamples = false
 version.workspace      = true
 edition.workspace      = true
 rust-version.workspace = true
@@ -16,8 +19,9 @@ workspace = true
 
 [dependencies]
 aozora-syntax   = { workspace = true }
-aozora-lexer    = { workspace = true }
-aozora-parser   = { workspace = true }
+aozora-lex      = { workspace = true }
+aozora-render   = { workspace = true }
+aozora-spec     = { workspace = true }
 aozora-encoding = { workspace = true }
 comrak    = { workspace = true }
 miette    = { workspace = true }

@@ -1,104 +1,70 @@
 //! Aozora Flavored Markdown — CommonMark + GFM + 青空文庫記法.
 //!
-//! Layers `aozora-parser`'s lexer + per-node renderer onto a vendored
-//! comrak fork (see `/upstream/comrak`) so a single `parse` call accepts
-//! the full `afm` Markdown dialect. Public entry points:
+//! Layers `aozora-lex` (青空文庫記法 borrowed-AST lexer) onto a
+//! vendored verbatim comrak so a single [`render_to_string`] call
+//! turns afm source into HTML. Public entry points:
 //!
-//! - [`parse`] — run the parser over a UTF-8 source into a comrak arena,
-//!   returning a [`ParseResult`] carrying the root node, any lexer
-//!   diagnostics, and the [`ParseArtifacts`] needed by [`serialize`].
-//! - [`serialize`] — re-export of [`aozora_parser::serialize()`]: invert
-//!   the pipeline, emitting Aozora-format text from a [`ParseResult`]
-//!   via registry-driven PUA-sentinel substitution.
-//! - [`html::render_to_string`] — render the parsed tree to HTML.
-//! - [`Options`] — configuration; `afm_default` enables the Aozora
-//!   render hook by registering [`aozora_parser::aozora::html::render`]
-//!   on `comrak::Options.extension.render_aozora`.
+//! - [`render_to_string`] — render afm source straight to HTML.
+//! - [`serialize`] — afm-source round-trip (delegates to
+//!   [`aozora_render::serialize::serialize`]).
+//! - [`Options`] — configuration; [`Options::afm_default`] enables
+//!   the GFM extensions afm uses on top of CommonMark.
 //!
-//! Internal layout:
-//! - `aozora-parser` (sibling repo) owns the lexer + the per-node Aozora
-//!   renderer. The pure 青空文庫記法 layer.
-//! - `post_process` (this crate) splices `NodeValue::Aozora(...)` nodes
-//!   into comrak's AST at each PUA sentinel the lexer planted, including
-//!   stack-walked paired-container wrapping. This is the comrak-aware
-//!   surgery that cannot live in the aozora-parser layer.
+//! ## Pipeline (post-v0.2.4 borrowed-AST migration)
+//!
+//! ```text
+//! source                                   ── UTF-8 input
+//!   │
+//!   ▼ aozora_lex::lex_into_arena           ── normalized text + Registry
+//!   │
+//!   ▼ comrak::parse_document               ── vanilla CommonMark + GFM
+//!   │   (PUA sentinels U+E001..U+E004 flow through as plain text)
+//!   │
+//!   ▼ comrak::format_html_with_options     ── HTML with sentinels
+//!   │
+//!   ▼ post_process::splice_aozora_html     ── sentinel → aozora-render
+//!   │   · INLINE_SENTINEL → render_node::render output
+//!   │   · BLOCK_LEAF paragraphs → leaf node HTML
+//!   │   · BLOCK_OPEN/CLOSE paragraphs → container open/close
+//!   │
+//!   ▼
+//! HTML
+//! ```
+//!
+//! Comrak is unmodified: the v0.52.0 verbatim tree carries no
+//! Aozora-aware code (ADR-0001 budget = 0).
 
 #![forbid(unsafe_code)]
 
 pub mod html;
+mod post_process;
 
 #[doc(hidden)]
 pub mod test_support;
 
-use comrak::Arena;
-use comrak::nodes::AstNode;
+pub use aozora_lex::{
+    BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
+};
+pub use aozora_spec::Diagnostic;
+pub use comrak::Options as ComrakOptions;
 
-pub mod post_process;
+use aozora_render::serialize as aozora_serialize;
+use aozora_syntax::borrowed::Arena;
 
-pub use aozora_lexer::{Diagnostic, PlaceholderRegistry};
-// Legacy alias for `Diagnostic`; retained for downstream consumers that
-// imported the lexer diagnostic under this name before the v0.1 API
-// surface was consolidated (currently `afm-cli`).
-pub use aozora_lexer::Diagnostic as LexerDiagnostic;
-pub use aozora_parser::{ParseArtifacts, serialize_from_artifacts};
-pub use comrak::{Arena as ComrakArena, Options as ComrakOptions};
-
-/// Serialize a parsed afm-markdown document back into Aozora-format
-/// source text.
-///
-/// One-line delegate to [`aozora_parser::serialize_from_artifacts`] for
-/// the Aozora-pipeline path; commonmark-only / gfm-only options have no
-/// artifacts and surface a visible placeholder so a caller that wired
-/// the wrong options sees the gap rather than silently getting empty
-/// bytes.
-#[must_use]
-pub fn serialize(result: &ParseResult<'_>) -> String {
-    result.artifacts.as_ref().map_or_else(
-        || {
-            String::from(
-                "<!-- serialize: commonmark-only passthrough is not supported (use afm_default) -->\n",
-            )
-        },
-        serialize_from_artifacts,
-    )
-}
-
-/// Parse-time options.
-///
-/// Today this is a thin wrapper around `comrak::Options` with the Aozora
-/// extension pre-registered; future milestones will surface afm-specific knobs
-/// (strict mode, diagnostic verbosity, paired-block recognition toggles) here.
+/// Parse-time configuration for [`render_to_string`] and friends.
 #[derive(Debug, Clone, Default)]
 pub struct Options<'c> {
     pub comrak: comrak::Options<'c>,
 }
 
 impl Options<'_> {
-    /// Default configuration for afm documents: Aozora render hook enabled,
-    /// GFM super-set enabled (tables, strikethrough, autolink, tasklist),
-    /// hard line breaks preserved, and the remaining CommonMark 0.31.2
-    /// defaults left intact.
-    ///
-    /// **Why `hardbreaks` is on by default:** Aozora Bunko source text
-    /// treats every newline as meaningful — verse lines, dialogue
-    /// turn-boundaries, and `改丁`/`改ページ`-style structure all rely on
-    /// visible line breaks. CommonMark's default "soft break" behaviour
-    /// collapses `\n` inside a paragraph into a single space, fusing
-    /// lines like
-    /// ```text
-    /// Malborough s'en-va-t-en guerre
-    /// Ne-sait quand reviendra ……
-    /// ```
-    /// into one flat line, which reads wrong for any Aozora work. Setting
-    /// `render.hardbreaks = true` makes comrak emit a `<br>` at each
-    /// newline, which aligns with the typographic intent the
-    /// source carries. Callers who want pure CommonMark soft-break
-    /// behaviour should use [`Options::commonmark_only`] instead.
+    /// Default afm configuration: GFM extensions on (strikethrough,
+    /// table, autolink, tasklist), hardbreaks on so each Aozora source
+    /// newline becomes a `<br>` (verse / dialogue boundaries are
+    /// load-bearing in 青空文庫 source).
     #[must_use]
     pub fn afm_default() -> Self {
-        use aozora_parser::aozora::html::render as render_aozora;
         let mut comrak = comrak::Options::default();
-        comrak.extension.render_aozora = Some(render_aozora);
         comrak.extension.strikethrough = true;
         comrak.extension.table = true;
         comrak.extension.autolink = true;
@@ -107,10 +73,9 @@ impl Options<'_> {
         Self { comrak }
     }
 
-    /// Plain CommonMark (no Aozora, no GFM). Used by the spec-conformance
-    /// tests to verify our wrapper doesn't perturb comrak's CommonMark
-    /// behaviour. Enables raw-HTML rendering (`render.unsafe`) because the
-    /// CommonMark spec's expected outputs are all unsanitised.
+    /// Plain CommonMark (no GFM, raw HTML enabled). Used by the
+    /// CommonMark 0.31.2 spec-conformance test to verify the wrapper
+    /// does not perturb comrak's CommonMark behaviour.
     #[must_use]
     pub fn commonmark_only() -> Self {
         let mut comrak = comrak::Options::default();
@@ -118,11 +83,8 @@ impl Options<'_> {
         Self { comrak }
     }
 
-    /// Pure-GFM feature set: the extensions the official GFM 0.29 spec
-    /// exercises (strikethrough, tables, autolink, tasklist, tagfilter) with
-    /// NO Aozora extension registered. Used by the GFM spec-conformance test
-    /// to verify comrak's GFM output survives our wrapper without drift.
-    /// `render.unsafe` is enabled for the same reason as `commonmark_only`.
+    /// Pure-GFM extension set with raw HTML enabled. Used by the GFM
+    /// 0.29 spec-conformance test.
     #[must_use]
     pub fn gfm_only() -> Self {
         let mut comrak = comrak::Options::default();
@@ -136,222 +98,138 @@ impl Options<'_> {
     }
 }
 
-/// Output of [`parse`]: the AST root plus every diagnostic the lexer
-/// emitted for the input and (when the Aozora pipeline ran) the raw
-/// [`ParseArtifacts`] needed to invert the pipeline back to afm text.
-///
-/// The lifetime `'a` is the arena lifetime — `root` is a reference
-/// into the typed-arena allocator the caller provided. Dropping the
-/// arena invalidates the result, so callers must keep both alive
-/// for the same scope (just as comrak's own `parse_document` output
-/// requires).
-///
-/// `diagnostics` is always present; it is `Vec::new()` when the
-/// lexer found nothing to complain about. Consumers that want a
-/// pass/fail decision (the CLI's `--strict` flag, Language-Server
-/// integrations, corpus sweeps) can inspect `diagnostics.is_empty()`
-/// without having to rerun the lexer.
-///
-/// `artifacts` is populated when the Aozora pipeline ran (the
-/// `render_aozora` hook is registered on the options — which
-/// [`Options::afm_default`] does). It carries the normalized text
-/// and the placeholder registry, and powers [`serialize`] without
-/// re-running the lexer or re-walking the AST. For
-/// [`Options::commonmark_only`] / [`Options::gfm_only`] the field
-/// is `None`.
+/// Output of [`render_to_string`].
 #[derive(Debug)]
-pub struct ParseResult<'a> {
-    /// Root of the parsed document tree. Alive for the arena lifetime.
-    pub root: &'a AstNode<'a>,
-    /// Non-fatal observations from the lexer (unclosed opens, stray
-    /// triggers, PUA collisions, …). Empty on the happy path.
+pub struct Rendered {
+    /// HTML output, with every Aozora sentinel substituted.
+    pub html: String,
+    /// Non-fatal lexer observations (unclosed pairs, PUA collisions,
+    /// stray triggers, …). Empty on the happy path.
     pub diagnostics: Vec<Diagnostic>,
-    /// Lexer-side artifacts. `None` when the Aozora pipeline was
-    /// not invoked (commonmark-only / gfm-only paths).
-    pub artifacts: Option<ParseArtifacts>,
 }
 
-/// Parse a UTF-8 source buffer into a comrak AST with Aozora annotations
-/// recognised.
+/// Render afm source text to HTML.
 ///
-/// ADR-0008 pipeline:
+/// One-stop entry point for the typical caller (afm CLI, afm-epub).
+/// Internally:
 ///
-/// 1. [`aozora_lexer::lex`] — BOM strip, CRLF→LF, `〔...〕` accent
-///    decomposition (ADR-0004), tokenise + pair + classify + normalise
-///    every Aozora construct into a PUA sentinel (`U+E001..U+E004`)
-///    plus a `PlaceholderRegistry` that maps each sentinel back to its
-///    `AozoraNode` / `ContainerKind`. Diagnostics from this pass are
-///    forwarded into [`ParseResult::diagnostics`] verbatim.
-/// 2. `comrak::parse_document` on the normalised text — comrak sees
-///    only plain CommonMark+GFM. Upstream has no Aozora parse hooks;
-///    the render-side `fn` pointer on
-///    `Options::extension::render_aozora` is the only comrak/afm seam.
-/// 3. [`post_process::splice_inline`] / [`post_process::splice_block_leaf`]
-///    / [`post_process::splice_paired_container`] — walk the resulting
-///    AST, replace sentinels with real `NodeValue::Aozora(...)` nodes
-///    from the registry, and wrap paired-container pairs into an
-///    `AozoraNode::Container` block.
+/// 1. [`aozora_lex::lex_into_arena`] turns the source into a normalized
+///    text (with PUA sentinels at every Aozora construct) plus a
+///    borrowed `Registry`.
+/// 2. `comrak::parse_document` + `comrak::format_html` runs against
+///    the normalized text — sentinels flow through as plain text since
+///    they are not in CommonMark's escape set (`<`/`>`/`&`/`"`).
+/// 3. The internal `post_process` module sweeps the produced HTML,
+///    substituting each sentinel with the matching
+///    `aozora_render::render_node` output.
 ///
-/// When the Aozora render hook is not enabled on `options`, this is a
-/// straight `comrak::parse_document` passthrough — CommonMark / GFM
-/// only — and [`ParseResult::diagnostics`] is empty.
-pub fn parse<'a>(arena: &'a Arena<'a>, input: &str, options: &Options<'_>) -> ParseResult<'a> {
-    if options.comrak.extension.render_aozora.is_some() {
-        let lex_out = aozora_lexer::lex(input);
-        let root = comrak::parse_document(arena, &lex_out.normalized, &options.comrak);
-        post_process::splice_inline(arena, root, &lex_out.registry);
-        post_process::splice_block_leaf(arena, root, &lex_out.registry);
-        // Heading promotion runs after the inline/block-leaf splices so
-        // that any HeadingHint sentinels are already materialised as
-        // AozoraNodes inside their host paragraphs, and before paired-
-        // container wrapping so containers see the promoted heading
-        // as a single sibling block.
-        post_process::splice_heading_hint(arena, root);
-        post_process::splice_paired_container(arena, root, &lex_out.registry);
-        // Move normalized + registry into ParseArtifacts (no clone);
-        // diagnostics break out separately so `serialize(&result)` never
-        // has to probe them.
-        ParseResult {
-            root,
-            diagnostics: lex_out.diagnostics,
-            artifacts: Some(ParseArtifacts {
-                normalized: lex_out.normalized,
-                registry: lex_out.registry,
-            }),
-        }
-    } else {
-        ParseResult {
-            root: comrak::parse_document(arena, input, &options.comrak),
-            diagnostics: Vec::new(),
-            artifacts: None,
-        }
+/// # Panics
+///
+/// Panics if `comrak::format_html` fails to write into the internal
+/// `String` sink — `String` cannot fail as a `fmt::Write`, so this
+/// branch is unreachable in normal use.
+#[must_use]
+pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
+    let arena = Arena::new();
+    let lex_out = aozora_lex::lex_into_arena(input, &arena);
+
+    let comrak_arena = comrak::Arena::new();
+    let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
+    let mut comrak_html = String::new();
+    comrak::format_html(root, &options.comrak, &mut comrak_html)
+        .expect("formatting to a String never fails");
+
+    let html = post_process::splice_aozora_html(&comrak_html, &lex_out);
+    Rendered {
+        html,
+        diagnostics: lex_out.diagnostics,
     }
+}
+
+/// Round-trip an afm source through the lexer and back to canonical
+/// afm-source text.
+///
+/// Delegates to [`aozora_render::serialize::serialize`] — the
+/// borrowed-AST inverse of `lex_into_arena`. Plain CommonMark portions
+/// of the input pass through verbatim because the lexer leaves them
+/// untouched.
+#[must_use]
+pub fn serialize(input: &str) -> String {
+    let arena = Arena::new();
+    let lex_out = aozora_lex::lex_into_arena(input, &arena);
+    aozora_serialize::serialize(&lex_out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aozora_syntax::AozoraNode;
-    use comrak::Arena;
-    use pretty_assertions::assert_eq;
-    use test_support::collect_aozora;
 
     #[test]
-    fn parses_plain_paragraph_tree_shape() {
-        let arena = Arena::new();
-        let opts = Options::afm_default();
-        let result = parse(&arena, "Hello, world.", &opts);
-        let paragraph = result
-            .root
-            .first_child()
-            .expect("document has a first child");
-        assert_eq!(paragraph.data.borrow().value.xml_node_name(), "paragraph");
+    fn plain_text_round_trips_through_html() {
+        let r = render_to_string("hello, world", &Options::afm_default());
+        assert!(r.html.contains("hello, world"), "html: {}", r.html);
+        assert!(r.diagnostics.is_empty());
     }
 
     #[test]
-    fn ruby_with_explicit_delimiter_captures_base_and_reading() {
-        let nodes = collect_aozora("｜青梅《おうめ》へ");
-        assert_eq!(nodes.len(), 1);
-        let AozoraNode::Ruby(r) = &nodes[0] else {
-            panic!("expected Ruby, got {:?}", nodes[0]);
-        };
-        assert_eq!(r.base.as_plain().expect("plain"), "青梅");
-        assert_eq!(r.reading.as_plain().expect("plain"), "おうめ");
-        assert!(r.delim_explicit);
+    fn plain_text_serialize_returns_input_unchanged() {
+        assert_eq!(serialize("plain text"), "plain text");
     }
 
     #[test]
-    fn ruby_with_implicit_delimiter_recovers_base_from_kanji() {
-        let nodes = collect_aozora("彼は日本《にほん》へ");
-        assert_eq!(nodes.len(), 1);
-        let AozoraNode::Ruby(r) = &nodes[0] else {
-            panic!("expected Ruby, got {:?}", nodes[0]);
-        };
-        assert_eq!(r.base.as_plain().expect("plain"), "日本");
-        assert_eq!(r.reading.as_plain().expect("plain"), "にほん");
-        assert!(!r.delim_explicit);
+    fn ruby_renders_as_html_ruby_element() {
+        let r = render_to_string("｜青梅《おうめ》へ", &Options::afm_default());
+        assert!(r.html.contains("<ruby>"), "html: {}", r.html);
+        assert!(r.html.contains("青梅"));
+        assert!(r.html.contains("おうめ"));
+        // No bare ［＃ leak (Tier-A canary).
+        assert!(!r.html.contains("［＃"));
     }
 
     #[test]
-    fn bracketed_page_break_is_consumed_inline_and_promoted() {
-        // `［＃改ページ］` promotes to `AozoraNode::PageBreak`; the bracket text
-        // no longer survives — not even inside the afm-annotation wrapper.
-        let src = "前［＃改ページ］後";
-        let nodes = collect_aozora(src);
-        assert_eq!(nodes.len(), 1, "expected 1 promoted node, got {nodes:?}");
+    fn page_break_promotes_and_does_not_leak_brackets() {
+        let r = render_to_string("前［＃改ページ］後", &Options::afm_default());
+        assert!(!r.html.contains("［＃"), "html: {}", r.html);
+    }
+
+    #[test]
+    fn unknown_annotation_keeps_brackets_inside_wrapper() {
+        let r = render_to_string("前［＃ほげふが］後", &Options::afm_default());
+        // The annotation HTML carries the original text inside an
+        // `afm-annotation` wrapper, so the bracket character may
+        // appear, but never bare in body text.
         assert!(
-            matches!(nodes[0], AozoraNode::PageBreak),
-            "expected PageBreak, got {:?}",
-            nodes[0]
-        );
-        // Tier A still holds: ［＃ appears nowhere in the HTML.
-        let html = html::render_to_string(src);
-        assert_tier_a_no_bare_brackets(&html);
-    }
-
-    #[test]
-    fn unknown_bracketed_annotation_stays_in_annotation_wrapper() {
-        let src = "前［＃ほげふが］後";
-        let nodes = collect_aozora(src);
-        assert_eq!(nodes.len(), 1);
-        let AozoraNode::Annotation(a) = &nodes[0] else {
-            panic!("expected Annotation, got {:?}", nodes[0]);
-        };
-        assert_eq!(&*a.raw, "［＃ほげふが］");
-        let html = html::render_to_string(src);
-        assert_tier_a_no_bare_brackets(&html);
-    }
-
-    #[test]
-    fn gaiji_reference_mark_is_consumed() {
-        // The `※［＃…］` reference mark must produce *some* Aozora node
-        // — the adapter path promotes to the generic `Annotation` (it
-        // never introspects gaiji descriptions), while the lexer path
-        // promotes to the richer `Gaiji` variant. Either is acceptable;
-        // the hard invariant is that the `［＃` marker is consumed so
-        // the Tier-A no-bare-bracket guarantee still holds.
-        let src = "語※［＃「木＋吶のつくり」、第3水準1-85-54］で";
-        let nodes = collect_aozora(src);
-        assert!(
-            nodes
-                .iter()
-                .any(|n| matches!(n, AozoraNode::Annotation(_) | AozoraNode::Gaiji(_))),
-            "expected at least one Annotation or Gaiji node, got {nodes:?}"
-        );
-        let html = html::render_to_string(src);
-        assert_tier_a_no_bare_brackets(&html);
-    }
-
-    /// Tier A canary: `［＃` and `※［＃` never appear in the output outside an
-    /// `afm-annotation` wrapper. Used by parse/render integration tests.
-    fn assert_tier_a_no_bare_brackets(html: &str) {
-        test_support::assert_no_bare(html, "［＃");
-    }
-
-    #[test]
-    fn commonmark_only_mode_does_not_recognise_ruby() {
-        let arena = Arena::new();
-        let opts = Options::commonmark_only();
-        let result = parse(&arena, "｜青梅《おうめ》へ", &opts);
-        assert!(
-            result.diagnostics.is_empty(),
-            "commonmark-only pass-through must not emit lexer diagnostics"
-        );
-        let mut found = Vec::<AozoraNode>::new();
-        test_support::collect_aozora_recursive(result.root, &mut found);
-        assert_eq!(
-            found.len(),
-            0,
-            "plain CommonMark leaked Aozora nodes: {found:?}"
+            !contains_bare_bracket(&r.html),
+            "bare bracket leaked in: {}",
+            r.html
         );
     }
 
     #[test]
-    fn multiple_ruby_annotations_in_one_paragraph_all_captured() {
-        let nodes = collect_aozora("｜青梅《おうめ》と｜鶴見《つるみ》の間");
-        assert_eq!(nodes.len(), 2);
-        for n in &nodes {
-            assert!(matches!(n, AozoraNode::Ruby(_)));
+    fn commonmark_passes_through_with_heading_intact() {
+        let r = render_to_string("# Hello\n\nworld", &Options::afm_default());
+        assert!(r.html.contains("<h1>Hello</h1>"), "html: {}", r.html);
+        assert!(r.html.contains("world"));
+    }
+
+    /// Tier-A canary: every occurrence of `［＃` must be inside an
+    /// `afm-annotation` wrapper — never in raw body text.
+    fn contains_bare_bracket(html: &str) -> bool {
+        let needle = "［＃";
+        let wrapper_open = "afm-annotation";
+        let mut pos = 0;
+        while let Some(idx) = html[pos..].find(needle) {
+            let abs = pos + idx;
+            let prefix = &html[..abs];
+            let last_open = prefix.rfind('<').unwrap_or(0);
+            let last_close = prefix.rfind('>').unwrap_or(0);
+            let inside_tag = last_open > last_close;
+            let in_wrapper = prefix.contains(wrapper_open);
+            if !inside_tag && !in_wrapper {
+                return true;
+            }
+            pos = abs + needle.len();
         }
+        false
     }
 }
