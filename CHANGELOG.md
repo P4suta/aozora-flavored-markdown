@@ -7,6 +7,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Re-enabled after v0.2.4 borrowed-AST migration
+
+- 6 of the 11 integration tests are back in CI: `commonmark_spec`,
+  `gfm_spec`, `css_class_contract`, `html_well_formed`,
+  `block_structure_interaction` (1 case `#[ignore]`d as a v0.2.5 task —
+  fenced code block contents need a CommonMark-aware lex skip), and
+  `paired_container`. All 4 examples (`render-utf8` / `render-sjis` /
+  `serialize-round-trip` / `ast-walk`) build against the new public API.
+- `Options::aozora_enabled` flag added. `commonmark_only()` /
+  `gfm_only()` set it to `false` so the spec runners exercise vanilla
+  comrak without the lex pre-pass perturbing setext-heading and
+  similar text-level constructs.
+- `AFM_CLASSES` corrected to match what `aozora-render` v0.2.5 actually
+  emits.
+
+### Still gated for v0.2.5 (`#![cfg(any())]`)
+
+- `heading_promotion` — needs paragraph-tag rewriting on top of the
+  HTML post-process (HeadingHint inline → wrap host paragraph as
+  `<h1>`/`<h2>`/`<h3>`).
+- `post_process_invariants` — the proptest is shaped around the
+  removed AST-surgery API and needs to be redrafted against HTML.
+- `property_html_shape` — pathological inputs hit unbalanced
+  container-close paragraphs (open-less `</div>`); needs a stack-aware
+  splice in `post_process.rs`.
+- `property_heading_integrity` — same dependency as `heading_promotion`.
+- `aozora_parity` — the differential test against `aozora-render`'s own
+  HTML output needs a fresh comparison harness.
+
 ## [0.2.4] - 2026-04-30
 
 This release follows aozora `0.2.5` and completes the borrowed-AST

@@ -1,8 +1,30 @@
 # 0001. Fork comrak and vendor it in-tree
 
-- Status: accepted
+- Status: accepted, **diff budget revised to 0 in v0.2.4 (2026-04-30)**
 - Date: 2026-04-23
+- Last revised: 2026-04-30
 - Tags: architecture, parser, fork
+
+## v0.2.4 status update (2026-04-30)
+
+The hard **200-line diff budget** described below was held until afm
+v0.2.3. In v0.2.4 the budget collapsed to **0 lines**: the historical
+patch surface (`NodeValue::Aozora` variant, `render_aozora` /
+`serialize_aozora` `fn` pointers in `Options::extension`, and the
+matching arms in `cm.rs` / `xml.rs` / `html.rs` /
+`tests/sourcepos.rs`) was removed when afm-markdown switched to
+post-comrak HTML sentinel substitution (see ADR-0008 historical
+context and `crates/afm-markdown/src/post_process.rs` module docs).
+
+Practical effect:
+- `upstream/comrak/` is now bit-for-bit identical to upstream `v0.52.0`.
+- `cargo xtask upstream-sync <tag>` is a pure tree replace; no patch
+  reapplication step.
+- `just upstream-diff` only verifies the sha pin in `COMRAK_SHA`.
+
+The original 200-line budget rationale (hook-minimal design tolerates
+quarterly drift) generalises naturally to a 0-line policy: with no
+hooks, three-way merges have nothing to conflict against.
 
 ## Context
 

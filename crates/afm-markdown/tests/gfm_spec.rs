@@ -1,4 +1,3 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! GitHub Flavored Markdown 0.29 — extension-level conformance.
 //!
 //! Runs every `spec/gfm-0.29-gfm.json` example that the spec **tagged** with
@@ -26,8 +25,7 @@
 
 use std::collections::BTreeSet;
 
-use afm_markdown::{Options, html::render_root_to_string, parse};
-use comrak::Arena;
+use afm_markdown::{Options, render_to_string};
 use serde::Deserialize;
 
 const FIXTURE: &str = include_str!("../../../spec/gfm-0.29-gfm.json");
@@ -55,6 +53,8 @@ fn load() -> Vec<SpecExample> {
 
 /// Build per-example Options with only the declared GFM extension enabled.
 /// `render.unsafe` is always on so raw HTML in expected output survives.
+/// `aozora_enabled = false` because the GFM spec runner verifies the
+/// wrapper does not perturb upstream comrak behaviour.
 fn options_for(extension: &str) -> Options<'static> {
     let mut comrak = comrak::Options::default();
     comrak.render.r#unsafe = true;
@@ -66,7 +66,10 @@ fn options_for(extension: &str) -> Options<'static> {
         "disabled" => comrak.extension.tasklist = true,
         other => panic!("unknown GFM extension tag in fixture: {other}"),
     }
-    Options { comrak }
+    Options {
+        comrak,
+        aozora_enabled: false,
+    }
 }
 
 #[test]
@@ -91,9 +94,7 @@ fn gfm_0_29_extension_pass() {
         }
         let tag = ex.extension.as_deref().expect("filtered");
         let opts = options_for(tag);
-        let arena = Arena::new();
-        let root = parse(&arena, &ex.markdown, &opts).root;
-        let actual = render_root_to_string(root, &opts);
+        let actual = render_to_string(&ex.markdown, &opts).html;
         if actual != ex.html {
             failures.push(format!(
                 "example {} (section {:?}, extension {tag:?}):\n  markdown: {:?}\n  expected: {:?}\n  actual:   {:?}",

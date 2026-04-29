@@ -1,18 +1,16 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Parse an afm source and confirm `serialize ∘ parse ≡ id` on the
-//! lexer-normalised input. This is the I3 invariant from the 17 k-work
-//! corpus sweep (ADR-0007), demonstrated on a single file.
+//! lexer-normalised input. This is the I3 invariant from the corpus
+//! sweep (ADR-0007), demonstrated on a single file.
 //!
 //! Run:
 //!
-//!     cargo run --example serialize-round-trip -p afm-parser -- input.md
+//!     cargo run --example serialize-round-trip -p afm-markdown -- input.md
 
 use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-use afm_markdown::{Options, parse, serialize};
-use comrak::Arena;
+use afm_markdown::serialize;
 
 fn main() -> ExitCode {
     let Some(path) = env::args().nth(1) else {
@@ -28,10 +26,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let arena = Arena::new();
-    let options = Options::afm_default();
-    let parsed = parse(&arena, &input, &options);
-    let serialised = serialize(&parsed);
+    let serialised = serialize(&input);
 
     // Mirror the lexer's sanitize phase: strip UTF-8 BOM, CRLF → LF.
     // Anything the lexer normalises cannot round-trip byte-for-byte to

@@ -1,372 +1,326 @@
 # afm — Claude Code project guide
 
-Opening note for any Claude Code session that enters this repo: read this file
-first. It is the shortest path to productive work.
+Opening note for any Claude Code session that enters this repo: read this
+file first. It is the shortest path to productive work.
 
 ## What this is
 
-**aozora-flavored-markdown (afm)**: a Rust fork of
-[comrak 0.52.0](https://github.com/kivikakk/comrak) that layers Aozora Bunko
-(青空文庫) typography — ruby, bouten, 縦中横, `［＃...］` annotations, gaiji,
-accent decomposition — on top of CommonMark + GFM. Ships as a single binary
-and an embeddable library.
+**aozora-flavored-markdown (afm)**: a Rust integration layer that composes
+[comrak 0.52.0](https://github.com/kivikakk/comrak) (vanilla, vendored)
+with the borrowed-AST 青空文庫記法 parser shipped in
+[`P4suta/aozora`](https://github.com/P4suta/aozora) v0.2.5+. afm produces
+HTML where CommonMark + GFM and Aozora Bunko typography (ruby, bouten,
+縦中横, `［＃...］` annotations, gaiji, accent decomposition) coexist
+correctly. Ships as the `afm` binary and an embeddable library.
 
 Hard guarantees:
-- **100 % CommonMark 0.31.2 + GFM compatibility** (verbatim spec tests pass,
-  652 + GFM cases).
-- **Aozora Bunko compatibility target**: every notation at
-  <https://www.aozora.gr.jp/annotation/> parses; the 『罪と罰』 fixture is the
-  day-1 golden (Tier A = no bare `［＃` leaks in the HTML output).
-- **Single binary**, no runtime process dependencies.
-- **Pure-functional parse pipeline** (ADR-0008): zero parse-time hooks in
-  upstream comrak; Aozora recognition lives entirely in `afm-lexer` + an
-  AST-splice pass in `afm-parser`.
-- **TDD with C1 branch coverage** on the Rust crates, layered in from every
-  angle: unit tests per phase, integration fixtures, property tests,
-  cross-layer invariants (Tier-A canary, HTML-escape, post-process surgery),
-  17 k-work corpus sweep, end-to-end CLI tests.
+- **100 % CommonMark 0.31.2 + GFM compatibility** — comrak is verbatim
+  v0.52.0; the spec runners are inherited unmodified.
+- **Aozora Bunko compatibility** — every notation at
+  <https://www.aozora.gr.jp/annotation/> that the upstream `aozora`
+  parser recognises is rendered correctly. Tier-A invariant (no bare
+  `［＃` leak in HTML output) is preserved end-to-end.
+- **Zero comrak modifications.** ADR-0001's historical 200-line patch
+  budget collapsed to 0 in v0.2.4; the vendored `upstream/comrak/` tree
+  stays bit-for-bit identical to upstream.
+- **Single binary, no runtime process dependencies.**
 
-## Architecture (ADR-0008)
-
-The parse pipeline is a three-step funnel — Aozora is fully resolved before
-comrak runs, and spliced back into the AST afterwards. Upstream comrak has
-**no Aozora parse hooks** and exactly one render-side `fn` pointer seam (with
-a matching serialize-side hook deliberately *not* taken — the serializer
-inverts the pipeline directly).
+## Architecture (post-v0.2.4)
 
 ```text
 source (UTF-8 or SJIS)
    │
-   ▼ afm-encoding::decode   (if SJIS)
+   ▼ aozora_encoding::decode_sjis  (if SJIS)
    │
-┌──┴───────────── afm-lexer::lex  (pure function, 7 phases) ──────────────┐
-│ 0 sanitize   BOM / CRLF→LF / 〔…〕 accent / PUA collision scan           │
-│ 1 events     linear tokenise of Aozora trigger glyphs                    │
-│ 2 pair       balanced-stack pairing (brackets / quotes / ruby / 〔〕)    │
-│ 3 classify   per-shape → AozoraNode + ContainerKind (with               │
-│              Annotation{Unknown} fallback so every `［＃…］` is claimed)  │
-│ 4 normalize  replace each Aozora span with a PUA sentinel                │
-│              (U+E001 inline / U+E002 block-leaf /                         │
-│               U+E003 block-open / U+E004 block-close, block sentinels    │
-│               padded with `\n\n` so comrak reads them as standalone p)   │
-│ 5 registry   binary-search lookup from sentinel position to node         │
-│ 6 validate   V1-V3 invariants (no `［＃` leak, every PUA recorded, …)    │
+┌──┴── aozora_lex::lex_into_arena (borrowed-AST pipeline) ────────────────┐
+│ Phase 0  sanitize   BOM / CRLF→LF / 〔…〕 accent / PUA collision scan   │
+│ Phase 1  events     SIMD trigger-byte tokenise (aozora-scan)            │
+│ Phase 2  pair       balanced-stack bracket / ruby / quote pairing        │
+│ Phase 3  classify   borrowed AozoraNode<'arena> + ContainerKind, with   │
+│                     Annotation{Unknown} catch-all so every `［＃…］`    │
+│                     is claimed                                           │
+│ Fused walk (post Phase F.3): emits PUA-rewritten text into the arena +   │
+│ builds the four EytzingerMap registry tables                             │
 │                                                                          │
-│ Output: LexOutput { normalized, registry, diagnostics }                  │
+│ Output: BorrowedLexOutput<'arena> { normalized, registry, diagnostics }  │
 └───┬──────────────────────────────────────────────────────────────────────┘
     │
-    ▼  comrak::parse_document  (vanilla CommonMark + GFM; no Aozora hooks)
+    ▼  comrak::parse_document   (vanilla CommonMark + GFM; sentinel chars
+    │                            U+E001..U+E004 flow through as plain
+    │                            UTF-8 — they are not in `<>&"'` escape
+    │                            set)
     │
-┌───┴────── afm-parser::post_process  (AST surgery) ──────────────────────┐
-│ splice_inline            : every Text node with U+E001 is split and      │
-│                             the sentinel replaced with Aozora(...)       │
-│ splice_block_leaf        : every Paragraph whose single child is U+E002  │
-│                             is replaced with the Aozora block node       │
-│ splice_paired_container  : stack-walk over U+E003/U+E004 sentinel        │
-│                             paragraphs, wrapping siblings into an        │
-│                             AozoraNode::Container block node             │
+    ▼  comrak::format_html       (vanilla; sentinels survive into output)
+    │
+┌───┴── afm_markdown::post_process::splice_aozora_html ────────────────────┐
+│ Pre-flatten the registry into Vec<NodeRef<'a>> in source order; then     │
+│ scan the comrak HTML once:                                               │
+│                                                                          │
+│   • `<p>U+E002</p>` paragraph  → render_node(Leaf, true)                 │
+│   • `<p>U+E003</p>` paragraph  → render_node(Container, true)            │
+│   • `<p>U+E004</p>` paragraph  → render_node(Container, false)           │
+│   • U+E001 inside paragraph    → render_node(Inline, true)               │
+│                                                                          │
+│ aozora_render::render_node::render is the per-node HTML writer; it       │
+│ owns every `afm-*` CSS class emitted.                                    │
 └───┬──────────────────────────────────────────────────────────────────────┘
-    │
-    ▼  comrak HTML renderer  (NodeValue::Aozora(_) arm → afm render fn,
-    │                         entering flag for Container open/close)
     │
     ▼
    HTML
 ```
 
-The full-round-trip path reuses the lexer's output as its inverse input:
+The serializer path is just a delegate:
 
 ```text
-ParseResult { root, diagnostics, artifacts: { normalized, registry } }
-                                            │
-                                            ▼  afm-parser::serialize
-                                            │   (single O(n) byte sweep;
-                                            │    match_indices finds each
-                                            │    PUA sentinel; registry
-                                            │    substitutes the original
-                                            │    afm markup back in)
-                                            ▼
-                                        afm text
+input
+   │
+   ▼ aozora_lex::lex_into_arena
+   │
+   ▼ aozora_render::serialize::serialize  (round-trips byte-equal markup)
+   │
+   ▼
+afm-source text
 ```
 
-### Crates
+### Workspace crates
 
 | Crate | Responsibility |
 |---|---|
-| `afm-syntax` | `AozoraNode` AST (`Ruby` / `Bouten` / `TateChuYoko` / `Gaiji` / `Kaeriten` / `Annotation` / `PageBreak` / `SectionBreak` / `Indent` / `AlignEnd` / `Sashie` / `AozoraHeading` / `DoubleRuby` / `Container` / …), `Content` / `Segment`, 114-entry accent table, `ContainerKind`, `BoutenKind` (11 variants), `BoutenPosition`. |
-| `afm-lexer` | 7-phase pure-functional Aozora recogniser. `lex(source) → LexOutput`. The project's core parsing engine. |
-| `afm-parser` | `parse()` = lex + comrak + `post_process` splice, returning `ParseResult { root, diagnostics, artifacts }`. `serialize(&ParseResult) → String` inverts the pipeline. Owns the HTML renderer under `aozora/html.rs` (registered as a `fn` pointer on `comrak::Options::extension::render_aozora`). |
-| `afm-encoding` | Shift_JIS decoding, UTF-8 BOM sniff, Gaiji resolution via a compile-time `phf::Map` keyed by mencode (`第3水準…` / `U+XXXX`) with description fallback. |
-| `afm-cli` | `afm` binary — `render` / `check` subcommands with `--encoding {utf8,sjis}` and global `--strict` (fail on any lexer diagnostic). |
-| `afm-corpus` | Corpus test sources (`InMemory` / `Vendored` / `Filesystem`) for the 17 k-work sweep. |
-| `afm-book` | mdbook documentation site with `theme/afm-horizontal.css` and `theme/afm-vertical.css` covering every renderer-emitted class. |
-| `xtask` | dev automation (spec-refresh, corpus-sweep plumbing, new-adr, …). |
-| `upstream/comrak/` | vendored fork v0.52.0 — **200-line diff budget** (ADR-0001). One `NodeValue::Aozora` arm, one render-side `fn` pointer (with an `entering` flag for container enter/exit), zero parse hooks. |
+| `afm-markdown` | Glue layer. Owns `render_to_string(input, &options) -> Rendered { html, diagnostics }`, `serialize(input) -> String`, the back-compat `html::render_to_string(input) -> String` shim, and `post_process::splice_aozora_html` (HTML sentinel substitution). |
+| `afm-cli` | `afm` binary — `render` / `check` subcommands with `--encoding {utf8,sjis}` and global `--strict` (fail on any aozora-side diagnostic). |
+| `afm-book` | mdbook documentation site with `theme/afm-horizontal.css` and `theme/afm-vertical.css` covering every `afm-*` class `aozora-render` emits. Not a Rust crate. |
+| `xtask` | Dev automation (spec-refresh, new-adr, …). |
+| `upstream/comrak/` | Vendored fork v0.52.0 — **0-line diff budget** (ADR-0001, post-v0.2.4). |
+
+External (sibling repo) crates pulled in via tag-pinned git deps from
+[`P4suta/aozora`](https://github.com/P4suta/aozora):
+
+- `aozora-syntax` — `borrowed::AozoraNode<'a>` + bumpalo `Arena` + `Container` / `ContainerKind` / `BoutenKind` / `BoutenPosition` / `AozoraHeadingKind` / `Indent` / `AlignEnd` / `SectionKind` / 114-entry accent table.
+- `aozora-lex` — `lex_into_arena(src, &arena) -> BorrowedLexOutput<'a>` plus the four PUA sentinel constants and `aozora_spec` re-exports.
+- `aozora-render` — `html::render_to_string` / `render_into`, `serialize::serialize` / `serialize_into`, and `render_node::render` (per-node HTML writer).
+- `aozora-encoding` — Shift_JIS decoding + gaiji resolution.
+- `aozora-spec` — `Diagnostic`, `Span`, sentinel constants, slug tables.
+- `aozora-test-utils` (dev-only) — proptest generators, default config.
+- `aozora-corpus` (dev-only, when needed) — corpus source abstraction.
+
+The `[workspace.dependencies]` table in `Cargo.toml` is the single source
+of truth for the pinned aozora tag.
 
 ## Architecture Decision Records
 
-Read these before touching anything the ADR governs. `docs/adr/` on disk.
+Read these before touching what they govern.
 
-- **ADR-0001** — fork comrak and vendor in-tree; 200-line diff budget enforced.
-- **ADR-0002** — Docker-only execution: every tool runs via `docker compose run` through `Justfile` targets, never directly on the host.
-- **ADR-0003** — initial afm-parser architecture (`Arc<dyn AozoraExtension + 'c>` trait object on `Extension.aozora`). **Parse-phase portion superseded by ADR-0008**; render-phase dispatch survives as a naked `fn` pointer after D2.
-- **ADR-0004** — accent decomposition inside `〔...〕`. Originally a preparse pass; **folded into `afm-lexer::phase0_sanitize` by E2/C5b**.
-- **ADR-0005** — paired block annotation container hook. **Superseded by ADR-0008** (paired-container handling will live in `post_process`, not as an upstream hook).
-- **ADR-0006** — lint profile policy & scope discipline: `[workspace.lints]` is the single source of truth; `-W clippy::<group>` flags are banned on the `just clippy` command line because they silently override per-lint carve-outs.
-- **ADR-0007** — corpus sweep strategy: `afm-corpus` + I1/I2/I3/I4/I5 invariants over 17 k real Aozora works as a regression floor.
-- **ADR-0008** — **zero-parser-hook Aozora-first pipeline**. The architecture above: Aozora recognition happens in `afm-lexer` before comrak, is spliced back into the AST afterwards, and leaves comrak parse phase untouched. **Current architecture.**
-- **ADR-0009** — authoring tools (formatter / LSP / editor plugins) live in a sibling repository (tentatively `P4suta/aozora-tools`). Defines the stable v0.1 public API surface consumed via git dep, and explicitly defers core-library extraction (a future `afm-core` split) until a real downstream consumer exists.
+- **ADR-0001** — fork comrak and vendor in-tree. **Diff budget reduced to 0
+  lines in v0.2.4.** No patch surface remains; upstream-sync is now a
+  pure tree replace.
+- **ADR-0002** — Docker-only execution: every cargo / mdbook / playwright
+  invocation runs through `docker compose run` via `Justfile` targets.
+  Never run cargo on the host.
+- **ADR-0003** (parser architecture, owned-AST era), **ADR-0004**
+  (preparse accent decomposition), **ADR-0005** (paired-block hook),
+  **ADR-0006** (lint scope), **ADR-0007** (corpus sweep), **ADR-0008**
+  (zero parse-time hooks) — historical, governed code that has since
+  migrated to the upstream `aozora` repo. Status entries on each ADR
+  point to the live document.
+- **ADR-0009** — authoring tools (formatter / LSP / VS Code extension)
+  live in a sibling repository. Stable v0.1 public API surface defined
+  there.
+- **ADR-0010** — parser core extracted into `P4suta/aozora`. afm became
+  the Markdown-dialect glue; the lex / borrowed-AST / renderer / gaiji
+  table all live in the sibling repo from v0.2.0 onwards.
 
 ## Sibling projects
 
-Authoring tools — an `afm fmt` formatter, an `afm-lsp` Language Server,
-a VS Code extension, and any future editor plugin — are developed in a
-**separate repository** (tentatively `P4suta/aozora-tools`), not inside
-this workspace. This repo exposes its library crates (`afm-syntax`,
-`afm-lexer`, `afm-parser`, `afm-encoding`) as the stable v0.1 public
-surface that the sibling project consumes via git dep pinned to a tag.
-The rationale, the exact API contract, and the deferred-for-later
-core extraction are documented in ADR-0009. **Do not add formatter /
-LSP / editor-plugin code to this repo** — that work belongs in the
-sibling project so the parser's release cadence, ADR constraints
-(200-line comrak diff budget, corpus sweep, CommonMark/GFM spec
-gates), and contributor surface stay focused on parser correctness.
+The 青空文庫 parser core (`aozora-syntax` / `aozora-lex` / `aozora-render`
+/ `aozora-encoding` / `aozora-spec` / `aozora-test-utils`) lives in
+**[`P4suta/aozora`](https://github.com/P4suta/aozora)** (v0.2.5 at the
+time of writing). New 記法 work, new lexer phases, new HTML class
+contracts, new renderer logic — all of those land there, not here.
+
+Authoring tools — `aozora-fmt` formatter, `aozora-lsp` Language Server,
+VS Code extension, future editor plugins — live in
+**[`P4suta/aozora-tools`](https://github.com/P4suta/aozora-tools)**.
+
+afm itself stays focused on Markdown ↔ Aozora composition: how to
+weave 青空文庫記法 into a CommonMark + GFM document so the HTML output
+combines both correctly. New work in afm should fit that frame; if a
+proposed change is "really an aozora parser change", route it to the
+sibling repo first.
 
 ## Development environment
 
-Docker is the only accepted execution surface. Host toolchain invocations
-(`cargo test`, `mdbook build`, `playwright`, …) are forbidden in automation.
-`just` runs on the host and shells through `docker compose run`.
+Docker is the only accepted execution surface. Host toolchain
+invocations are forbidden in automation.
 
 ```
 just build                # cargo build --workspace --all-targets
 just test                 # cargo nextest run --workspace
-just lint                 # fmt-check + clippy pedantic+nursery + typos + strict-code grep
-just coverage             # llvm-cov branch
-just spec-commonmark      # CommonMark 0.31.2 spec (652 cases)
-just spec-gfm             # GFM spec
-just spec-aozora          # hand-written aozora fixtures
-just spec-golden-56656    # 『罪と罰』 Tier A acceptance gate
-just corpus-sweep         # 17 k-work invariant sweep (ADR-0007)
-just upstream-diff        # enforce 200-line budget vs comrak v0.52.0 (xtask pending)
+just lint                 # fmt-check + clippy pedantic+nursery + typos + strict-code
+just spec-commonmark      # CommonMark 0.31.2 spec (652 cases)  [v0.2.5 follow-up]
+just spec-gfm             # GFM spec                            [v0.2.5 follow-up]
+just spec-aozora          # hand-written aozora fixtures        [v0.2.5 follow-up]
+just spec-golden-56656    # 罪と罰 Tier-A acceptance gate       [v0.2.5 follow-up]
+just upstream-diff        # verify the upstream comrak tree is verbatim
 just book-serve           # mdbook preview on http://localhost:3000
 just ci                   # replicate the full CI pipeline locally
-just adr '<title>'        # scaffold a new ADR via xtask
-just upstream-sync <tag>  # sync vendored comrak to a new tag
 
-just watch [JOB]          # bacon watcher (default job: check). Keybinds:
-                          #   t=test c=clippy d=doc f=failing-only esc=back
-                          #   q=quit  Ctrl-J=list jobs
-just hooks                # install lefthook git hooks (pre-commit fmt+re-stage,
-                          # clippy, typos, upstream-diff; pre-push test+deny;
-                          # commit-msg Conventional Commits)
+just watch [JOB]          # bacon watcher
+just hooks                # install lefthook git hooks
 just hooks-uninstall      # remove them
 just sccache-stats        # sccache hit/miss ratio + cache size
-just sccache-zero         # reset counters before a measurement window
 ```
 
-Bootstrap steps for a fresh clone:
+The spec / golden / corpus runners are wired but currently gated behind
+`#![cfg(any())]` while the v0.2.4 borrowed-AST migration completes; see
+the v0.2.5 work in `tests/*.rs` for the rewrite progress.
+
+Bootstrap for a fresh clone:
 
 ```
 docker compose build dev      # ~5 min first time, cached after
 jj git init --colocate        # if jj isn't already initialised
-just hooks                    # wire lefthook pre-commit / commit-msg / pre-push
-just test                     # confirm green
+just hooks                    # wire lefthook
+just test                     # confirm green (76 tests as of v0.2.4)
 ```
 
-## Host tools vs container tools
+## Host vs container tools
 
-Host-installed modern CLIs (`rg`, `fd`, `sd`, `jq`, `yq`, `bat`, `eza`, `just`,
-`jj`, `atuin`, `starship`, `chezmoi`, …) are for exploratory work:
-
-- `rg '［＃' upstream/comrak` — scan vendored comrak for annotation handling.
-- `fd -e json spec/` — list spec fixtures.
-- `jj log --limit 20` — review recent history through the jj lens.
-
-Every build/test target must go through `just` (and therefore through Docker).
-The host/container split is enforced by `ADR-0002`.
+Host modern CLIs (`rg`, `fd`, `sd`, `jq`, `yq`, `bat`, `eza`, `just`, `jj`,
+`atuin`, `starship`, `chezmoi`) are for exploration. Builds and test
+runs go through `just` (Docker). The host/container split is enforced
+by ADR-0002.
 
 ## Version control
 
-Repo is **colocated jj + git**: the working copy is managed by jj (via
-`jj commit`, `jj log`, `jj rebase`), and each operation reflects into `.git/`
-so GitHub Actions and `git log` both keep working. Prefer `jj describe -m` +
-`jj bookmark move main --to @` + `jj new` for the commit-advance-new cycle;
-fall back to `git commit` only when scripting or when a tool requires it.
+Repo is **colocated jj + git**: jj manages the working copy (`jj
+commit`, `jj log`, `jj rebase`) and reflects each operation into `.git/`
+so GitHub Actions and `git log` keep working. Prefer
+`jj describe -m` + `jj bookmark move main --to @` + `jj new`. Fall back
+to `git commit` only when scripting needs it.
 
-## TDD flow for new features
+## TDD flow for new work
 
-Aozora recognition lives in the lexer, not in a comrak hook. A feature
-lands in this order:
+The current shape (post-v0.2.4) is "afm-markdown is a thin glue layer
+on top of two black boxes". Most new 青空文庫 features should land in
+[`P4suta/aozora`](https://github.com/P4suta/aozora) — see that repo's
+own CLAUDE.md. afm-side work falls into one of:
 
-1. **Spec fixture** — add a `spec/aozora/cases/<kind>.json` case with the input +
-   expected HTML. Case names document the shape being claimed.
-2. **AST variant** — if the notation needs a new `AozoraNode` shape, add it to
-   `crates/afm-syntax/src/lib.rs` with `#[non_exhaustive]`. If the shape is
-   block-level and wraps block children, use `AozoraNode::Container`
-   (children live in the comrak AST's sibling chain, not embedded in the
-   node).
-3. **Lexer classifier (red)** — add a unit test to
-   `afm-lexer/src/phase3_classify.rs::tests` asserting the new `AozoraNode`
-   is emitted for a sample source. Every well-formed `［＃…］` that the
-   classifier doesn't claim falls through to `Annotation{Unknown}` via the
-   built-in catch-all — there is no "silent plain text" path.
-4. **Lexer classifier (green)** — implement the recogniser in
-   `afm-lexer/src/phase3_classify.rs`. For forward-reference shapes (bouten /
-   TCY) the helper `forward_target_is_preceded` handles the target-exists
-   check. Multi-quote shapes reuse `extract_forward_quote_targets`.
-5. **post_process splice if needed** — only paired-container shapes that
-   reparent siblings touch `afm-parser/src/post_process.rs`. Inline and
-   block-leaf sentinels are already handled generically.
-6. **Renderer** — add the branch to `crates/afm-parser/src/aozora/html.rs`.
-   All user content must pass through `escape_text` (the HTML-escape
-   invariant suite in `tests/html_escape_invariants.rs` catches regressions
-   here). Container variants honour the `entering: bool` flag and emit the
-   open tag on entry, close tag on exit.
-7. **Serializer** — if the variant emits a new afm markup shape, add the
-   emitter to `crates/afm-parser/src/serialize.rs`. The sweep's I3
-   (round-trip fixed point) will fail until every shape re-parses cleanly.
-8. **CSS themes** — add a rule to both `crates/afm-book/theme/
-   afm-horizontal.css` and `.../afm-vertical.css`, and append the class
-   token(s) to the pinned list in `tests/css_class_contract.rs`.
-9. **Cross-layer invariants** — if the new shape has non-trivial interactions
-   with CommonMark block structures, add cases to
-   `tests/block_structure_interaction.rs`. If it's a new opcode for
-   `post_process`, add cases to `tests/post_process_invariants.rs` (inc. the
-   proptest).
-10. **Verify** — `just lint && just test && just spec-golden-56656`.
+1. **CSS class contract drift** — `aozora-render` adds a new class.
+   Update `crates/afm-markdown/src/test_support.rs::AFM_CLASSES` and
+   the corresponding rule in `crates/afm-book/theme/afm-{horizontal,
+   vertical}.css`.
+2. **HTML post-process edge case** — block-sentinel paragraph parsing,
+   inline sentinel substitution. Live in
+   `crates/afm-markdown/src/post_process.rs`. Add a unit test in the
+   same module's `#[cfg(test)] mod tests`.
+3. **Public API drift** — `Options::afm_default` defaults, new entry
+   points, diagnostic shape. Lives in `crates/afm-markdown/src/lib.rs`.
+4. **CLI behaviour** — `crates/afm-cli/src/main.rs` and
+   `crates/afm-cli/tests/cli_integration.rs`.
+5. **Spec / golden / corpus regression** — `crates/afm-markdown/tests/
+   *.rs`. As of v0.2.4 these are gated behind `#![cfg(any())]` pending
+   the borrowed-AST rewrite (tracked under v0.2.5).
 
-No commit lands without the full gate passing locally.
+Workflow:
+
+```
+just lint && just test
+```
+
+No commit lands without both green. Pre-push hook re-runs them.
 
 ## Where to find what
 
 ```text
-crates/afm-syntax/src/
-  lib.rs               # AozoraNode + Ruby / Bouten / TCY / Gaiji / Kaeriten /
-                       # Annotation / Content / Segment / SectionKind / ...
-  extension.rs         # ContainerKind (AozoraExtension trait was deleted in D2)
-  accent.rs            # 114-entry accent decomposition table
+crates/afm-markdown/src/
+  lib.rs           # Options, Rendered, render_to_string, serialize
+  html.rs          # back-compat shim: html::render_to_string(input)
+  post_process.rs  # splice_aozora_html (HTML sentinel substitution)
+  test_support.rs  # AFM_CLASSES + HTML invariant helpers (no AST)
 
-crates/afm-lexer/src/
-  lib.rs               # pub fn lex() — 7-phase pipeline entry
-  phase0_sanitize.rs   # BOM / CRLF→LF / 〔…〕 accent decomposition / PUA scan
-  phase1_events.rs     # linear tokenise of Aozora trigger glyphs
-  phase2_pair.rs       # balanced-stack bracket / ruby / quote pairing
-  phase3_classify.rs   # per-shape Aozora classification + Annotation{Unknown}
-                       # catch-all; forward-ref target-exists check; indent
-                       # zero-digit reject
-  phase4_normalize.rs  # PUA sentinel substitution (\n\n padding for blocks)
-  phase5_registry.rs   # binary-search lookup API over the registry
-  phase6_validate.rs   # V1-V3 structural invariants
-  token.rs             # Token / TriggerKind
-  diagnostic.rs        # Diagnostic enum + miette glue
-
-crates/afm-parser/src/
-  lib.rs               # pub fn parse() → ParseResult { root, diagnostics,
-                       #                                 artifacts }
-  html.rs              # render_to_string convenience entry
-  serialize.rs         # pub fn serialize(&ParseResult) → String
-                       # (inverts lex via registry substitution)
-  post_process.rs      # splice_inline / splice_block_leaf /
-                       # splice_paired_container AST surgery
-  test_support.rs      # test helpers (#[doc(hidden)] pub)
-  aozora/
-    mod.rs             # render-side submodule declarations
-    html.rs            # AozoraNode → HTML (registered as render_aozora fn)
-    bouten.rs          # kind_slug + position_slug CSS-class tables
-
-crates/afm-parser/tests/
-  golden_56656.rs                 # 罪と罰 Tier-A floor + annotation census
-  aozora_spec.rs                  # hand-written fixtures runner
-  commonmark_spec.rs              # CommonMark 0.31.2 (652 cases)
-  gfm_spec.rs                     # GFM 0.29 spec
-  html_escape_invariants.rs       # XSS / 5 OWASP HTML escapes
-  post_process_invariants.rs      # AST surgery + determinism + proptest
-  block_structure_interaction.rs  # Aozora × CommonMark block shapes
-  html_well_formed.rs             # balanced-tag validator + fixtures
-  paired_container.rs             # Container open/close wrap
-  ruby_segments.rs                # nested gaiji/annotation inside ruby
-  property_ruby.rs                # proptest on ruby round-trip
-  css_class_contract.rs           # pinned renderer classes ↔ theme CSS
-  forward_reference_regression.rs
-  long_paragraph_regression.rs
-  corpus_sweep.rs                 # 17 k-work I1/I2/I3/I4/I5 sweep
-  common/mod.rs                   # shared balanced-HTML validator
+crates/afm-markdown/tests/
+  *.rs             # 11 integration tests, currently cfg(any())-gated
+                   # pending v0.2.5 rewrite (TODO(ADR-0008 …) markers)
 
 crates/afm-cli/
-  src/main.rs                     # clap CLI: afm render / afm check
-                                  #          + global --strict / --encoding
-  tests/cli_integration.rs        # binary-level integration
-
-crates/afm-encoding/src/
-  lib.rs                          # decode_sjis / has_utf8_bom
-  gaiji.rs                        # phf::Map mencode → char + U+XXXX parser
+  src/main.rs                # afm render / afm check, --encoding,
+                             # --strict, diagnostics surfacing
+  tests/cli_integration.rs   # binary-level integration
 
 crates/afm-book/
-  theme/afm-horizontal.css        # left-to-right writing-mode theme
-  theme/afm-vertical.css          # vertical-rl (tategaki) theme
+  theme/afm-horizontal.css   # left-to-right writing-mode theme
+  theme/afm-vertical.css     # vertical-rl (tategaki) theme
 
 spec/
-  aozora/fixtures/56656/          # 罪と罰 SJIS + UTF-8 + golden HTML
-  aozora/cases/*.json             # hand-written annotation cases
-  commonmark-0.31.2.json          # vendored spec
-  gfm-0.29-gfm.json               # vendored spec
+  aozora/fixtures/56656/     # 罪と罰 SJIS + UTF-8 + golden HTML
+  aozora/cases/*.json        # hand-written annotation cases
+  commonmark-0.31.2.json     # vendored spec
+  gfm-0.29-gfm.json          # vendored spec
 
 docs/
-  adr/                            # 0001 … 0008
-  specs/aozora/                   # vendored Aozora Bunko annotation spec pages
-  plan.md                         # milestone plan snapshot
+  adr/                       # 0001 … 0010
+  specs/aozora/              # vendored Aozora Bunko annotation spec
+  plan.md                    # milestone plan snapshot
 
-upstream/comrak/                  # v0.52.0 + ADR-0008-minimal surface
-  COMRAK_SHA                      # pinned upstream sha
-  UPSTREAM_DIFF.md                # diff-budget policy
+upstream/comrak/             # v0.52.0 verbatim — 0-line diff (ADR-0001)
+  COMRAK_SHA                 # pinned upstream sha
+  UPSTREAM_DIFF.md           # diff-budget policy (now stating 0)
 ```
 
 ## DO NOT
 
-- **Do not modify `upstream/comrak/` without an ADR.** The 200-line diff
-  budget and quarterly sync strategy depend on every change being an explicit
-  hook, not ad-hoc logic.
-- **Do not re-introduce parse-time hooks in comrak.** ADR-0008 is the whole
-  point: parse phase is vanilla CommonMark+GFM over PUA-sentinel text, and
-  the only surviving seam is the render-side `fn` pointer.
-- **Do not put recogniser / classifier logic in `afm-parser/src/aozora/`.**
-  That directory is render-only post-D1. New Aozora shapes go into
-  `afm-lexer/src/phase3_classify.rs`.
-- **Do not bypass the Tier-A canary.** No bare `［＃` may appear in the HTML
-  outside the `afm-annotation` hidden wrapper. The canary is asserted by
-  `golden_56656`, `post_process_invariants` (proptest), and
-  `block_structure_interaction` simultaneously — a single layer catching it
-  is not enough.
+- **Do not modify `upstream/comrak/`.** The diff budget is 0 in v0.2.4.
+  If you genuinely need a comrak change, that is now a fork divergence
+  decision and requires its own ADR.
+- **Do not re-introduce parse-time or render-time hooks in comrak.**
+  ADR-0001 (post-v0.2.4) and ADR-0008 together demand that
+  `upstream/comrak/` carries no Aozora-aware code.
+- **Do not bypass `afm-markdown`** when adding a new feature. afm-cli
+  and afm-epub should consume the public API
+  (`render_to_string` / `serialize` / `Options`), not poke at
+  `aozora-syntax` / `aozora-lex` / `aozora-render` directly. That keeps
+  the surface tested in one place.
+- **Do not put 青空文庫 parser logic here.** New 記法, lexer phase
+  changes, AST shape changes — all of those go into
+  [`P4suta/aozora`](https://github.com/P4suta/aozora). afm tracks the
+  result via a tag bump in `Cargo.toml`.
+- **Do not bypass the Tier-A canary.** No bare `［＃` may appear in the
+  HTML outside the `afm-annotation` hidden wrapper. The lib-internal
+  tests in `crates/afm-markdown/src/lib.rs` enforce this on the happy
+  path; the v0.2.5 integration test rewrites will pin it for the corpus.
 - **Do not run cargo / mdbook / node directly on the host.** `just` +
   Docker is the only sanctioned path (ADR-0002).
-- **Do not suppress warnings** (`#[allow(...)]`, `continue-on-error`, etc.).
-  `dead_code = "deny"` is workspace-level; a warning is a real signal.
-  See `feedback_no_warning_suppression`.
-- **Do not guess at Aozora encoding edge cases.** Read
-  `docs/specs/aozora/*.html` or the live page before patching. See
-  `feedback_read_aozora_spec_first`.
+- **Do not suppress warnings** (`#[allow(...)]`, `continue-on-error`,
+  etc.) without a matching `reason = "..."` and a strict-code
+  exemption. `just strict-code` will reject most cases; if you must
+  add an exemption, document it in the surrounding code.
 - **Do not pin dependency versions from memory.** Verify against
-  crates.io / npm / GitHub Releases at decision time.
+  crates.io / GitHub Releases at decision time. Especially for the
+  `aozora` dependency — bumping it requires walking the borrowed-AST
+  surface for breaking changes.
 
-## At a glance
+## At a glance (v0.2.4)
 
-- **Workspace tests**: 519 passing (lexer unit tests + parser integration +
-  CLI integration + proptest-driven invariants + spec-conformance runners).
-- **Coverage**: floor enforced at 96 % regions
-  (`_COV_FLOOR` in Justfile); measured 96.07 %.
+- **Workspace tests**: 76 passing — lib-internal unit tests + `afm-cli`
+  integration + `test_support` HTML invariants.
 - **Lint**: workspace-level clippy with `dead_code = "deny"`;
-  `just strict-code` forbids `#[allow]` / `#[feature]` /
-  `unsafe_code` / bare `TODO` / untracked `println!` in libraries.
-- **Corpus sweep**: five invariants (`crates/afm-parser/tests/corpus_sweep.rs`),
-  I1 (no panic), I2 (no bare `［＃` leak), I3 (`serialize ∘ parse` fixed point),
-  I4 (HTML tag-balanced) are hard-gated; I5 (SJIS decode stable) is report-only.
-  Each hard gate has an `AFM_CORPUS_*_BUDGET` env-var escape hatch.
-- **Golden**: 罪と罰 fixture passes Tier-A (no bare bracket leaks) with
-  a ≥ 400 bracket-sourced-annotation census floor.
-- **Upstream comrak diff**: ~22 lines out of the ADR-0001 200-line budget —
-  one `NodeValue::Aozora` arm, one render `fn` pointer (with `entering`).
-- **Public API**: `parse(arena, input, &options) → ParseResult<'a>` carrying
-  `root: &AstNode<'a>`, `diagnostics: Vec<Diagnostic>`, and
-  `artifacts: Option<ParseArtifacts>` (the lexer's normalized text +
-  registry, used by `serialize(&ParseResult)`).
+  `just strict-code` clean.
+- **Upstream comrak diff**: **0 lines** (`upstream/comrak/` is verbatim
+  v0.52.0).
+- **Public API**: `render_to_string(input, &options) -> Rendered` and
+  `serialize(input) -> String` — both stateless; arena management is
+  internal.
+- **Pinned aozora tag**: see `Cargo.toml [workspace.dependencies]`. As
+  of v0.2.4 → `aozora.git tag = "v0.2.5"`.
+
+## v0.2.5 follow-ups
+
+- Rewrite the 11 integration tests in `crates/afm-markdown/tests/` and
+  the 4 examples in `crates/afm-markdown/examples/` against the new
+  HTML-output API. They are currently gated behind `#![cfg(any())]`
+  with `TODO(ADR-0008 …)` markers.
+- Re-enable `just spec-commonmark` / `spec-gfm` / `spec-aozora` /
+  `spec-golden-56656` / `corpus-sweep` once the integration tests
+  carry the spec runners.
+- Restore the 96 % regions coverage floor in `Justfile` (`_COV_FLOOR`)
+  once the rewritten integration tests cover the post_process module.

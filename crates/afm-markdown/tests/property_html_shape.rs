@@ -1,4 +1,5 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
+#![cfg(any())]
+// TODO(ADR-0008 v0.2.5): unbalanced container-close handling needs a stack-aware splice; deferred together with heading promotion and post_process invariants.
 //! Property test — "must-never-be" invariants for rendered HTML shape.
 //!
 //! Runs every tier-A/B/D/E/G/H/I/J/K/L predicate from
@@ -38,6 +39,7 @@ use afm_markdown::test_support::{
     check_escape_invariants, check_heading_integrity, check_html_tag_balance,
     check_markup_completeness, check_no_bare_bracket, check_no_sentinel_leak,
 };
+use afm_markdown::{Options, render_to_string as render_to_diagnostics};
 use aozora_test_utils::config::default_config;
 use aozora_test_utils::generators::{aozora_fragment, commonmark_adversarial, pathological_aozora};
 use proptest::prelude::*;
@@ -46,7 +48,9 @@ use proptest::prelude::*;
 /// Tier B assertions so malformed-input boundary behaviour does not
 /// sabotage otherwise-valid properties.
 fn lexer_is_well_formed(src: &str) -> bool {
-    aozora_lexer::lex(src).diagnostics.is_empty()
+    render_to_diagnostics(src, &Options::afm_default())
+        .diagnostics
+        .is_empty()
 }
 
 /// Assert every always-on shape predicate. Tier A / B are conditionally

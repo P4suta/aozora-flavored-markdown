@@ -55,6 +55,12 @@ use aozora_syntax::borrowed::Arena;
 #[derive(Debug, Clone, Default)]
 pub struct Options<'c> {
     pub comrak: comrak::Options<'c>,
+    /// When `true`, run the aozora lex pre-pass and HTML
+    /// post-processing. When `false`, the input flows straight into
+    /// vanilla `comrak::parse_document` + `format_html` — used by the
+    /// CommonMark / GFM spec conformance runners to verify the wrapper
+    /// does not perturb upstream behaviour.
+    pub aozora_enabled: bool,
 }
 
 impl Options<'_> {
@@ -70,21 +76,27 @@ impl Options<'_> {
         comrak.extension.autolink = true;
         comrak.extension.tasklist = true;
         comrak.render.hardbreaks = true;
-        Self { comrak }
+        Self {
+            comrak,
+            aozora_enabled: true,
+        }
     }
 
-    /// Plain CommonMark (no GFM, raw HTML enabled). Used by the
-    /// CommonMark 0.31.2 spec-conformance test to verify the wrapper
-    /// does not perturb comrak's CommonMark behaviour.
+    /// Plain CommonMark (no GFM, no Aozora, raw HTML enabled). Used by
+    /// the CommonMark 0.31.2 spec-conformance test to verify the
+    /// wrapper does not perturb comrak's CommonMark behaviour.
     #[must_use]
     pub fn commonmark_only() -> Self {
         let mut comrak = comrak::Options::default();
         comrak.render.r#unsafe = true;
-        Self { comrak }
+        Self {
+            comrak,
+            aozora_enabled: false,
+        }
     }
 
-    /// Pure-GFM extension set with raw HTML enabled. Used by the GFM
-    /// 0.29 spec-conformance test.
+    /// Pure-GFM extension set (no Aozora, raw HTML enabled). Used by
+    /// the GFM 0.29 spec-conformance test.
     #[must_use]
     pub fn gfm_only() -> Self {
         let mut comrak = comrak::Options::default();
@@ -94,7 +106,10 @@ impl Options<'_> {
         comrak.extension.tasklist = true;
         comrak.extension.tagfilter = true;
         comrak.render.r#unsafe = true;
-        Self { comrak }
+        Self {
+            comrak,
+            aozora_enabled: false,
+        }
     }
 }
 
@@ -130,6 +145,18 @@ pub struct Rendered {
 /// branch is unreachable in normal use.
 #[must_use]
 pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
+    if !options.aozora_enabled {
+        let comrak_arena = comrak::Arena::new();
+        let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
+        let mut html = String::new();
+        comrak::format_html(root, &options.comrak, &mut html)
+            .expect("formatting to a String never fails");
+        return Rendered {
+            html,
+            diagnostics: Vec::new(),
+        };
+    }
+
     let arena = Arena::new();
     let lex_out = aozora_lex::lex_into_arena(input, &arena);
 

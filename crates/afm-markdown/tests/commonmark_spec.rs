@@ -1,4 +1,3 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! CommonMark 0.31.2 spec conformance.
 //!
 //! Runs every example from `spec/commonmark-0.31.2.json` (vendored from the
@@ -7,14 +6,13 @@
 //!
 //! Drift expectations:
 //! - comrak 0.52.0 upstream claims "100% CommonMark compatibility" and passes
-//!   all 652 examples. afm-parser wraps comrak without changing the CommonMark
-//!   path, so we expect 652/652 here too.
-//! - If this count drops, it means our wrapper (preparse, options default,
-//!   `NodeValue::Aozora` hooks) inadvertently mutated CommonMark behaviour —
-//!   a regression that breaks the plan's 100 % compat guarantee.
+//!   all 652 examples. afm-markdown wraps comrak verbatim (post-v0.2.4 the
+//!   vendored tree is bit-for-bit upstream), so we expect 652/652 here too.
+//! - If this count drops, it means our wrapper (lex pre-pass, options
+//!   default, post-process HTML splice) inadvertently mutated CommonMark
+//!   behaviour — a regression that breaks the plan's 100 % compat guarantee.
 
-use afm_markdown::{Options, html::render_root_to_string, parse};
-use comrak::Arena;
+use afm_markdown::{Options, render_to_string};
 use pretty_assertions::assert_eq;
 use serde::Deserialize;
 
@@ -45,9 +43,7 @@ fn commonmark_0_31_2_full_pass() {
     let mut failures: Vec<String> = Vec::new();
 
     for ex in &examples {
-        let arena = Arena::new();
-        let root = parse(&arena, &ex.markdown, &opts).root;
-        let actual = render_root_to_string(root, &opts);
+        let actual = render_to_string(&ex.markdown, &opts).html;
         if actual != ex.html {
             failures.push(format!(
                 "example {} (section {:?}):\n  markdown: {:?}\n  expected: {:?}\n  actual:   {:?}",

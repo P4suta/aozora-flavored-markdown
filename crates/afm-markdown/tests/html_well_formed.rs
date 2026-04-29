@@ -1,4 +1,3 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! HTML well-formedness invariant — drives a small battery of
 //! real-world shapes through
 //! `afm_markdown::html::render_to_string` and assert the resulting

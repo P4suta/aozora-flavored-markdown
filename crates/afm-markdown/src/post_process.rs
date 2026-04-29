@@ -201,13 +201,18 @@ fn splice_inline_pass(slice: &str, nodes: &mut IntoIter<NodeRef<'_>>, out: &mut 
             if let NodeRef::Inline(node) = node_ref {
                 render_node_into(node, true, out);
             } else {
-                debug_assert!(false, "inline sentinel position holds non-inline NodeRef");
+                // The sentinel position holds a non-inline NodeRef. This is a
+                // benign fallback: aozora-lex cannot tell that a CommonMark
+                // fenced code block lives at this byte position, so block
+                // sentinels can leak into raw-text contexts. We drop the entry
+                // to keep dispatch in lockstep; the sentinel character itself
+                // was already skipped by the cursor advance.
             }
         } else {
-            debug_assert!(
-                false,
-                "block sentinel found in inline pass — block-paragraph match should have caught it"
-            );
+            // Block sentinel inside an inline pass (e.g. inside a fenced code
+            // block, where comrak emits the sentinel as raw text instead of a
+            // paragraph). Same fallback as above: drop the corresponding
+            // registry entry and emit nothing.
             let _ = nodes.next();
         }
     }

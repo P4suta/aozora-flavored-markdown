@@ -1,4 +1,3 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Class-contract test between renderer and themes.
 //!
 //! The afm-book ships two CSS themes (`afm-horizontal.css` and
@@ -22,14 +21,14 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
-use aozora_parser::aozora::AFM_CLASSES;
+use afm_markdown::test_support::AFM_CLASSES;
 
 /// Absolute path to one of the theme CSS files. Resolving via
 /// `CARGO_MANIFEST_DIR` keeps the test stable regardless of the
 /// runner's working directory.
 fn theme_path(name: &str) -> PathBuf {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.pop(); // crates/afm-parser → crates/
+    p.pop(); // crates/afm-markdown → crates/
     p.push("afm-book");
     p.push("theme");
     p.push(name);

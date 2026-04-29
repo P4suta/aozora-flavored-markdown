@@ -1,4 +1,3 @@
-#![cfg(any())] // TODO(ADR-0008 v0.2.4 borrowed-AST migration): rewrite this test against the new HTML-output API
 //! Render a Shift_JIS afm source (as Aozora Bunko ships) to HTML on stdout.
 //!
 //! Run it against an unpacked Aozora Bunko file:
