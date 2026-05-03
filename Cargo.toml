@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/afm-markdown",
     "crates/afm-cli",
+    "crates/afm-wasm",
     "crates/xtask",
 ]
 # afm-book is an mdbook site, not a Rust crate, so it is not a workspace member.

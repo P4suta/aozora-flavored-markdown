@@ -1,0 +1,36 @@
+[package]
+name        = "afm-wasm"
+description = "WebAssembly bindings for afm-markdown — used by afm-obsidian / afm-logseq / browser hosts"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+authors.workspace      = true
+readme.workspace       = true
+keywords.workspace     = true
+categories.workspace   = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+afm-markdown   = { workspace = true }
+wasm-bindgen   = "0.2"
+serde          = { workspace = true }
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = { version = "0.1", optional = true }
+twox-hash      = { version = "2", default-features = false, features = ["xxhash3_64"] }
+
+[features]
+default = ["panic-hook"]
+panic-hook = ["dep:console_error_panic_hook"]
+
+# wasm-pack consumers should NOT enable wasm-opt here; the docker
+# `wasm` service runs a fresh binaryen wasm-opt over the produced
+# .wasm via a dedicated stage (see afm-obsidian/Dockerfile).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

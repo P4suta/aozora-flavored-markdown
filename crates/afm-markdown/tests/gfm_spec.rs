@@ -69,6 +69,7 @@ fn options_for(extension: &str) -> Options<'static> {
     Options {
         comrak,
         aozora_enabled: false,
+        source_line_anchors: false,
     }
 }
 
