@@ -89,14 +89,7 @@ proptest! {
     /// Mixed Aozora fragments: the workhorse shape. Covers long
     /// decorative rules (Tier H bait), unbalanced brackets, and a
     /// broad mix of trigger glyphs and plain text.
-    ///
-    /// Ignored: the upstream lexer's `［＃...］` annotation claim can
-    /// split a CommonMark emphasis run (e.g. `____` continued past the
-    /// annotation), leaving `<strong>` opens unmatched at `</p>` time.
-    /// Tier-D enforcement for this interaction needs a balancer pass
-    /// in `post_process`; tracked separately.
     #[test]
-    #[ignore = "Tier-D balancer pass for aozora x CM emphasis interaction is pending"]
     fn html_shape_invariants_hold_for_aozora_fragments(src in aozora_fragment(16)) {
         let html = render_to_string(&src);
         assert_always_on(&html, &src);
@@ -119,13 +112,7 @@ proptest! {
     /// heading's body carrying annotation markers, a blockquote
     /// containing ruby, a list containing page breaks). Shape
     /// invariants hold across all such mixes.
-    ///
-    /// Ignored: shares the `aozora_fragments` failure mode — the
-    /// `［＃...］` annotation split crosses a CommonMark emphasis run
-    /// and leaves `<strong>` opens unmatched. Tracked together with
-    /// the balancer-pass work-item.
     #[test]
-    #[ignore = "Tier-D balancer pass for aozora x CM emphasis interaction is pending"]
     fn html_shape_invariants_hold_for_mixed_cm_aozora(
         src in prop_oneof![aozora_fragment(12), commonmark_adversarial()]
     ) {

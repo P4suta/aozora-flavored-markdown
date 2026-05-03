@@ -85,7 +85,70 @@ pub(crate) fn splice_aozora_html(comrak_html: &str, lex_out: &BorrowedLexOutput<
     // `afm-annotation` hidden span here so the canary can't leak.
     // No-op on the happy path because clean inputs leave no bare
     // `［＃` in the spliced HTML.
-    wrap_orphan_brackets_in_place(&rebranded)
+    let bracket_safe = wrap_orphan_brackets_in_place(&rebranded);
+    // Defensive Tier-D guard: aozora's `［＃…］` annotation claim can
+    // split a CommonMark emphasis run (e.g. `____` continued past the
+    // annotation), leaving `<strong>` opens unmatched at `</p>` time.
+    // We scan each `<p>...</p>` and prepend the missing inline closes
+    // before `</p>` so HTML tag balance survives even on those inputs.
+    balance_inline_tags_in_paragraphs(&bracket_safe)
+}
+
+/// Per-paragraph inline-tag balancer.
+///
+/// Walks each `<p>...</p>` substring once, counts open vs close
+/// occurrences for each emphasis-family inline tag, and prepends any
+/// missing closes before the paragraph's `</p>`. Touches no other
+/// container kinds — paragraphs are where comrak's emphasis pairing
+/// can leak the most under aozora-induced text splits.
+///
+/// Inline-tag-name list is intentionally narrow (`strong` / `em` /
+/// `code` / `del` / `s` / `sup` / `sub`): these are the CommonMark +
+/// GFM emphasis families that comrak resolves greedily and that
+/// aozora's annotation splitter can leave unbalanced. `span`, `ruby`,
+/// `a`, etc. are emitted by the renderer in matched pairs and stay
+/// out of this pass to avoid double-closing.
+fn balance_inline_tags_in_paragraphs(html: &str) -> String {
+    /// `(open_exact, open_with_attr, close)` for each inline tag we
+    /// rebalance. Static so the iteration allocates nothing.
+    const INLINE_TAGS: &[(&str, &str, &str)] = &[
+        ("<strong>", "<strong ", "</strong>"),
+        ("<em>", "<em ", "</em>"),
+        ("<code>", "<code ", "</code>"),
+        ("<del>", "<del ", "</del>"),
+        ("<s>", "<s ", "</s>"),
+        ("<sup>", "<sup ", "</sup>"),
+        ("<sub>", "<sub ", "</sub>"),
+    ];
+
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+
+    while let Some(p_start) = rest.find("<p>").or_else(|| rest.find("<p ")) {
+        let Some(p_end_rel) = rest[p_start..].find("</p>") else {
+            break;
+        };
+        let p_end = p_start + p_end_rel;
+
+        out.push_str(&rest[..p_end]);
+
+        let body = &rest[p_start..p_end];
+        for (open_exact, open_attr, close) in INLINE_TAGS {
+            let opens = body.matches(open_exact).count() + body.matches(open_attr).count();
+            let closes = body.matches(close).count();
+            if opens > closes {
+                for _ in 0..(opens - closes) {
+                    out.push_str(close);
+                }
+            }
+        }
+
+        out.push_str("</p>");
+        rest = &rest[p_end + "</p>".len()..];
+    }
+
+    out.push_str(rest);
+    out
 }
 
 /// Rewrite every `aozora-*` class token in `class="..."` attribute
