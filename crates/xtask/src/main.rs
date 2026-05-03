@@ -4,8 +4,8 @@
 //! invocation lives here. Sub-commands:
 //!
 //! - `upstream-diff` — assert the vendored comrak tree is still pinned
-//!   to the recorded SHA and that the 200-line diff policy from ADR-0001
-//!   is documented in `upstream/comrak/UPSTREAM_DIFF.md`.
+//!   to the recorded SHA and that the ADR-0001 diff budget is
+//!   documented in `upstream/comrak/UPSTREAM_DIFF.md`.
 //! - `upstream-sync` — *deferred*: fetch a new comrak tag, replace
 //!   `upstream/comrak`, re-apply the afm hook patches.
 //! - `corpus-refresh` — *deferred*: pull the pinned Aozora corpus,

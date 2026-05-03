@@ -34,10 +34,6 @@ GFM と同様、afm は CommonMark + GFM の **strict superset** です。
 配下の mdbook サイト)と **参照実装** の両方をホストしています —— GFM
 が採用している分離方式と同じです。
 
-**ステータス**: v0.1.0 public preview —— 中核となる記法は機能的に
-完備、SemVer 0.x 契約で API の破壊的変更の余地は残しつつ、日常利用を
-歓迎します。
-
 ## 系譜
 
 Markdown 方言は、前の方言を拡張する形で積み重なってきました。afm は
@@ -61,18 +57,13 @@ CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 - **100% CommonMark / GFM 互換** —— 両 spec の conformance test suite を
   verbatim で全通過(CommonMark 0.31.2 の 652 ケース + GFM 0.29)。
 - **100% 青空文庫記法互換をターゲット** —— <https://www.aozora.gr.jp/annotation/>
-  が列挙するあらゆる記法を parse し、『罪と罰』(青空文庫カード 56656)
-  の fixture が Tier-A acceptance gate を通過(panic なし、HTML 内に
-  未消費の `［＃` なし)。
-- **17 k 作品コーパスでの invariant sweep** —— CI で 4 つの invariant
-  を enforce: I1 panic しない / I2 bare `［＃` を漏らさない /
-  I3 `serialize ∘ parse` が fixed point / I4 生成した HTML が
-  タグ balanced。`crates/afm-parser/tests/corpus_sweep.rs` と ADR-0007
-  を参照。
+  が列挙するあらゆる記法を parse し、afm は Tier-A invariant(HTML
+  内に未消費の `［＃` を漏らさない)を保証します。
 - **単一バイナリ**、実行時の外部プロセス依存なし。
-- **Pure-functional な parse pipeline** (ADR-0008) —— vendored comrak
-  内に parse-time hook は 0、Aozora 記法の認識は `afm-lexer` と
-  `afm-parser` の post-process AST splice に完全に分離。
+- **Pure-functional な parse pipeline** —— vendored comrak 内に
+  parse-time hook は 0、青空文庫記法の認識は sibling repo
+  [`aozora`](https://github.com/P4suta/aozora) に分離され、
+  `afm-markdown::post_process` で comrak AST に splice されます。
 
 ## 書ける記法
 
@@ -91,32 +82,36 @@ CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 
 ## ワークスペース構成
 
-v0.2.0 で青空文庫記法のパーサ本体は sibling repo
-[`P4suta/aozora`](https://github.com/P4suta/aozora) に切り出されました
-(ADR-0010)。afm リポジトリには、その上に乗る Markdown ダイアレクト統合
-レイヤと CLI のみが残ります。
-
 ```
 afm/
-  upstream/comrak/           # vendored comrak 0.52.0、verbatim (v0.2.4 以降 0 行 diff)
+  upstream/comrak/           # vendored comrak 0.52.0、verbatim (0 行 diff)
   crates/
     afm-markdown/            # CommonMark + GFM + 青空文庫記法の HTML 統合レイヤ
     afm-cli/                 # `afm` バイナリ(render / check)
     afm-book/                # mdbook ドキュメントサイト(Rust crate ではない)
     xtask/                   # upstream-sync / spec-refresh / new-adr
-  spec/                      # CommonMark / GFM / 青空文庫 fixture
+  spec/                      # CommonMark / GFM fixture
   docs/adr/                  # Architecture Decision Records
 ```
 
-青空文庫記法の lex / 借用 AST / per-node HTML / serialize は別リポ
-`aozora` (v0.2.5) の `aozora-syntax` / `aozora-lex` / `aozora-render` /
-`aozora-encoding` から git tag 経由で引いています。Cargo.toml の
-`[workspace.dependencies]` を見れば pin 先がわかります。
+青空文庫記法の lex / 借用 AST / per-node HTML / serialize は sibling
+repo [`P4suta/aozora`](https://github.com/P4suta/aozora) の
+`aozora-syntax` / `aozora-pipeline` / `aozora-render` /
+`aozora-encoding` / `aozora-spec` / `aozora-proptest` から git
+依存で引いています(ADR-0010)。`Cargo.toml` の
+`[workspace.dependencies]` が依存設定の単一の真実です。
+
+## Sibling リポジトリ
+
+| Repo | 内容 |
+|---|---|
+| [`P4suta/aozora`](https://github.com/P4suta/aozora) | 純粋な青空文庫記法パーサ —— lexer / AST / renderer / 外字テーブル。 |
+| [`P4suta/aozora-tools`](https://github.com/P4suta/aozora-tools) | 執筆支援ツール: `aozora-fmt` formatter / `aozora-lsp` Language Server / tree-sitter grammar / VS Code extension。 |
 
 ## 開発
 
 すべての操作は Docker 内で動作します。ホストの toolchain は直接は
-呼びません (ADR-0002)。
+呼びません(ADR-0002)。
 
 ```bash
 just test              # Docker 経由で cargo nextest
@@ -124,17 +119,15 @@ just lint              # fmt + clippy + typos + strict-code
 just coverage          # llvm-cov regions、CI floor は 96%
 just spec-commonmark   # CommonMark 0.31.2 spec フル
 just spec-gfm          # GFM 0.29 spec
-just spec-aozora       # 手書き青空文庫記法 fixture
-just spec-golden-56656 # 『罪と罰』 Tier-A acceptance gate
-just corpus-sweep      # 17 k 作品 invariant sweep (I1–I4)
-just upstream-diff     # 上流 comrak 比 200 行予算 check
+just upstream-diff     # 上流 comrak 比 0 行 diff の確認(verbatim v0.52.0)
 just ci                # full CI matrix のローカル再現
 just book-serve        # mdbook 即時プレビュー
 ```
 
-**At a glance**: 76 tests passing · 上流 comrak 比 **0 行 diff**
-(v0.2.4 以降 vanilla 維持)· parse-time hook 0 本 · render-time hook も 0 本
-(青空文庫部分は HTML 出力後の sentinel 置換で合成)。
+青空文庫専用のテスト面(`spec-aozora` / `spec-golden-56656` /
+`corpus-sweep`)は sibling repo
+[`P4suta/aozora`](https://github.com/P4suta/aozora) に置かれています。
+そちらから実行してください。
 
 詳しくは [CLAUDE.md](./CLAUDE.md) (プロジェクトガイド)、
 [docs/adr/](./docs/adr/) (Architecture Decisions)、
@@ -144,11 +137,10 @@ just book-serve        # mdbook 即時プレビュー
 
 ライブラリ利用向けの短いサンプルが
 [`crates/afm-markdown/examples/`](./crates/afm-markdown/examples/) に
-あります(v0.2.4 では borrowed-AST API への書き換え中で `cfg(any())`
-ガード済み、v0.2.5 で復活予定)。
+あります。
 
 - `render-utf8.rs` —— UTF-8 ファイルを parse して HTML を stdout へ。
-- `render-sjis.rs` —— Shift_JIS の青空文庫テキストを `afm-encoding`
+- `render-sjis.rs` —— Shift_JIS の青空文庫テキストを `aozora-encoding`
   経由で decode してから HTML に。
 - `ast-walk.rs` —— parse した AST を walk して AozoraNode 種別を集計。
 - `serialize-round-trip.rs` —— `serialize ∘ parse ≡ id` を 1 ファイルで
@@ -157,15 +149,27 @@ just book-serve        # mdbook 即時プレビュー
 実行:
 
 ```sh
-cargo run --example <name> -p afm-parser -- <path/to/input.md>
+cargo run --example <name> -p afm-markdown -- <path/to/input.md>
 ```
 
-## ステータス
+## インストール
 
-**v0.1.0 public preview**。ドキュメント化された機能について API は
-安定していますが、プロジェクトは SemVer 0.x 段階です —— 1.0 前に
-API 破壊的変更が発生する可能性があります。
-リリース履歴は [CHANGELOG.md](./CHANGELOG.md) を参照。
+**Linux x86_64**, **macOS arm64**, **Windows x86_64** 用のビルド済み
+バイナリが各 GitHub Release に添付されています ——
+[releases ページ](https://github.com/P4suta/afm/releases) から
+`afm-vX.Y.Z-<target>.{tar.gz,zip}` を選んでください。SHA256 sum は
+`SHA256SUMS` として併置されます。
+
+ソースから:
+
+```sh
+cargo install --git https://github.com/P4suta/afm --locked afm-cli
+```
+
+## セキュリティ
+
+脆弱性は GitHub Security Advisories 経由で報告してください ——
+開示フローは [`SECURITY.md`](./SECURITY.md) を参照。
 
 ## ライセンス
 

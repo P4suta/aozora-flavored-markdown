@@ -1,17 +1,12 @@
 //! Property test — Tier C: promoted headings carry only legitimate content.
 //!
 //! `［＃「X」は大見出し／中見出し／小見出し］` promotes a paragraph
-//! into an `<h1>` / `<h2>` / `<h3>`. Commit 7f5463a fixed a latent bug
-//! where the post-process promotion failed to strip sibling
-//! indent markers from the heading's body:
-//! `［＃２字下げ］第一篇［＃「第一篇」は大見出し］` was rendering as
-//! `<h1><span class="afm-indent afm-indent-2"></span>第一篇</h1>` —
-//! the indent leaked into the heading body. A single regression test
-//! in `tests/heading_promotion.rs` guards the specific shape. This
-//! property test generalises: *any* random composition of indent
-//! markers and heading hints must still produce headings whose bodies
-//! carry only the target text (no `afm-indent`, `afm-container-indent`,
-//! or `afm-annotation` tokens).
+//! into an `<h1>` / `<h2>` / `<h3>`. The contract is that any random
+//! composition of indent markers and heading hints must produce
+//! headings whose bodies carry only the target text (no `afm-indent`,
+//! `afm-container-indent`, or `afm-annotation` tokens). A regression
+//! test in `tests/heading_promotion.rs` guards a specific shape; this
+//! property test generalises.
 //!
 //! # Generator strategy
 //!
@@ -30,13 +25,13 @@
 //! construction — this keeps the proptest exercising the promotion
 //! path rather than the "unknown annotation" fallback.
 //!
-//! The generator deliberately over-samples the indent-followed-by-heading
-//! shape that commit 7f5463a's bug relied on.
+//! The generator over-samples the indent-followed-by-heading shape so
+//! the indent-leakage failure mode is exercised heavily.
 
 use afm_markdown::html::render_to_string;
 use afm_markdown::test_support::check_heading_integrity;
-use aozora_test_utils::config::default_config;
-use aozora_test_utils::generators::kanji_fragment;
+use aozora_proptest::config::default_config;
+use aozora_proptest::generators::kanji_fragment;
 use proptest::prelude::*;
 
 /// Generate an indent / alignment decorator as a single atom.

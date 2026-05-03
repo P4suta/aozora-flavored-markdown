@@ -37,5 +37,5 @@ input: a single O(n) byte sweep walks the lexer's normalised text and
 substitutes each PUA sentinel with the original afm markup, so
 `serialize ∘ parse ≡ id` on the lexer's normalised input.
 
-See [ADR-0008](adr.md) for the full design rationale and the list of
-alternative architectures considered.
+See [the architectural decisions](adr.md) for related design rationale
+and the list of alternative architectures considered.

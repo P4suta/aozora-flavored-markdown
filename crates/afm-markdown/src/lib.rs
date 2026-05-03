@@ -1,6 +1,6 @@
 //! Aozora Flavored Markdown — CommonMark + GFM + 青空文庫記法.
 //!
-//! Layers `aozora-lex` (青空文庫記法 borrowed-AST lexer) onto a
+//! Layers `aozora-pipeline` (青空文庫記法 borrowed-AST lexer) onto a
 //! vendored verbatim comrak so a single [`render_to_string`] call
 //! turns afm source into HTML. Public entry points:
 //!
@@ -10,12 +10,12 @@
 //! - [`Options`] — configuration; [`Options::afm_default`] enables
 //!   the GFM extensions afm uses on top of CommonMark.
 //!
-//! ## Pipeline (post-v0.2.4 borrowed-AST migration)
+//! ## Pipeline
 //!
 //! ```text
 //! source                                   ── UTF-8 input
 //!   │
-//!   ▼ aozora_lex::lex_into_arena           ── normalized text + Registry
+//!   ▼ aozora_pipeline::lex_into_arena      ── normalized text + Registry
 //!   │
 //!   ▼ comrak::parse_document               ── vanilla CommonMark + GFM
 //!   │   (PUA sentinels U+E001..U+E004 flow through as plain text)
@@ -43,7 +43,7 @@ mod post_process;
 #[doc(hidden)]
 pub mod test_support;
 
-pub use aozora_lex::{
+pub use aozora_pipeline::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
 };
 pub use aozora_spec::Diagnostic;
@@ -129,7 +129,7 @@ pub struct Rendered {
 /// One-stop entry point for the typical caller (afm CLI, afm-epub).
 /// Internally:
 ///
-/// 1. [`aozora_lex::lex_into_arena`] turns the source into a normalized
+/// 1. [`aozora_pipeline::lex_into_arena`] turns the source into a normalized
 ///    text (with PUA sentinels at every Aozora construct) plus a
 ///    borrowed `Registry`.
 /// 2. `comrak::parse_document` + `comrak::format_html` runs against
@@ -159,13 +159,13 @@ pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
     }
 
     // Pre-process: hide aozora trigger characters that live inside a
-    // CommonMark fenced code block from the lexer. `aozora_lex` is
+    // CommonMark fenced code block from the lexer. `aozora_pipeline` is
     // CommonMark-blind by design (ADR-0010), so this lives here. See
     // `code_block_mask` module docs for the masking scheme.
     let (masked_source, mask_originals) = code_block_mask::mask_code_block_triggers(input);
 
     let arena = Arena::new();
-    let lex_out = aozora_lex::lex_into_arena(&masked_source, &arena);
+    let lex_out = aozora_pipeline::lex_into_arena(&masked_source, &arena);
 
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
@@ -192,7 +192,7 @@ pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
 #[must_use]
 pub fn serialize(input: &str) -> String {
     let arena = Arena::new();
-    let lex_out = aozora_lex::lex_into_arena(input, &arena);
+    let lex_out = aozora_pipeline::lex_into_arena(input, &arena);
     aozora_serialize::serialize(&lex_out)
 }
 

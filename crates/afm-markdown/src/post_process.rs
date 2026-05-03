@@ -18,8 +18,8 @@
 //!
 //! ## Paragraph-aware splice
 //!
-//! v0.2.5 made the splice paragraph-aware so two further cases are
-//! handled correctly:
+//! Two cases beyond the sentinel-substitution above are handled per
+//! paragraph:
 //!
 //! - **Heading promotion** — a paragraph carrying a `HeadingHint`
 //!   inline sentinel (`［＃「X」は大見出し］`) becomes
@@ -33,7 +33,7 @@
 //!
 //! ## Order-based dispatch
 //!
-//! `aozora_lex` writes sentinels into `normalized` in source order,
+//! `aozora_pipeline` writes sentinels into `normalized` in source order,
 //! and the registry tables are sorted by byte position by
 //! construction. comrak preserves text order across `<p>...</p>`
 //! boundaries, so the order we encounter sentinels in the rendered
@@ -45,7 +45,7 @@
 
 use core::fmt;
 
-use aozora_lex::{
+use aozora_pipeline::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, BorrowedLexOutput,
     INLINE_SENTINEL,
 };
@@ -80,7 +80,7 @@ pub(crate) fn splice_aozora_html(comrak_html: &str, lex_out: &BorrowedLexOutput<
     let rebranded = rebrand_aozora_classes_to_afm(&out);
     // Defensive Tier-A guard: every `［＃…］` that the upstream lexer
     // failed to claim (e.g. an empty annotation `［＃］` nested inside
-    // a baseless ruby pair `《》`, which the aozora-lex Phase 3
+    // a baseless ruby pair `《》`, which the aozora-pipeline Phase 3
     // replay path drops on the floor) gets wrapped in an
     // `afm-annotation` hidden span here so the canary can't leak.
     // No-op on the happy path because clean inputs leave no bare
@@ -204,7 +204,7 @@ fn collect_node_refs_in_normalized_order<'a>(lex_out: &BorrowedLexOutput<'a>) ->
             continue;
         }
         let pos = u32::try_from(idx).expect("normalized text fits u32 (Phase 0 cap)");
-        if let Some(node_ref) = lex_out.registry.node_at(pos) {
+        if let Some(node_ref) = lex_out.registry.node_at(aozora_spec::NormalizedOffset(pos)) {
             out.push(node_ref);
         }
     }
@@ -317,7 +317,7 @@ fn process_paragraph(inner: &str, state: &mut SpliceState<'_, '_>, out: &mut Str
         consume_inline_sentinels(inner, state);
         let level = hint.level.clamp(1, 6);
         write!(out, "<h{level}>").expect("writing to a String never fails");
-        push_html_escaped(out, hint.target);
+        push_html_escaped(out, &hint.target);
         write!(out, "</h{level}>").expect("writing to a String never fails");
         out.push('\n');
         return;
@@ -451,7 +451,7 @@ mod tests {
 
     fn render(input: &str) -> String {
         let arena = Arena::new();
-        let lex_out = aozora_lex::lex_into_arena(input, &arena);
+        let lex_out = aozora_pipeline::lex_into_arena(input, &arena);
         let comrak_arena = comrak::Arena::new();
         let opts = comrak::Options::default();
         let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &opts);
@@ -504,7 +504,7 @@ mod tests {
         // payload comrak would never emit (an unclosed `<p>` tag) and
         // confirm the splice walks it without panicking.
         let arena = Arena::new();
-        let lex_out = aozora_lex::lex_into_arena("hello", &arena);
+        let lex_out = aozora_pipeline::lex_into_arena("hello", &arena);
         let out = splice_aozora_html("<p>unclosed paragraph", &lex_out);
         assert!(out.contains("unclosed paragraph"), "got: {out}");
     }
@@ -516,7 +516,7 @@ mod tests {
         // sentinel but for which the registry is empty. The splicer
         // must drop the paragraph silently.
         let arena = Arena::new();
-        let lex_out = aozora_lex::lex_into_arena("plain", &arena);
+        let lex_out = aozora_pipeline::lex_into_arena("plain", &arena);
         // `lex_out.registry` for "plain" is empty, but we feed an HTML
         // payload that pretends to contain one. The splicer should
         // produce no Aozora HTML for that paragraph and not panic.

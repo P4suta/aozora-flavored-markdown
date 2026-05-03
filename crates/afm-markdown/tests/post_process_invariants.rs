@@ -1,9 +1,8 @@
 //! End-to-end HTML invariants for `afm_markdown::render_to_string`.
 //!
-//! v0.2.4 collapsed the historical AST-surgery `post_process` into a
-//! string-level sentinel substitution that runs after vanilla
-//! `comrak::format_html`. The contracts that used to live on the AST
-//! still hold — they are just expressed against the rendered HTML now:
+//! `post_process` runs as a string-level sentinel substitution after
+//! vanilla `comrak::format_html`. The invariants asserted here are
+//! expressed against the rendered HTML:
 //!
 //! - **Tier-A invariant**: no bare `［＃` ever leaks into rendered HTML
 //!   outside an `afm-annotation` wrapper, for arbitrary inputs.
@@ -31,7 +30,7 @@ use afm_markdown::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL, Options,
     render_to_string as render_with_diag,
 };
-use aozora_test_utils::generators::aozora_fragment;
+use aozora_proptest::generators::aozora_fragment;
 use proptest::prelude::*;
 
 // ---------------------------------------------------------------------------

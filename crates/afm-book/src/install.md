@@ -22,10 +22,11 @@ Each archive bundles the `afm` binary alongside `LICENSE-MIT`,
 `SHA256SUMS` file is attached to the release for bulk verification:
 
 ```sh
-curl -L https://github.com/P4suta/afm/releases/download/v0.1.0/SHA256SUMS -o SHA256SUMS
+# Replace vX.Y.Z with the release tag you want from the Releases page.
+curl -L https://github.com/P4suta/afm/releases/download/vX.Y.Z/SHA256SUMS -o SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
-tar xzf afm-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
-afm-v0.1.0-x86_64-unknown-linux-gnu/afm --version
+tar xzf afm-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz
+afm-vX.Y.Z-x86_64-unknown-linux-gnu/afm --version
 ```
 
 ## From source
@@ -46,7 +47,7 @@ afm is not on crates.io yet; depend on it directly by git URL:
 
 ```toml
 [dependencies]
-afm-parser = { git = "https://github.com/P4suta/afm", tag = "v0.1.0" }
+afm-markdown = { git = "https://github.com/P4suta/afm" }
 ```
 
 See [Library Usage](library.md) for a minimal parse + render example.

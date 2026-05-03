@@ -20,11 +20,10 @@ This handbook is both a practical tour and a reference:
 
 ## Status
 
-v0.1.0 public preview. 100% CommonMark / GFM spec compatibility, all
-major Aozora Bunko annotations implemented, 519 tests green with a
-96% regions coverage floor.
+100% CommonMark / GFM spec compatibility, all major Aozora Bunko
+annotations implemented, with a 96% regions coverage floor.
 
-See the [project README](https://github.com/P4suta/afm) for the
-current at-a-glance status and the
+See the [project README](https://github.com/P4suta/afm) for an
+at-a-glance summary and the
 [CHANGELOG](https://github.com/P4suta/afm/blob/main/CHANGELOG.md) for
 release history.

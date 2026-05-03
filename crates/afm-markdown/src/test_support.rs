@@ -48,14 +48,10 @@ use core::fmt;
 use std::collections::HashSet;
 
 // AFM_CLASSES is the complete CSS-class contract emitted by the
-// renderer. Re-exported here so the css_class_contract integration
-// test can keep its single import path under
-// `afm_markdown::test_support::AFM_CLASSES`. The slice itself lives
-// in aozora-render now.
-//
-// (Provided as a local stub since v0.2.5 of aozora-render does not
-// re-export the table; integration tests that need it still build,
-// and the contract is enforced by aozora's own test suite.)
+// renderer. Provided here as a local stub so the css_class_contract
+// integration test can use a single import path
+// (`afm_markdown::test_support::AFM_CLASSES`); the underlying contract
+// is enforced by aozora's own test suite.
 pub const AFM_CLASSES: &[&str] = &[
     "afm-align-end",
     "afm-annotation",
@@ -366,8 +362,8 @@ pub fn check_no_sentinel_leak(html: &str) -> Result<(), Violation> {
 /// `<h1>`–`<h6>` bodies must not contain `afm-indent`,
 /// `afm-container-indent`, or `afm-annotation` as class tokens. Other
 /// Aozora markup (bouten, gaiji, tcy, kaeriten) is allowed inside a
-/// heading — only indent markers and raw-annotation wrappers are bugs
-/// here (see commit 7f5463a for the landing fix).
+/// heading — only indent markers and raw-annotation wrappers are
+/// bugs here.
 ///
 /// # Errors
 ///

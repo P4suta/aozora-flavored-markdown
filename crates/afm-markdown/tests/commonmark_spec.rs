@@ -6,11 +6,11 @@
 //!
 //! Drift expectations:
 //! - comrak 0.52.0 upstream claims "100% CommonMark compatibility" and passes
-//!   all 652 examples. afm-markdown wraps comrak verbatim (post-v0.2.4 the
-//!   vendored tree is bit-for-bit upstream), so we expect 652/652 here too.
+//!   all 652 examples. afm-markdown wraps comrak verbatim (the vendored
+//!   tree is bit-for-bit upstream), so we expect 652/652 here too.
 //! - If this count drops, it means our wrapper (lex pre-pass, options
 //!   default, post-process HTML splice) inadvertently mutated CommonMark
-//!   behaviour — a regression that breaks the plan's 100 % compat guarantee.
+//!   behaviour — a regression that breaks the 100 % compat guarantee.
 
 use afm_markdown::{Options, render_to_string};
 use pretty_assertions::assert_eq;
