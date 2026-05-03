@@ -1,9 +1,8 @@
-//! Fuzz target — I3 (`serialize ∘ parse`) fixed point on arbitrary UTF-8.
+//! Fuzz target — `serialize ∘ parse` fixed point on arbitrary UTF-8.
 //!
 //! First `serialize(parse(src))` canonicalises the source. A second
 //! application must be byte-identical: oscillation means the
-//! classifier and serializer disagree on the canonical form (a real
-//! bug — see ADR-0008's round-trip contract).
+//! classifier and serializer disagree on the canonical form.
 //!
 //! Run with: `just fuzz serialize_round_trip -- -runs=10000`
 

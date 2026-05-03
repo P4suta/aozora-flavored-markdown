@@ -125,11 +125,7 @@ fn check(path: &Path, encoding: InputEncoding, strict: bool) -> Result<()> {
 /// can key on the stable `afm::…` strings rather than free-form
 /// messages.
 fn emit_diagnostics(diagnostics: &[afm_markdown::Diagnostic]) {
-    use miette::Diagnostic as _;
     for d in diagnostics {
-        let code = d
-            .code()
-            .map_or_else(|| "afm::unknown".to_owned(), |c| c.to_string());
-        eprintln!("diagnostic [{code}]: {d}");
+        eprintln!("diagnostic [{}]: {d}", d.code());
     }
 }

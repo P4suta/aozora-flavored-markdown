@@ -3,14 +3,14 @@
 //!
 //! ## Why this exists
 //!
-//! `aozora_lex` recognises every `｜` / `《` / `》` / `［` / `］` / `※` /
+//! `aozora_pipeline` recognises every `｜` / `《` / `》` / `［` / `］` / `※` /
 //! `〔` / `〕` / `「` / `」` as a candidate trigger and rewrites it
 //! into a PUA sentinel before comrak ever sees the source. That is
 //! exactly what we want for prose; it is exactly what we *don't* want
 //! inside a fenced code block, where every byte is supposed to flow
 //! through to `<pre><code>` literally.
 //!
-//! `aozora_lex` is intentionally CommonMark-blind (ADR-0010 — the
+//! `aozora_pipeline` is intentionally CommonMark-blind (ADR-0010 — the
 //! parser core has no opinion on Markdown), so the responsibility for
 //! teaching it about code-block context lives here. We:
 //!
@@ -29,7 +29,7 @@
 //!
 //! ## Why not `\u{E000}` collisions?
 //!
-//! `aozora_lex`'s Phase 0 already scans for source-supplied PUA
+//! `aozora_pipeline`'s Phase 0 already scans for source-supplied PUA
 //! characters and emits a `Diagnostic::SourceContainsPua` for any
 //! encountered. We pre-scan for `MASK_CHAR` in the *original* source
 //! and skip masking entirely if any is present (returning the source
@@ -41,13 +41,13 @@ use core::cmp::min;
 
 /// Private-use code point used to stand in for an Aozora trigger
 /// character that lives inside a fenced code block. Distinct from
-/// `aozora_lex::INLINE_SENTINEL` (U+E001) and the three block
+/// `aozora_pipeline::INLINE_SENTINEL` (U+E001) and the three block
 /// sentinels (U+E002..U+E004), so the masking pass cannot collide
 /// with the lexer's own sentinels.
 const MASK_CHAR: char = '\u{E000}';
 
-/// Every char `aozora_lex` treats as a recogniser trigger. Mirrors
-/// the upstream `aozora_lex` Phase 1 event tokeniser; if the upstream
+/// Every char `aozora_pipeline` treats as a recogniser trigger. Mirrors
+/// the upstream `aozora_pipeline` Phase 1 event tokeniser; if the upstream
 /// list grows, this list must follow.
 const AOZORA_TRIGGERS: &[char] = &['｜', '《', '》', '［', '］', '※', '〔', '〕', '「', '」'];
 
@@ -257,7 +257,7 @@ mod tests {
     fn pre_existing_mask_char_disables_masking() {
         // If the source already contains MASK_CHAR, we cannot
         // distinguish a masked trigger from a literal PUA char on the
-        // unmask side, so we bail out and leave aozora-lex's own
+        // unmask side, so we bail out and leave aozora-pipeline's own
         // PUA-collision diagnostic in charge.
         let src = "\u{E000}\n```\n｜trigger\n```".to_owned();
         let (out, originals) = mask_code_block_triggers(&src);

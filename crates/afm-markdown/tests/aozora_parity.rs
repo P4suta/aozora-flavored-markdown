@@ -1,6 +1,6 @@
 //! Differential test — `afm_markdown` vs `aozora-render`.
 //!
-//! Both pipelines consume the same lexer output (`aozora_lex::lex_into_arena`)
+//! Both pipelines consume the same lexer output (`aozora_pipeline::lex_into_arena`)
 //! and the same per-node renderer (`aozora_render::render_node`), so on
 //! pure-青空文庫 input the *count and presence* of every `afm-*` class
 //! token must match. Block structure differs (afm-markdown wraps paragraphs
@@ -27,7 +27,7 @@ use std::collections::{HashMap, HashSet};
 
 use afm_markdown::html as afm_html;
 use afm_markdown::test_support::AFM_CLASSES;
-use aozora_lex::lex_into_arena;
+use aozora_pipeline::lex_into_arena;
 use aozora_render::html as aozora_html;
 use aozora_render::serialize as aozora_serialize;
 use aozora_syntax::borrowed::Arena;

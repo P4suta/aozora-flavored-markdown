@@ -1,6 +1,5 @@
 //! Parse an afm source and confirm `serialize ∘ parse ≡ id` on the
-//! lexer-normalised input. This is the I3 invariant from the corpus
-//! sweep (ADR-0007), demonstrated on a single file.
+//! lexer-normalised input, demonstrated on a single file.
 //!
 //! Run:
 //!

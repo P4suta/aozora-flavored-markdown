@@ -44,6 +44,5 @@ Harder:
 
 ## References
 
-- [Docker-only execution memory](../../.claude/projects/-home-yasunobu-projects/memory/feedback_docker_only_execution.md)
 - [Justfile](../../Justfile)
 - [Dockerfile](../../Dockerfile)

@@ -59,15 +59,11 @@ result in any pipeline that speaks CommonMark.
 - **100% CommonMark / GFM compatibility** — the full spec test suites
   pass verbatim (652 CommonMark 0.31.2 cases + the GFM 0.29 cases).
 - **100% Aozora Bunko compatibility target** — every notation listed at
-  <https://www.aozora.gr.jp/annotation/> parses, and the flagship
-  『罪と罰』 fixture (Aozora Bunko card 56656) holds a Tier-A acceptance
-  gate (panic-free, no unconsumed `［＃` markers in the rendered HTML).
-- **17 k-work corpus sweep** — four invariants gated in CI: I1 no panic,
-  I2 no bare `［＃` leak, I3 `serialize ∘ parse` fixed point, I4 HTML
-  tag-balanced. See ADR-0007.
+  <https://www.aozora.gr.jp/annotation/> parses; afm preserves the
+  Tier-A invariant (no unconsumed `［＃` markers in the rendered HTML).
 - **Single binary**, no runtime process dependencies.
-- **Pure-functional parse pipeline** (ADR-0008) — zero parse-time hooks
-  in vendored comrak; Aozora recognition lives in
+- **Pure-functional parse pipeline** — zero parse-time hooks in
+  vendored comrak; Aozora recognition lives in
   [`aozora`](https://github.com/P4suta/aozora) (sibling repo) and is
   spliced into the comrak AST by `afm-markdown::post_process`.
 
@@ -90,7 +86,7 @@ result in any pipeline that speaks CommonMark.
 
 ```
 afm/
-  upstream/comrak/           # vendored comrak 0.52.0, verbatim (0-line diff since v0.2.4)
+  upstream/comrak/           # vendored comrak 0.52.0, verbatim (0-line diff)
   crates/
     afm-markdown/            # CommonMark + GFM + 青空文庫記法 HTML integration layer
     afm-cli/                 # `afm` binary (render / check)
@@ -101,10 +97,10 @@ afm/
 ```
 
 The Aozora-specific lexer / AST / renderer (`aozora-syntax`,
-`aozora-lexer`, `aozora-parser`, `aozora-encoding`, `aozora-corpus`,
-`aozora-test-utils`) live in the sibling
+`aozora-pipeline`, `aozora-render`, `aozora-encoding`, `aozora-spec`,
+`aozora-proptest`) live in the sibling
 [`P4suta/aozora`](https://github.com/P4suta/aozora) repository and are
-consumed here as a tag-pinned `git` dependency (ADR-0010).
+consumed here as a `git` dependency (ADR-0010).
 
 ## Sibling repositories
 
@@ -124,13 +120,15 @@ just lint              # fmt + clippy + typos + strict-code
 just coverage          # llvm-cov regions, CI floor at 96%
 just spec-commonmark   # full CommonMark 0.31.2 spec
 just spec-gfm          # GFM 0.29 spec
-just spec-aozora       # hand-written Aozora fixtures
-just spec-golden-56656 # 罪と罰 Tier-A acceptance gate
-just corpus-sweep      # 17 k-work invariant sweep (I1–I4)
 just upstream-diff     # verify the upstream comrak tree stays 0-line (verbatim v0.52.0)
 just ci                # replicate the full CI matrix locally
 just book-serve        # mdbook live preview at http://localhost:3000
 ```
+
+Aozora-only test surfaces (`spec-aozora`, `spec-golden-56656`,
+`corpus-sweep`) live in the sibling
+[`P4suta/aozora`](https://github.com/P4suta/aozora) repo. Run them
+from there.
 
 See [CLAUDE.md](./CLAUDE.md) for the project guide, [docs/adr/](./docs/adr/)
 for architectural decisions, and [CONTRIBUTING.md](./CONTRIBUTING.md) for
@@ -163,7 +161,7 @@ x86_64** are attached to every GitHub Release — see
 Or build from source:
 
 ```sh
-cargo install --git https://github.com/P4suta/afm --tag v0.2.3 --locked afm-cli
+cargo install --git https://github.com/P4suta/afm --locked afm-cli
 ```
 
 ## Security

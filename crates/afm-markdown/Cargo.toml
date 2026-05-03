@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 aozora-syntax   = { workspace = true }
-aozora-lex      = { workspace = true }
+aozora-pipeline = { workspace = true }
 aozora-render   = { workspace = true }
 aozora-spec     = { workspace = true }
 aozora-encoding = { workspace = true }
@@ -25,7 +25,7 @@ miette    = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-aozora-test-utils = { workspace = true }
+aozora-proptest   = { workspace = true }
 proptest          = { workspace = true }
 pretty_assertions = { workspace = true }
 serde             = { workspace = true }

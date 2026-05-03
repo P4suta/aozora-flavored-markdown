@@ -38,8 +38,8 @@ use afm_markdown::test_support::{
     check_markup_completeness, check_no_bare_bracket, check_no_sentinel_leak,
 };
 use afm_markdown::{Options, render_to_string as render_to_diagnostics};
-use aozora_test_utils::config::default_config;
-use aozora_test_utils::generators::{aozora_fragment, commonmark_adversarial, pathological_aozora};
+use aozora_proptest::config::default_config;
+use aozora_proptest::generators::{aozora_fragment, commonmark_adversarial, pathological_aozora};
 use proptest::prelude::*;
 
 /// Whether the lexer raised any diagnostic for `src`. Gates Tier A /

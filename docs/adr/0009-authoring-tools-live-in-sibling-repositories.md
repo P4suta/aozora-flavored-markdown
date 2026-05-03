@@ -248,11 +248,6 @@ the obvious differentiator.
   have their own test strategy.
 - ADR-0008 — zero-parser-hook Aozora-first pipeline. Defines the
   stable API surface this ADR treats as load-bearing.
-- Plan file `~/.claude/plans/flavaord-markdown-vs-code-harmonic-sonnet.md`
-  — three-stage rollout (this ADR is Stage 1; `aozora-tools` creation is
-  Stage 2; core extraction is Stage 3 and deferred).
-- Memory `project_afm_public_release.md` — v0.1.0 GitHub-Releases
-  distribution plan with crates.io publish deferred.
 - Prior art: [taplo](https://github.com/tamasfe/taplo),
   [marksman](https://github.com/artempyanykh/marksman),
   [texlab](https://github.com/latex-lsp/texlab).

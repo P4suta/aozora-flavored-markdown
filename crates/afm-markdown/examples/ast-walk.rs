@@ -14,7 +14,7 @@ use std::process::ExitCode;
 use afm_markdown::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
 };
-use aozora_lex::lex_into_arena;
+use aozora_pipeline::lex_into_arena;
 use aozora_syntax::borrowed::{AozoraNode, Arena, NodeRef};
 
 fn main() -> ExitCode {
@@ -44,7 +44,7 @@ fn main() -> ExitCode {
             continue;
         }
         let pos = u32::try_from(idx).expect("normalized text fits u32");
-        let Some(node_ref) = lex_out.registry.node_at(pos) else {
+        let Some(node_ref) = lex_out.registry.node_at(aozora_spec::NormalizedOffset(pos)) else {
             continue;
         };
         let kind = match node_ref {

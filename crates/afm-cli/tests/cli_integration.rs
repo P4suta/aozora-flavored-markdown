@@ -359,9 +359,9 @@ fn check_strict_on_diagnostic_input_fails() {
 #[test]
 fn diagnostics_print_to_stderr_with_aozora_code() {
     // Even without --strict, diagnostics surface on stderr so tooling
-    // (Language servers, CI grep) can react. After the v0.2.4 borrowed-AST
-    // migration the lexer lives in the sibling `aozora` crate, so the
-    // diagnostic codes carry the `aozora::…` prefix from upstream.
+    // (Language servers, CI grep) can react. The lexer lives in the
+    // sibling `aozora` crate, so the diagnostic codes carry the
+    // `aozora::…` prefix from upstream.
     let path = write_temp_utf8(DIAGNOSTIC_INPUT);
     let out = run_afm(&["check", path.to_str().unwrap()]);
     assert!(
