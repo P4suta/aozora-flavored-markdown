@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# xtask — project automation (upstream-sync, upstream-diff, corpus-refresh, bench).
-# Always runs inside the dev container.
+# xtask — project automation (upstream-diff, upstream-sync, new-adr,
+# spec-refresh). Always runs inside the dev container.
 
 set -euo pipefail
 

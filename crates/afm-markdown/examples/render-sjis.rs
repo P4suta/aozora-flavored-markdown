@@ -2,7 +2,7 @@
 //!
 //! Run it against an unpacked Aozora Bunko file:
 //!
-//!     cargo run --example render-sjis -p afm-parser -- tsumito_batsu.txt
+//!     cargo run --example render-sjis -p afm-markdown -- tsumito_batsu.txt
 
 use std::env;
 use std::fs;

@@ -17,6 +17,11 @@
 > comrak's container splitting — comrak simply parses each marker as
 > an isolated single-char paragraph that post_process pairs up.
 >
+> v0.2.4 (2026-04-30) completed the migration: comrak carries a 0-line
+> diff and the post-process splice runs over emitted HTML rather than
+> the AST (see `crates/afm-markdown/src/post_process.rs`). The
+> in-comrak block-start hook this ADR proposed was never shipped.
+>
 > This ADR is kept for historical record. Follow ADR-0008 for the
 > current design.
 

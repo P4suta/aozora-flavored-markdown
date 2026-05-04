@@ -7,6 +7,121 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Aozora-side IR projection.** `afm_markdown::render_to_ir` and
+  `render_blocks_to_ir` now emit every Aozora variant
+  (`Ruby`, `DoubleRuby`, `Bouten`, `Tcy`, `Gaiji`, `Annotation`,
+  `Container`, `PageBreak`, `SectionBreak`) into the typed
+  `IrDocument`, replacing the v0.1 markdown-only walker. Heading
+  hints (`［＃「X」は大見出し］`) promote their host paragraph to
+  `IrBlock::Heading` directly. `IrInline::Image` is also added so
+  CommonMark images survive the IR boundary.
+- **`afm_markdown::ir::StreamingIrBuilder`.** Public stateful
+  per-block IR builder that threads the sentinel-stream cursor
+  across `walk_block` calls. afm-obsidian's chunked-cancellation
+  path uses this to checkpoint between blocks without losing
+  Aozora projection lockstep.
+- **`crates/afm-markdown/src/sentinels.rs`.** New shared module
+  that owns `BlockSentinelKind`, `is_sentinel_char` (subtraction-
+  based fast check), `sole_block_sentinel`,
+  `flatten_registry_in_source_order`, and `SentinelCursor`
+  (peek / next / advance / position primitive). Both the HTML
+  splicer and the IR builder consume from this single source of
+  truth.
+- **ADR-0011 — brand boundary CSS class rewrite.** Codifies the
+  decision to keep the `aozora-*` → `afm-*` HTML rewrite on the
+  afm side rather than parameterising upstream `aozora-render`,
+  preserving the one-way `afm → aozora` dependency direction.
+- **`cargo xtask upstream-sync <tag>`** is now implemented as a
+  pure tree-replace: shallow-clones the upstream comrak tag, drops
+  the old vendored tree, copies the new source over, and updates
+  `COMRAK_SHA`. The `afm-side` metadata (`COMRAK_SHA`,
+  `UPSTREAM_DIFF.md`) is preserved across the wipe.
+
+### Changed (breaking)
+
+- **`IrInline::DoubleRuby`** drops the always-empty `outer` and
+  `inner` string fields. The shape is now
+  `{ base: Vec<Self>, range }` matching upstream's `DoubleRuby`
+  payload exactly.
+- **`RenderedBlock.ir`** is now `Vec<IrBlock>` rather than a
+  single `IrBlock`. This removes the `ThematicBreak` placeholder
+  hack for comrak constructs without a v0.2 IR projection
+  (definition list, footnote ref, raw HTML) and lets paired-
+  container drains carry through the streaming boundary.
+- **`AnnotationKind::Unknown`** projects to
+  `Some("unknown")` in `IrInline::Annotation::resolved` instead
+  of `None`. Future `#[non_exhaustive]` variants of
+  `AnnotationKind` upstream will surface as `None`, so consumers
+  can distinguish "the parser tried and gave up" from "afm
+  doesn't know about this kind yet".
+- **`pub use comrak::Options as ComrakOptions`** removed from
+  the public surface. Consumers who tweak comrak's options
+  directly should import comrak themselves; the afm public API
+  no longer pins comrak's version into its surface.
+
+### Changed
+
+- **`afm-wasm` diagnostic projection** now uses
+  `Diagnostic::severity` / `source` / `code` plus the `Display`
+  impl, replacing the hardcoded `"info"` level and `"{d:?}"`
+  debug-format message. Wire shape is
+  `{ level, source, code, message }`.
+- **`afm_markdown::post_process`** now consumes the shared
+  `SentinelCursor` instead of carrying its own cursor fields.
+- **`UPSTREAM_DIFF_BUDGET_LINES`** in `xtask` lowered from 200
+  to 0, matching ADR-0001 v0.2.4.
+
+### Removed
+
+- **`xtask` deferred sub-commands** (`corpus-refresh`, `corpus-test`,
+  and the `deferred()` helper) — moved to the sibling `aozora`
+  repo per ADR-0010.
+- **`aozora-corpus`** dropped from `[workspace.dependencies]`
+  (not used by any member crate after ADR-0010).
+- **`afm_markdown::ir::walk_block_public`** removed in favour of
+  `StreamingIrBuilder` so multi-block streaming consumers can't
+  accidentally restart the cursor between blocks.
+
+### Documentation
+
+- **afm-book** refreshed top-to-bottom: `library.md` rewritten
+  with current `afm_markdown` API examples (3-tier:
+  `render_to_string`, `render_to_ir`, `render_blocks_to_ir`,
+  plus `serialize`); `arch/pipeline.md` replaced with the
+  current 3-layer + shared-cursor architecture; `arch/adr.md`
+  expanded to the full 0001-0011 set with current statuses;
+  `ref/api.md` re-targeted at `afm_markdown` / `afm_wasm` and
+  the sibling `aozora-*` crates.
+- **CONTRIBUTING.md** rewritten around the post-v0.2.0 glue-
+  layer responsibility. The 5-step "How to add an invariant"
+  flow is now afm-markdown-internal; new 青空文庫 notations
+  redirect to the sibling repo.
+- **README.md / README.ja.md / SECURITY.md / PR template** —
+  stale `afm-parser` / `afm-lexer` / `afm-syntax` / `afm-encoding`
+  references and the obsolete `200-line` budget removed.
+- **ADR-0003** (afm-parser architecture) and **ADR-0005**
+  (paired-block container hook) statuses updated to
+  `Superseded by ADR-0010` / `Superseded by ADR-0008` with
+  v0.2.0 / v0.2.4 historical context appended.
+- **Stale code comments** in `afm_markdown::lib`,
+  `afm_markdown::examples::{render-utf8,render-sjis}`, and
+  `xtask::spec_refresh` updated to match current crate names.
+
+### Internal
+
+- Coverage measured at 97.23% regions across 273 tests; the 96%
+  floor holds. New unit tests pin every non-exhaustive enum
+  match arm (`bouten_kind_str`, `section_kind_subtype`,
+  `container_subtype`, `container_indent_level`,
+  `annotation_kind_resolved`, `bouten_position_str`) so future
+  upstream additions surface immediately.
+- `IrWalker` uses move semantics for `OpenContainer` children
+  (no clone at close), and `ParaScan` runs a single descent over
+  each paragraph to compute `total_sentinels` / `first_heading_hint`
+  in one pass.
+
 ## [0.3.0] - 2026-04-30
 
 Major release. Tracks aozora `0.2.6` (released same day) and locks in

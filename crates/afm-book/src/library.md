@@ -1,72 +1,173 @@
 # Library Usage
 
-afm is a Rust library as well as a binary. Everything the CLI does is
-layered on top of public APIs on `afm-parser`, `afm-syntax`, and
-`afm-encoding`.
+afm ships as a Rust library (`afm-markdown`) alongside the CLI. The
+binary is a thin wrapper over the same public API every embedder
+calls — there is no parallel "library-only" path that the CLI
+bypasses, so a CLI run and a library embed produce byte-identical
+HTML for the same input.
 
-## A minimal parse + render
+## Add the dependency
+
+afm is not on crates.io yet; depend on it directly by git URL:
+
+```toml
+[dependencies]
+afm-markdown = { git = "https://github.com/P4suta/afm" }
+```
+
+The `aozora-encoding` sibling crate provides Shift_JIS decoding when
+you need it; pin it from the same repo set:
+
+```toml
+[dependencies]
+aozora-encoding = { git = "https://github.com/P4suta/aozora" }
+```
+
+## Render to HTML — the simple path
 
 ```rust
-use comrak::Arena;
+use afm_markdown::{Options, render_to_string};
 
 fn main() {
-    let arena = Arena::new();
-    let options = afm_parser::Options::default();
-    let input = "｜青梅《おうめ》に行った。";
+    let rendered = render_to_string(
+        "彼は｜青梅《おうめ》に行った。",
+        &Options::afm_default(),
+    );
 
-    let parsed = afm_parser::parse(&arena, input, &options);
-    let html = afm_parser::render_to_string(&parsed);
-
-    println!("{html}");
+    println!("{}", rendered.html);
+    for diag in &rendered.diagnostics {
+        eprintln!("warning: {diag}");
+    }
 }
 ```
 
-## Reading Shift_JIS input
+`Options::afm_default()` enables the GFM extensions afm uses on top
+of CommonMark (strikethrough, tables, autolinks, task lists),
+hardbreaks (so each Aozora source newline becomes a `<br>` — verse /
+dialogue boundaries are load-bearing in 青空文庫 source), and the
+Aozora pre-pass.
 
-Aozora Bunko ships its text files in Shift_JIS. `afm-encoding` exposes
-a transparent decoder so your pipeline doesn't need to know the
-encoding ahead of time:
+For pure CommonMark or pure GFM behaviour (no Aozora recognition),
+use `Options::commonmark_only()` or `Options::gfm_only()` — these are
+also what the CommonMark 0.31.2 and GFM 0.29 spec runners exercise.
+
+## Render to a structured IR
+
+`render_to_ir` returns the same HTML alongside a typed `IrDocument`
+that mirrors the TypeScript `IRDocument` consumed by afm-obsidian:
 
 ```rust
-use afm_encoding::decode_sjis;
-use comrak::Arena;
+use afm_markdown::ir::{IrBlock, IrInline};
+use afm_markdown::{Options, render_to_ir};
 
-fn main() -> anyhow::Result<()> {
+fn main() {
+    let rendered = render_to_ir(
+        "# 第一章\n\n｜青梅《おうめ》",
+        &Options::afm_default(),
+    );
+
+    for block in &rendered.ir.blocks {
+        match block {
+            IrBlock::Heading { level, .. } => println!("h{level}"),
+            IrBlock::Paragraph { children, .. } => {
+                let ruby_count = children
+                    .iter()
+                    .filter(|c| matches!(c, IrInline::Ruby { .. }))
+                    .count();
+                println!("paragraph with {ruby_count} ruby span(s)");
+            }
+            other => println!("{other:?}"),
+        }
+    }
+}
+```
+
+The IR carries every Aozora-side construct (`Ruby`, `DoubleRuby`,
+`Bouten`, `Tcy`, `Gaiji`, `Annotation`, `Container`, `PageBreak`,
+`SectionBreak`) plus the markdown-side block / inline shapes — so
+JS-side renderers in afm-obsidian / afm-logseq can pick their own
+output target (DOM fragment, CodeMirror RangeSet, semantic tokens)
+without re-parsing the HTML.
+
+## Render block-by-block (streaming)
+
+For long documents where you want to checkpoint between blocks
+(afm-obsidian uses this for `AbortSignal` cancellation in chunked
+post-processors), use `render_blocks_to_ir`:
+
+```rust
+use afm_markdown::{Options, render_blocks_to_ir};
+
+let (blocks, diagnostics) = render_blocks_to_ir(
+    "first paragraph\n\n｜second《せかんど》paragraph",
+    &Options::afm_default(),
+);
+
+for block in blocks {
+    println!("{} ir nodes at line {}", block.ir.len(), block.source_line);
+    println!("{}", block.html);
+}
+assert!(diagnostics.is_empty());
+```
+
+The shared `StreamingIrBuilder` threads the sentinel cursor across
+calls, so per-block IR projection stays in lockstep with the
+whole-document path. A block may carry zero IR entries (e.g.
+container-open paragraphs that drain at the next call boundary) or
+more than one (a container that finally closes).
+
+## Reading Shift_JIS input
+
+Aozora Bunko ships its text files in Shift_JIS. `aozora-encoding`
+exposes a transparent decoder so your pipeline doesn't need to know
+the encoding ahead of time:
+
+```rust
+use afm_markdown::{Options, render_to_string};
+use aozora_encoding::decode_sjis;
+
+fn main() -> std::io::Result<()> {
     let bytes = std::fs::read("tsumito_batsu.txt")?;
-    let utf8 = decode_sjis(&bytes)?;
+    let utf8 = decode_sjis(&bytes).expect("decoded");
 
-    let arena = Arena::new();
-    let options = afm_parser::Options::default();
-    let parsed = afm_parser::parse(&arena, &utf8, &options);
-    let html = afm_parser::render_to_string(&parsed);
-
-    std::fs::write("tsumito_batsu.html", html)?;
+    let rendered = render_to_string(&utf8, &Options::afm_default());
+    std::fs::write("tsumito_batsu.html", rendered.html)?;
     Ok(())
 }
 ```
 
-## Round-tripping through the AST
+## Round-tripping through the lexer
 
-`afm_parser::serialize` is the inverse of `parse`, replaying the lexer
-registry to reconstruct the original afm markup byte-for-byte (modulo
-the lexer's normalisation). This is what I3 (round-trip fixed point)
-in the 17 k-work corpus sweep exercises.
+`afm_markdown::serialize` is the inverse of the lex pre-pass: it
+replays the borrowed-AST registry to reconstruct the original afm
+markup byte-for-byte (modulo the lexer's Phase-0 sanitisation). This
+is what the upstream 17 k-work corpus sweep exercises as I3 (round-
+trip fixed point):
 
 ```rust
-use comrak::Arena;
+use afm_markdown::serialize;
 
 fn main() {
-    let arena = Arena::new();
-    let options = afm_parser::Options::default();
-    let parsed = afm_parser::parse(&arena, "｜青梅《おうめ》", &options);
-
-    let roundtripped = afm_parser::serialize(&parsed);
-    assert_eq!(roundtripped, "｜青梅《おうめ》");
+    let source = "彼は｜青梅《おうめ》に行った。";
+    assert_eq!(serialize(source), source);
 }
 ```
 
 ## More examples
 
-See the [`examples/`](https://github.com/P4suta/afm/tree/main/examples)
-directory in the repository for UTF-8 render, Shift_JIS render, AST
-walking, and round-trip serialisation reference snippets.
+End-to-end snippets live under
+[`crates/afm-markdown/examples/`](https://github.com/P4suta/afm/tree/main/crates/afm-markdown/examples)
+in the repository:
+
+- `render-utf8.rs` — UTF-8 source → HTML on stdout.
+- `render-sjis.rs` — Shift_JIS source via `aozora-encoding`.
+- `ast-walk.rs` — walk the parsed AST and tally `AozoraNode`
+  variants.
+- `serialize-round-trip.rs` — verify `serialize ∘ lex ≡ id` on one
+  file.
+
+Run any of them with:
+
+```sh
+cargo run --example <name> -p afm-markdown -- <path>
+```

@@ -40,6 +40,7 @@ mod code_block_mask;
 pub mod html;
 pub mod ir;
 mod post_process;
+mod sentinels;
 mod source_line_anchors;
 
 #[doc(hidden)]
@@ -48,8 +49,7 @@ pub mod test_support;
 pub use aozora_pipeline::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
 };
-pub use aozora_spec::Diagnostic;
-pub use comrak::Options as ComrakOptions;
+pub use aozora_spec::{Diagnostic, DiagnosticSource, Severity};
 
 use aozora_render::serialize as aozora_serialize;
 use aozora_syntax::borrowed::Arena;
@@ -249,15 +249,15 @@ pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
 ///
 /// Mirrors [`render_to_string`] but additionally walks comrak's AST
 /// to emit a typed [`ir::IrDocument`]. The IR is the canonical
-/// contract between afm-wasm and afm-obsidian's TS renderers
-/// (Pillar 7 of the afm-obsidian plan).
+/// contract between afm-wasm and afm-obsidian's TS renderers.
 ///
-/// v0.1 scope: covers markdown-side structure (paragraph, heading,
-/// blockquote, list, code, thematic break, table). Aozora-specific
-/// IR nodes (Ruby, Bouten, Gaiji, TCY, Annotation, Container,
-/// `PageBreak`, `SectionBreak`) are emitted in the HTML but not yet in
-/// the IR — see `crates/afm-markdown/src/ir.rs` doc comments for
-/// the v0.2 scope.
+/// The IR covers the full Markdown side (paragraph, heading,
+/// blockquote, list, code, thematic break, table, image) and the
+/// full Aozora side (`Ruby` / `DoubleRuby` / `Bouten` / `Tcy` /
+/// `Gaiji` / `Annotation` / `PageBreak` / `SectionBreak` /
+/// `Container`); heading hints (`［＃「X」は大見出し］`) promote
+/// their host paragraph to `IrBlock::Heading` so the IR shape
+/// matches the rendered HTML one-for-one.
 ///
 /// # Panics
 ///
@@ -269,7 +269,7 @@ pub fn render_to_ir(input: &str, options: &Options<'_>) -> RenderedIr {
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
         let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
-        let ir_doc = ir::build_ir(root);
+        let ir_doc = ir::build_ir(root, None);
         let anchors = if options.source_line_anchors {
             source_line_anchors::collect_top_level_lines(root)
         } else {
@@ -297,7 +297,7 @@ pub fn render_to_ir(input: &str, options: &Options<'_>) -> RenderedIr {
 
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
-    let ir_doc = ir::build_ir(root);
+    let ir_doc = ir::build_ir(root, Some(&lex_out));
     let anchors = if options.source_line_anchors {
         source_line_anchors::collect_top_level_lines(root)
     } else {
@@ -322,12 +322,17 @@ pub fn render_to_ir(input: &str, options: &Options<'_>) -> RenderedIr {
     }
 }
 
-/// One block of [`render_blocks_to_ir`]'s output: the structured
-/// IR for the block plus the HTML fragment that the canonical
-/// renderer would have emitted for that block in isolation.
+/// One block of [`render_blocks_to_ir`]'s output.
+///
+/// Each entry corresponds to one top-level comrak child. `html` is the
+/// rendered HTML for that child (with Aozora sentinels spliced).
+/// `ir` is the IR projection — typically a single block, but may be
+/// empty for comrak constructs without a v0.2 IR mapping (definition
+/// lists, footnote refs, raw HTML, etc.) and may carry more than one
+/// block when an Aozora paired-container drains at the call boundary.
 #[derive(Debug, Clone)]
 pub struct RenderedBlock {
-    pub ir: ir::IrBlock,
+    pub ir: Vec<ir::IrBlock>,
     pub html: String,
     /// 1-based line where this block began in the source.
     pub source_line: u32,
@@ -377,6 +382,12 @@ fn collect_rendered_blocks<'a>(
     options: &Options<'_>,
     lex_out: Option<&aozora_pipeline::BorrowedLexOutput<'a>>,
 ) -> Vec<RenderedBlock> {
+    // Single builder threads its cursor across blocks so the
+    // sentinel stream stays in lockstep with comrak's depth-first
+    // walk over `root.children()`. A per-call walker would restart
+    // the cursor at 0 for every block and misalign Aozora projection
+    // against the registry.
+    let mut ir_builder = ir::StreamingIrBuilder::new(lex_out);
     let mut blocks = Vec::new();
     for child in root.children() {
         let data = child.data.borrow();
@@ -384,54 +395,22 @@ fn collect_rendered_blocks<'a>(
             .unwrap_or(u32::MAX)
             .max(1);
         drop(data);
-        // IR projection for this block.
-        let mut ir_doc_blocks: Vec<ir::IrBlock> = Vec::new();
-        // Wrap the single child in a synthetic root by walking it directly.
-        // `ir::build_ir` walks the root's children, but we want to walk
-        // exactly *this* child. We piggy-back on a helper that's available
-        // because `build_ir` is a thin loop — re-implement that loop here
-        // for one node.
-        let single_root_doc = ir::IrDocument {
-            blocks: walk_block_for_streaming(child),
-            diagnostics: Vec::new(),
-        };
-        ir_doc_blocks.extend(single_root_doc.blocks);
-        // HTML for this block: print it via comrak's per-node formatter.
+        let ir_blocks = ir_builder.walk_block(child);
         let mut block_html = String::new();
         comrak::format_html(child, &options.comrak, &mut block_html)
             .expect("formatting a String never fails");
-        // Apply aozora splice if enabled.
         let html_final = if let Some(lo) = lex_out {
             post_process::splice_aozora_html(&block_html, lo)
         } else {
             block_html
         };
-        let ir_block = ir_doc_blocks
-            .into_iter()
-            .next()
-            .unwrap_or(ir::IrBlock::ThematicBreak {
-                source_line: Some(line),
-                range: None,
-            });
         blocks.push(RenderedBlock {
-            ir: ir_block,
+            ir: ir_blocks,
             html: html_final,
             source_line: line,
         });
     }
     blocks
-}
-
-// Lifted from ir::build_ir's inner loop so we can walk one block in
-// isolation rather than the whole root.
-fn walk_block_for_streaming<'a>(node: &'a AstNode<'a>) -> Vec<ir::IrBlock> {
-    // `ir` exposes only `build_ir` publicly; reach into the same logic
-    // by constructing a doc-with-one-child synthesis. Since `build_ir`
-    // takes a root and iterates `root.children()`, we wrap this single
-    // node in an artificial root via the comrak arena. That's heavy
-    // for what we want; instead we rely on a small pub(crate) helper
-    // — see `ir.rs` for `walk_block_public`.
-    ir::walk_block_public(node)
 }
 
 /// Round-trip an afm source through the lexer and back to canonical

@@ -2,7 +2,7 @@
 //!
 //! Run it (from the workspace root, inside the dev container):
 //!
-//!     cargo run --example render-utf8 -p afm-parser -- input.md
+//!     cargo run --example render-utf8 -p afm-markdown -- input.md
 
 use std::env;
 use std::fs;

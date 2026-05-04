@@ -1,5 +1,7 @@
 //! Convert a CommonMark- or GFM-style `spec.txt` into the JSON fixture format
-//! consumed by `afm-parser`'s spec conformance tests.
+//! consumed by `afm-markdown`'s spec conformance tests
+//! (`crates/afm-markdown/tests/commonmark_spec.rs` and
+//! `crates/afm-markdown/tests/gfm_spec.rs`).
 //!
 //! Input format (cmark convention):
 //!

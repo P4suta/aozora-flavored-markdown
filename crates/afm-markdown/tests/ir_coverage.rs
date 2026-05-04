@@ -225,20 +225,35 @@ fn hard_break_projects_as_hard_line_break() {
 }
 
 #[test]
-fn image_inline_drops_to_none_quietly() {
-    // Image is one of the v0.1-deferred inline kinds. The walker
-    // returns None for it, which collect_inlines absorbs without
-    // leaving a placeholder.
-    let blocks = ir_for("text ![alt](pic.png) tail\n");
+fn image_inline_projects_with_url_alt_and_optional_title() {
+    let blocks = ir_for("![alt text](pic.png \"Caption\")\n");
     let IrBlock::Paragraph { children, .. } = &blocks[0] else {
         panic!("expected Paragraph");
     };
-    // Walker drops Image entirely (no placeholder); surrounding text
-    // still survives.
+    let saw_image = children.iter().any(|c| {
+        matches!(
+            c,
+            IrInline::Image { url, title, alt, .. }
+                if url == "pic.png"
+                    && title.as_deref() == Some("Caption")
+                    && alt
+                        .iter()
+                        .any(|a| matches!(a, IrInline::Text { value, .. } if value == "alt text"))
+        )
+    });
+    assert!(saw_image, "expected IrInline::Image, got: {children:#?}");
+}
+
+#[test]
+fn image_without_title_omits_title_field() {
+    let blocks = ir_for("![alt](pic.png)\n");
+    let IrBlock::Paragraph { children, .. } = &blocks[0] else {
+        panic!("expected Paragraph");
+    };
     let saw_image = children
         .iter()
-        .any(|c| matches!(c, IrInline::Link { .. } | IrInline::Code { .. }));
-    assert!(!saw_image, "image should not project as Link or Code");
+        .any(|c| matches!(c, IrInline::Image { title, .. } if title.is_none()));
+    assert!(saw_image, "expected IrInline::Image with no title");
 }
 
 #[test]
