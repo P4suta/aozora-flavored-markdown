@@ -49,3 +49,10 @@ pre-push:
       run: just test
     deny:
       run: just deny
+    # Deep proptest sweep (4096 cases vs the CI baseline 128) — runs
+    # locally before push so a regression that needs many cases to
+    # surface is caught here instead of on a downstream PR. Fuzz is
+    # deliberately *not* wired in: libfuzzer's nightly + corpus + cold
+    # start budget overshoots a pre-push hook.
+    prop-deep:
+      run: just prop-deep
