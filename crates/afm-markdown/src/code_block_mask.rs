@@ -353,3 +353,130 @@ mod tests {
         assert!(out.contains("\r\nafter"));
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    //! Property tests for the masking pass.
+    //!
+    //! The unit tests above pin a finite list of hand-curated shapes
+    //! (fenced code, tilde fence, indented fence, CRLF, pre-existing
+    //! mask char). Property tests close the gap by drawing arbitrary
+    //! Aozora-shaped and CommonMark-adversarial input from
+    //! [`aozora_proptest`] and asserting four cross-cutting invariants
+    //! that must hold *regardless* of the input's shape:
+    //!
+    //! 1. **No-fence identity** — when the source contains neither
+    //!    backticks nor tildes, masking is a no-op (returns
+    //!    `Cow::Borrowed`) and `originals` is empty.
+    //! 2. **PUA fast-path** — when the source already contains
+    //!    [`MASK_CHAR`] (U+E000), masking is short-circuited to
+    //!    `Cow::Borrowed` and `originals` is empty (regardless of
+    //!    fence presence). The lexer's own `SourceContainsPua`
+    //!    diagnostic must not be sabotaged by us mutating the bytes.
+    //! 3. **Mask + unmask is identity** — for any input, replaying the
+    //!    masked output through `unmask_html` with the recorded
+    //!    `originals` reconstructs the source byte-for-byte. This is
+    //!    the core round-trip property the masking pass exists to
+    //!    provide.
+    //! 4. **Outside-fence triggers are preserved verbatim** — masking
+    //!    only touches the fence interior; any Aozora trigger glyph
+    //!    that appears *outside* a fenced code block must survive the
+    //!    pass unchanged.
+
+    use super::*;
+    use aozora_proptest::config::default_config;
+    use aozora_proptest::generators::{aozora_fragment, commonmark_adversarial};
+    use proptest::prelude::*;
+
+    /// Combined input strategy — Aozora fragments mixed with CommonMark
+    /// adversarial constructs (which include fenced code blocks).
+    fn aozora_or_commonmark() -> impl Strategy<Value = String> {
+        prop_oneof![aozora_fragment(40), commonmark_adversarial()]
+    }
+
+    /// Substring of `s` that lies *outside* every fenced code block.
+    /// Mirrors the fence-state machine in [`mask_code_block_triggers`]
+    /// so we count exactly the characters the masking pass leaves
+    /// alone.
+    fn outside_fences(s: &str) -> String {
+        let mut out = String::with_capacity(s.len());
+        let mut phase = Phase::Outside;
+        for line in s.split_inclusive('\n') {
+            match phase {
+                Phase::Outside => {
+                    out.push_str(line);
+                    if let Some(fence) = parse_fence_open(line) {
+                        phase = Phase::InFence(fence);
+                    }
+                }
+                Phase::InFence(open) => {
+                    if is_fence_close(line, open) {
+                        phase = Phase::Outside;
+                    }
+                    // body of a fenced code block is dropped here on
+                    // purpose — we only want the prose context.
+                }
+            }
+        }
+        out
+    }
+
+    /// Count occurrences of every Aozora trigger char in a string.
+    fn count_triggers(s: &str) -> usize {
+        s.chars().filter(|c| AOZORA_TRIGGERS.contains(c)).count()
+    }
+
+    proptest! {
+        #![proptest_config(default_config())]
+
+        /// (1) No-fence identity — sources without `` ` `` or `~` round-trip
+        /// untouched.
+        #[test]
+        fn no_fence_input_is_borrowed_with_no_originals(s in aozora_fragment(40)) {
+            let scrubbed: String = s.chars().filter(|c| *c != '`' && *c != '~').collect();
+            let (masked, originals) = mask_code_block_triggers(&scrubbed);
+            prop_assert!(matches!(masked, Cow::Borrowed(_)));
+            prop_assert!(originals.is_empty());
+            prop_assert_eq!(&*masked, &scrubbed);
+        }
+
+        /// (2) PUA fast-path — sources already carrying [`MASK_CHAR`] short
+        /// circuit to a borrowed Cow with empty originals so the lexer's
+        /// SourceContainsPua diagnostic stays meaningful.
+        #[test]
+        fn pre_existing_mask_char_short_circuits(s in aozora_fragment(40)) {
+            let mut with_mask = String::with_capacity(s.len() + 1);
+            with_mask.push(MASK_CHAR);
+            with_mask.push_str(&s);
+            let (masked, originals) = mask_code_block_triggers(&with_mask);
+            prop_assert!(matches!(masked, Cow::Borrowed(_)));
+            prop_assert!(originals.is_empty());
+            prop_assert_eq!(&*masked, &with_mask);
+        }
+
+        /// (3) Mask + unmask is identity. The fundamental round-trip
+        /// invariant — without this, the entire masking pass is broken.
+        #[test]
+        fn mask_then_unmask_is_identity(src in aozora_or_commonmark()) {
+            let (masked, originals) = mask_code_block_triggers(&src);
+            let restored = unmask_html(&masked, &originals);
+            prop_assert_eq!(&*restored, &src);
+        }
+
+        /// (4) Outside-fence triggers survive masking — only the fence
+        /// interior gets [`MASK_CHAR`]-substituted. We count triggers in
+        /// the fence-exterior projection of the source and assert the
+        /// masked output retains at least that many.
+        #[test]
+        fn outside_fence_triggers_are_preserved(src in aozora_or_commonmark()) {
+            let outside_count = count_triggers(&outside_fences(&src));
+            let (masked, _) = mask_code_block_triggers(&src);
+            let masked_count = count_triggers(&masked);
+            prop_assert!(
+                masked_count >= outside_count,
+                "outside-fence triggers were not preserved: outside={outside_count} masked={masked_count}\n\
+                 source: {src:?}\nmasked: {masked:?}"
+            );
+        }
+    }
+}
