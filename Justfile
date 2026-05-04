@@ -143,7 +143,7 @@ bench *ARGS:
 #   anchor paths (lib.rs) are exercised by `tests/ir_coverage.rs`
 #   to keep production coverage above the 96 floor.
 _COV_FLOOR := "96"
-_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|afm-markdown-test-support/|afm-wasm/|/post_process_legacy\\.rs$)"
+_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|afm-markdown-test-support/|afm-wasm/)"
 
 coverage:
     {{_dev}} cargo llvm-cov nextest \

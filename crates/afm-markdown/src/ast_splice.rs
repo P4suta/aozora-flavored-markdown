@@ -475,4 +475,28 @@ mod tests {
         // `HtmlBlock` node without touching it.
         let _html = render_via_ast_splice("<div>raw</div>\n\n```\ncode\n```\n\n`x`");
     }
+
+    #[test]
+    fn orphan_bracket_wrap_respects_text_node_boundary() {
+        // Pin the AST-splicer's preferred semantics: an unclosed
+        // `［＃` only wraps within its own Text node — a soft break
+        // (`\n`) inside the same paragraph splits the wrap because
+        // comrak emits `Text("［＃")` + `SoftBreak` + `Text("※")`.
+        // The legacy string-pass would have wrapped across the
+        // soft break (it scanned bytes, not nodes). This test
+        // documents the deliberate semantic choice that comes with
+        // moving from string-scan to AST-walk: wrap scope is
+        // structural, not byte-positional. Both behaviours satisfy
+        // the Tier-A canary (no bare `［＃` survives outside an
+        // `afm-annotation` wrapper); the AST one is just sharper.
+        let html = render_via_ast_splice("［＃\n※");
+        assert!(
+            html.contains("<span class=\"afm-annotation\" hidden>［＃</span>"),
+            "wrapped run did not honour Text-node boundary: {html}"
+        );
+        assert!(
+            !html.contains("<span class=\"afm-annotation\" hidden>［＃\n※"),
+            "wrap leaked across SoftBreak: {html}"
+        );
+    }
 }

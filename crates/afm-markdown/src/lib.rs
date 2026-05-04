@@ -42,8 +42,6 @@ mod ast_splice;
 mod code_block_mask;
 pub mod html;
 pub mod ir;
-#[cfg(test)]
-mod post_process_legacy;
 mod sentinel_stream;
 mod source_line_anchors;
 
