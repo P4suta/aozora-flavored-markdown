@@ -1,0 +1,23 @@
+[package]
+name        = "afm-markdown-test-support"
+description = "Test predicates and invariant helpers for the afm-markdown integration test suite"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+authors.workspace      = true
+readme.workspace       = true
+keywords.workspace     = true
+categories.workspace   = true
+publish              = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# The test-support library carves up afm-markdown's emitted HTML
+# without parsing the source itself, so it depends only on the
+# rendered output. afm-markdown is a dev-only consumer (via its own
+# integration tests); this crate reverses the relationship to keep
+# the production build of `afm-markdown` from pulling in test glue.

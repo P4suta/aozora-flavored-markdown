@@ -15,7 +15,7 @@
 //!   asymmetry.
 //! - **Class contract leakage.** Both renderers source their `afm-*`
 //!   classes from the same pinned list (`AFM_CLASSES` in
-//!   `afm_markdown::test_support`). A renderer that emits an
+//!   `afm_markdown_test_support`). A renderer that emits an
 //!   unregistered class shows up here.
 //! - **Tier-A / Tier-B consistency.** Both renderers must satisfy the
 //!   no-bare-bracket and no-PUA-leak contracts on lexer-clean input.
@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 
 use afm_markdown::html as afm_html;
-use afm_markdown::test_support::AFM_CLASSES;
+use afm_markdown_test_support::AFM_CLASSES;
 use aozora_pipeline::lex_into_arena;
 use aozora_render::html as aozora_html;
 use aozora_render::serialize as aozora_serialize;
@@ -155,7 +155,7 @@ fn every_afm_class_emitted_is_in_the_pinned_contract() {
 
 #[test]
 fn both_renderers_satisfy_tier_a_no_bare_bracket() {
-    use afm_markdown::test_support::strip_annotation_wrappers;
+    use afm_markdown_test_support::strip_annotation_wrappers;
     for (label, src) in pure_aozora_fixtures() {
         for (renderer, html) in [
             ("aozora", aozora_only_render(src)),
@@ -172,19 +172,17 @@ fn both_renderers_satisfy_tier_a_no_bare_bracket() {
 
 #[test]
 fn both_renderers_satisfy_tier_b_no_pua_leak() {
-    use afm_markdown::{
-        BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
-    };
+    use afm_markdown::sentinels;
     for (label, src) in pure_aozora_fixtures() {
         for (renderer, html) in [
             ("aozora", aozora_only_render(src)),
             ("afm-md", afm_html::render_to_string(src)),
         ] {
             for s in [
-                INLINE_SENTINEL,
-                BLOCK_LEAF_SENTINEL,
-                BLOCK_OPEN_SENTINEL,
-                BLOCK_CLOSE_SENTINEL,
+                sentinels::INLINE,
+                sentinels::BLOCK_LEAF,
+                sentinels::BLOCK_OPEN,
+                sentinels::BLOCK_CLOSE,
             ] {
                 assert!(
                     !html.contains(s),

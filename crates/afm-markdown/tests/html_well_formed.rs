@@ -7,13 +7,13 @@
 //! `</div>` close leaves the surrounding markup technically
 //! broken even though no `［＃` leaked.
 //!
-//! The validator lives in [`afm_markdown::test_support`] alongside
+//! The validator lives in [`afm_markdown_test_support`] alongside
 //! the other invariant predicates so both this file and
 //! `corpus_sweep.rs` can call it; this file is the fast-path
 //! unit coverage for shapes with known expected-balanced output.
 
 use afm_markdown::html::render_to_string;
-use afm_markdown::test_support::{WellFormedError, check_well_formed};
+use afm_markdown_test_support::{WellFormedError, check_well_formed};
 
 /// Small helper: fail with the full HTML context so a violation is
 /// actionable without re-running with eyeball inspection.

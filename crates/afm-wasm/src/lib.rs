@@ -93,7 +93,7 @@ struct RenderOptions {
     source_line_anchors: Option<bool>,
 }
 
-fn build_options(opts: &RenderOptions) -> Options<'static> {
+fn build_options(opts: &RenderOptions) -> Options {
     let mut base = Options::afm_default();
     if let Some(v) = opts.aozora_enabled {
         base.aozora_enabled = v;

@@ -23,6 +23,8 @@
 //!   comrak paragraph node directly with the same semantics, also
 //!   allocation-free.
 
+use core::ops::ControlFlow;
+
 use aozora_pipeline::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, BorrowedLexOutput,
     INLINE_SENTINEL,
@@ -53,6 +55,17 @@ impl BlockSentinelKind {
     }
 }
 
+/// Saturating `usize → u32`. Source line / column / byte offsets
+/// past `u32::MAX` only happen for files larger than `~4G`, which
+/// the rest of the pipeline already declines to handle, so a
+/// saturating clamp is the right answer when we have to fit a
+/// `usize` into the IR / sourcepos surface.
+#[inline]
+#[must_use]
+pub(crate) fn saturating_u32(n: usize) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
+
 /// True iff `ch` is one of the four PUA sentinel codepoints
 /// `U+E001..=U+E004`.
 ///
@@ -78,6 +91,82 @@ pub(crate) fn sole_block_sentinel(inner: &str) -> Option<BlockSentinelKind> {
     BlockSentinelKind::from_char(first)
 }
 
+/// How [`visit_text_leaves`] handles non-`Text` child nodes
+/// (`Strong` / `Emph` / `Link` / `Code` / ...).
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum InlineDescend {
+    /// Bail out the moment a non-`Text` child is encountered. Used
+    /// to validate "this paragraph is a single bare block-sentinel
+    /// run" without false-positives from emphasis-wrapped content.
+    StopAtNonText,
+    /// Descend through emphasis / strong / link / code wrappers and
+    /// keep visiting their `Text` leaves. The default for paragraph
+    /// dispatch (sentinel counting, heading-hint peeking).
+    DescendThrough,
+}
+
+/// Visit every `Text`-leaf descendant of `node` left-to-right.
+///
+/// `mode` decides what happens when the walker meets a non-`Text`
+/// child (see [`InlineDescend`]). The closure is invoked once per
+/// `Text` leaf with the leaf's string slice and may return
+/// [`ControlFlow::Break`] to short-circuit the entire walk.
+///
+/// Returns `Err(())` when:
+/// - `mode == StopAtNonText` and a non-`Text` child was encountered,
+///   OR
+/// - the closure returned `Break` at some point.
+///
+/// Returns `Ok(())` when the whole subtree was visited and every
+/// closure invocation returned `Continue`.
+///
+/// `core::ops::ControlFlow<()>` is the visitor signal so callers can
+/// thread their own early-bail without a bespoke enum.
+pub(crate) fn visit_text_leaves<'a, F>(
+    node: &'a AstNode<'a>,
+    mode: InlineDescend,
+    mut visit: F,
+) -> Result<(), ()>
+where
+    F: FnMut(&str) -> ControlFlow<()>,
+{
+    fn recurse<'a, F>(node: &'a AstNode<'a>, mode: InlineDescend, visit: &mut F) -> Result<(), ()>
+    where
+        F: FnMut(&str) -> ControlFlow<()>,
+    {
+        for child in node.children() {
+            let data = child.data.borrow();
+            match &data.value {
+                NodeValue::Text(s) => {
+                    let s = s.clone();
+                    drop(data);
+                    if visit(&s) == ControlFlow::Break(()) {
+                        return Err(());
+                    }
+                    // A `Text` node can in principle have children
+                    // under non-pathological comrak inputs (emphasis
+                    // splits etc.). Recurse through them too.
+                    if child.first_child().is_some() {
+                        recurse(child, mode, visit)?;
+                    }
+                }
+                _ => match mode {
+                    InlineDescend::StopAtNonText => return Err(()),
+                    InlineDescend::DescendThrough => {
+                        let has_descendants = child.first_child().is_some();
+                        drop(data);
+                        if has_descendants {
+                            recurse(child, mode, visit)?;
+                        }
+                    }
+                },
+            }
+        }
+        Ok(())
+    }
+    recurse(node, mode, &mut visit)
+}
+
 /// Allocation-free analogue of [`sole_block_sentinel`] that walks a
 /// comrak paragraph node directly.
 ///
@@ -91,93 +180,40 @@ pub(crate) fn paragraph_sole_block_sentinel<'a>(
     node: &'a AstNode<'a>,
 ) -> Option<BlockSentinelKind> {
     let mut found: Option<BlockSentinelKind> = None;
-    if walk_text_only_descendants(node, &mut |s| {
+    let walk_ok = visit_text_leaves(node, InlineDescend::StopAtNonText, |s| {
         for ch in s.chars() {
             if matches!(ch, ' ' | '\t' | '\n' | '\r') {
                 continue;
             }
             let Some(kind) = BlockSentinelKind::from_char(ch) else {
-                return ControlFlow::Break;
+                return ControlFlow::Break(());
             };
             if found.is_some() {
-                return ControlFlow::Break;
+                return ControlFlow::Break(());
             }
             found = Some(kind);
         }
-        ControlFlow::Continue
-    }) {
-        found
-    } else {
-        None
-    }
+        ControlFlow::Continue(())
+    })
+    .is_ok();
+    walk_ok.then_some(()).and(found)
 }
 
-/// Result of a Text-node walk over a comrak block.
-enum ControlFlow {
-    Continue,
-    Break,
-}
-
-/// Visit every `Text` descendant of `node` left-to-right. Returns
-/// `true` iff the entire subtree consists of `Text` leaves *only*
-/// (no Strong / Emph / Link / Code / etc. nodes), AND the visitor
-/// closure asked to continue at every step. Used to validate the
-/// "sole block sentinel paragraph" invariant cheaply.
-fn walk_text_only_descendants<'a, F>(node: &'a AstNode<'a>, visit: &mut F) -> bool
-where
-    F: FnMut(&str) -> ControlFlow,
-{
-    for child in node.children() {
-        let data = child.data.borrow();
-        match &data.value {
-            NodeValue::Text(s) => {
-                let s = s.clone();
-                drop(data);
-                match visit(&s) {
-                    ControlFlow::Continue => {}
-                    ControlFlow::Break => return false,
-                }
-                if child.first_child().is_some() && !walk_text_only_descendants(child, visit) {
-                    return false;
-                }
-            }
-            _ => return false,
-        }
-    }
-    true
-}
-
-/// Visit every `Text` descendant of `node` left-to-right, calling
-/// `visit` on each `&str` slice. Unlike
-/// [`walk_text_only_descendants`], this descends into emphasis /
-/// strong / link / code subtrees and ignores their wrappers — we
-/// only care about the leaf text. Used to count sentinels and peek
-/// the registry for paragraph-level dispatch.
+/// Visit every `Text` descendant of `node` left-to-right, descending
+/// through emphasis / strong / link / code wrappers. Unlike the
+/// general [`visit_text_leaves`] this never bails — used for the
+/// paragraph-level sentinel count + heading-hint peek where every
+/// leaf must be observed.
 pub(crate) fn for_each_text_descendant<'a, F>(node: &'a AstNode<'a>, mut visit: F)
 where
     F: FnMut(&str),
 {
-    visit_text_inner(node, &mut visit);
-}
-
-fn visit_text_inner<'a, F>(node: &'a AstNode<'a>, visit: &mut F)
-where
-    F: FnMut(&str),
-{
-    for child in node.children() {
-        let data = child.data.borrow();
-        if let NodeValue::Text(s) = &data.value {
-            let s = s.clone();
-            drop(data);
-            visit(&s);
-        } else {
-            let has_descendants = child.first_child().is_some();
-            drop(data);
-            if has_descendants {
-                visit_text_inner(child, visit);
-            }
-        }
-    }
+    // `DescendThrough` + `Continue` can never short-circuit, so the
+    // returned Result is structurally always `Ok(())`; we discard it.
+    let _result = visit_text_leaves(node, InlineDescend::DescendThrough, |s| {
+        visit(s);
+        ControlFlow::Continue(())
+    });
 }
 
 /// Walk `lex_out.normalized` byte-by-byte; for every PUA sentinel,
@@ -205,24 +241,41 @@ pub(crate) fn flatten_registry_in_source_order<'a>(
     out
 }
 
-/// Cursor over a flat sentinel-ordered slice of [`NodeRef`].
+/// Cursor over an owned sentinel-ordered `Vec<NodeRef>`.
 ///
-/// Both [`crate::post_process`] and [`crate::ir`] share this cursor:
-/// they track their own per-walker state (HTML buffer + container
-/// kind stack vs IR tree builder + open-container stack) but agree on
-/// how to consume the stream.
-pub(crate) struct SentinelCursor<'a, 'src> {
-    nodes: &'a [NodeRef<'src>],
+/// Both [`crate::post_process`] and [`crate::ir`] consume the
+/// registry by materialising it into a `Vec` once, then walking it
+/// linearly. The cursor owns that `Vec` so callers don't have to
+/// thread a separate slice lifetime through every walker — a single
+/// `'src` (the borrowed-AST payload lifetime) is enough.
+#[derive(Debug)]
+pub(crate) struct SentinelCursor<'src> {
+    nodes: Vec<NodeRef<'src>>,
     idx: usize,
 }
 
-impl<'a, 'src> SentinelCursor<'a, 'src> {
-    pub(crate) fn new(nodes: &'a [NodeRef<'src>]) -> Self {
+impl<'src> SentinelCursor<'src> {
+    /// Materialise the registry into a fresh cursor. Empty `lex_out`
+    /// produces a cursor with no entries; consumers degrade to
+    /// markdown-only behaviour.
+    pub(crate) fn from_lex_out(lex_out: Option<&BorrowedLexOutput<'src>>) -> Self {
+        Self {
+            nodes: lex_out
+                .map(flatten_registry_in_source_order)
+                .unwrap_or_default(),
+            idx: 0,
+        }
+    }
+
+    /// Construct directly from a `Vec` of registry entries (used
+    /// by tests and by the streaming builder which owns the `Vec`).
+    pub(crate) fn from_nodes(nodes: Vec<NodeRef<'src>>) -> Self {
         Self { nodes, idx: 0 }
     }
 
     /// Peek the registry entry at `offset` past the current cursor.
-    /// `peek(0)` returns the next entry that `next` would produce.
+    /// `peek(0)` returns the next entry that [`Self::next`] would
+    /// produce.
     pub(crate) fn peek(&self, offset: usize) -> Option<NodeRef<'src>> {
         self.nodes.get(self.idx + offset).copied()
     }
@@ -239,22 +292,6 @@ impl<'a, 'src> SentinelCursor<'a, 'src> {
     /// Saturating advance by `n` entries.
     pub(crate) fn advance(&mut self, n: usize) {
         self.idx = self.idx.saturating_add(n).min(self.nodes.len());
-    }
-
-    /// Number of entries consumed so far. Used by streaming-mode
-    /// callers (`crate::ir`'s `StreamingIrBuilder`) to thread the
-    /// cursor across per-block walks.
-    pub(crate) fn position(&self) -> usize {
-        self.idx
-    }
-
-    /// Construct with an explicit starting cursor position.
-    /// Saturating: positions past the end clamp to `nodes.len()`.
-    pub(crate) fn with_position(nodes: &'a [NodeRef<'src>], pos: usize) -> Self {
-        Self {
-            nodes,
-            idx: pos.min(nodes.len()),
-        }
     }
 }
 
@@ -326,12 +363,12 @@ mod tests {
         // Synthesise a small slice of NodeRefs for cursor mechanics.
         use aozora_syntax::ContainerKind;
         use aozora_syntax::borrowed::AozoraNode;
-        let entries: &[NodeRef<'static>] = &[
+        let entries: Vec<NodeRef<'static>> = vec![
             NodeRef::Inline(AozoraNode::PageBreak),
             NodeRef::BlockOpen(ContainerKind::Keigakomi),
             NodeRef::BlockClose(ContainerKind::Keigakomi),
         ];
-        let mut cursor = SentinelCursor::new(entries);
+        let mut cursor = SentinelCursor::from_nodes(entries);
         assert!(matches!(
             cursor.peek(0),
             Some(NodeRef::Inline(AozoraNode::PageBreak))

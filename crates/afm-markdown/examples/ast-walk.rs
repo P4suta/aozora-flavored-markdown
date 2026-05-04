@@ -11,9 +11,7 @@ use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-use afm_markdown::{
-    BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
-};
+use afm_markdown::sentinels;
 use aozora_pipeline::lex_into_arena;
 use aozora_syntax::borrowed::{AozoraNode, Arena, NodeRef};
 
@@ -38,7 +36,10 @@ fn main() -> ExitCode {
     for (idx, ch) in lex_out.normalized.char_indices() {
         let is_sentinel = matches!(
             ch,
-            INLINE_SENTINEL | BLOCK_LEAF_SENTINEL | BLOCK_OPEN_SENTINEL | BLOCK_CLOSE_SENTINEL
+            sentinels::INLINE
+                | sentinels::BLOCK_LEAF
+                | sentinels::BLOCK_OPEN
+                | sentinels::BLOCK_CLOSE
         );
         if !is_sentinel {
             continue;

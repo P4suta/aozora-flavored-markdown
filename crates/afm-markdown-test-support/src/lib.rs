@@ -1,6 +1,7 @@
-//! Test utilities for afm-parser.
+//! Test predicates and invariant helpers for the afm-markdown
+//! integration test suite.
 //!
-//! This module hosts the *predicates* that codify every "must never
+//! This crate hosts the *predicates* that codify every "must never
 //! be" output shape the renderer must avoid — see the [Invariant
 //! catalog](#invariant-catalog) below. Each predicate returns
 //! `Result<(), Violation>` so it can be composed from unit tests,
@@ -8,9 +9,9 @@
 //! footing. [`assert_invariants`] runs every predicate and aggregates
 //! their diagnostics.
 //!
-//! The matching *generator* strategies live in the `afm-test-utils`
-//! crate so `proptest` does not become a transitive runtime
-//! dependency of `afm-parser`.
+//! The matching *generator* strategies live in `aozora-proptest`
+//! (sibling repo) so `proptest` does not become a transitive runtime
+//! dependency of `afm-markdown`.
 //!
 //! # Invariant catalog
 //!
@@ -32,26 +33,56 @@
 //! able to witness the pre-/post-promotion AST, which the shape-only
 //! HTML predicate cannot observe.
 //!
-//! # Visibility
+//! # Why a separate crate
 //!
-//! `#[doc(hidden)] pub` rather than `#[cfg(test)] mod` so integration
-//! tests in `tests/` (which are separate crate roots) can reach these
-//! helpers without duplicating them. Marked `doc(hidden)` because the
-//! module is not part of the public afm-markdown API.
+//! These helpers were originally a `#[doc(hidden)] pub mod
+//! test_support` inside `afm-markdown` so the integration test
+//! binaries could reach them without duplication. That hack has been
+//! retired in v0.4: integration glue lives here instead, and
+//! `afm-markdown` declares this crate as a `dev-dependency`. The
+//! `#[doc(hidden)]` smoke screen is gone, the production crate's
+//! type-check / lint / `cargo doc` surface shrinks, and `_COV_IGNORE`
+//! no longer has to carve out a path inside the production tree.
 //!
 //! [`AFM_CLASSES`]: self::AFM_CLASSES
 
-#![doc(hidden)]
+#![forbid(unsafe_code)]
 
 use core::error::Error;
 use core::fmt;
 use std::collections::HashSet;
 
 // AFM_CLASSES is the complete CSS-class contract emitted by the
-// renderer. Provided here as a local stub so the css_class_contract
-// integration test can use a single import path
-// (`afm_markdown::test_support::AFM_CLASSES`); the underlying contract
+// renderer. Mirrored here so the css_class_contract integration test
+// can pin the surface from a single import path
+// (`afm_markdown_test_support::AFM_CLASSES`); the underlying contract
 // is enforced by aozora's own test suite.
+//
+// ## How drift between this list and aozora-render is caught
+//
+// Sibling `aozora-render` embeds the `aozora-*` class names as
+// string literals inside `writer.write_str(...)` calls — there is
+// no exported `pub const` we could import. Build-time fetch of the
+// sibling source is technically possible but heavyweight (depends
+// on cargo metadata + a regex scan).
+//
+// Instead, drift is caught by the existing
+// `crates/afm-markdown/tests/css_class_contract.rs` integration
+// test, which runs every ruby / bouten / gaiji / TCY / annotation
+// / container shape through `afm_markdown::render_to_string` and
+// asserts that every emitted `class="afm-…"` token appears in this
+// list. A *new* class added upstream surfaces immediately as a
+// failed assertion ("class `afm-foo` not in `AFM_CLASSES`"), so
+// the obligation reduces to: when `css_class_contract` fails after
+// an `aozora-*` workspace bump, append the new class name here
+// and to the corresponding rule in
+// `crates/afm-book/theme/afm-{horizontal,vertical}.css`.
+//
+// A dedicated automation pass (build.rs that fetches the sibling
+// source tree, regex-extracts `class="aozora-…"` literals, and
+// emits an `AFM_CLASSES` const into `OUT_DIR`) is sketched as a
+// future ADR — it would eliminate the manual append step at the
+// cost of a network / filesystem dependency in the test build.
 pub const AFM_CLASSES: &[&str] = &[
     "afm-align-end",
     "afm-annotation",

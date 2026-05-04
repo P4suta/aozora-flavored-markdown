@@ -55,7 +55,7 @@ fn load() -> Vec<SpecExample> {
 /// `render.unsafe` is always on so raw HTML in expected output survives.
 /// `aozora_enabled = false` because the GFM spec runner verifies the
 /// wrapper does not perturb upstream comrak behaviour.
-fn options_for(extension: &str) -> Options<'static> {
+fn options_for(extension: &str) -> Options {
     let mut comrak = comrak::Options::default();
     comrak.render.r#unsafe = true;
     match extension {

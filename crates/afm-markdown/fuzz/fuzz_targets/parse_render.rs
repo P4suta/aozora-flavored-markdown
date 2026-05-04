@@ -17,7 +17,7 @@
 #![no_main]
 
 use afm_markdown::html::render_to_string;
-use afm_markdown::test_support::{
+use afm_markdown_test_support::{
     check_annotation_wrapper_shape, check_content_model, check_css_class_contract,
     check_escape_invariants, check_heading_integrity, check_html_tag_balance,
     check_markup_completeness, check_no_xss_marker,

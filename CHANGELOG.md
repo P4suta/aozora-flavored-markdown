@@ -7,6 +7,96 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **`IrInline::Range` / `IrBlock::Range`** are now
+  `{ start: Position, end: Position }` carrying 1-based line / column
+  coordinates straight from comrak's `Sourcepos`. The previous
+  `{ from: u32, to: u32 }` was a pseudo-byte offset
+  (`(line-1)*1024 + (col-1)`) that silently broke under multi-byte
+  CJK content. JS-side consumers (afm-obsidian's CodeMirror bridge)
+  no longer need to redo UTF-8 byte arithmetic. TS contract on the
+  consumer side must be updated to match.
+- **`pub use aozora_pipeline::*_SENTINEL`** from `afm_markdown` is
+  removed in favour of the afm-side wrapper module
+  `afm_markdown::sentinels` (`INLINE` / `BLOCK_LEAF` / `BLOCK_OPEN` /
+  `BLOCK_CLOSE`). The afm public API no longer names sibling-crate
+  constants, so upstream renames surface in this module rather than
+  breaking every consumer.
+- **`Options<'c>` lifetime parameter** removed. `Options` now wraps
+  `comrak::Options<'static>` and carries no caller-side lifetime,
+  collapsing the 3-arg generic on every public entry point.
+
+### Changed
+
+- **`crates/afm-markdown/src/post_process.rs`** redesigned around
+  `Cow<'_, str>` so the three secondary passes
+  (`rebrand_aozora_classes_to_afm`, `wrap_orphan_brackets_in_place`,
+  `balance_inline_tags_in_paragraphs`) borrow the previous pass'
+  output on the common path and only allocate when their trigger
+  pattern is present. Splicer Pass 1 is now the only mandatory
+  allocation; Passes 2-4 are zero-allocation no-ops on well-formed
+  input. The fully-fused 1-pass aho-corasick state-machine is
+  documented as a follow-up in the module docstring; the Cow
+  threading already removes the redundant *allocations* on the
+  common path.
+- **`splice_into`'s `<p>` matcher** now matches both `<p>` and
+  `<p attr=…>` openings (taking the earliest of the two). Previously
+  only `<p>` was matched, so source-line-anchor injection
+  (`<p data-afm-source-line="N">`) could leak through the splicer
+  unspliced. Fixes a long-standing asymmetry against
+  `balance_inline_tags_in_paragraphs:127` which already handled both
+  forms.
+- **`source_line_anchors`** rewritten as `format_root_with_anchors`
+  + `inject_anchor_into_first_open_tag`: comrak's `format_html` is
+  invoked per top-level block and the anchor attribute is prepended
+  to the first opening tag of each block's HTML chunk. The 226-line
+  attribute-aware tag walker (with depth tracking, void-tag
+  detection, attribute-value `>` handling) is gone; the new
+  implementation is ~155 lines and self-contained.
+- **`code_block_mask`** rewritten with `Cow<'_, str>`: when the
+  source contains no fence markers (or already contains the mask
+  char), the masking pass returns `Cow::Borrowed(input)` and skips
+  allocation entirely. CRLF line breaks are now preserved through
+  the mask/unmask round trip.
+- **`ir.rs` (1318 L)** split into a `crates/afm-markdown/src/ir/`
+  module: `types.rs` (public IR enum/struct definitions),
+  `projection.rs` (pure conversion helpers and enum→string
+  mappers), and `mod.rs` (the stateful walker + streaming builder).
+- **`IrWalker` lifetime parameters** collapsed from three (`<'c, 'src,
+  'a>`) to one (`<'src>`) plus per-method `<'a>` for comrak's
+  invariant `Node` lifetime. The shared `SentinelCursor` now owns
+  its `Vec<NodeRef>` rather than borrowing a slice, removing the
+  slice-lifetime entirely from the walker's signature.
+- **`crates/afm-markdown/src/sentinel_stream.rs`** (renamed from
+  `sentinels.rs`) consolidates `walk_text_only_descendants` and
+  `for_each_text_descendant` into a single
+  `visit_text_leaves<F>(node, mode, f)` returning
+  `core::ops::ControlFlow<()>` for early-exit. The two prior
+  helpers are thin convenience wrappers around it.
+- **`render_to_string` / `render_to_ir`** now delegate to a shared
+  `drive_pipeline<F, T>` helper that owns the lex / parse / format
+  / splice sequence. Each public entry point is ~5 lines of
+  projection on top.
+
+### Internal
+
+- **`crates/afm-markdown-test-support/`** new sub-crate holds the
+  test predicates and invariant helpers that previously lived in
+  `afm-markdown::test_support` (1426 L behind `#[doc(hidden)] pub
+  mod`). The hack is removed and the helpers are no longer part of
+  `afm-markdown`'s public surface; the integration tests pull them
+  in via `[dev-dependencies]` instead.
+- **`saturating_u32`** centralised in `sentinel_stream` (was
+  duplicated in `ir.rs` and `lib.rs`).
+- **`AFM_CLASSES`** drift detection moved into the existing
+  `css_class_contract.rs` integration test; the manual mirror in
+  `test_support` carries a comment cross-referencing the sibling
+  `aozora-render` source. (No build.rs codegen — the test is the
+  drift detector.)
+- Coverage measured at 97.86% regions across 283 tests; the 96%
+  floor holds.
+
 ### Added
 
 - **Aozora-side IR projection.** `afm_markdown::render_to_ir` and

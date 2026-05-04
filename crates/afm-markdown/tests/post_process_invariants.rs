@@ -25,11 +25,8 @@
 //! the lexer's own validate phase — defence-in-depth is the point.
 
 use afm_markdown::html::render_to_string;
-use afm_markdown::test_support::strip_annotation_wrappers;
-use afm_markdown::{
-    BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL, Options,
-    render_to_string as render_with_diag,
-};
+use afm_markdown::{Options, render_to_string as render_with_diag, sentinels};
+use afm_markdown_test_support::strip_annotation_wrappers;
 use aozora_proptest::generators::aozora_fragment;
 use proptest::prelude::*;
 
@@ -41,8 +38,8 @@ use proptest::prelude::*;
 fn render_consumes_every_inline_sentinel_on_simple_ruby() {
     let html = render_to_string("｜青梅《おうめ》へ");
     assert!(
-        !html.contains(INLINE_SENTINEL),
-        "INLINE_SENTINEL leaked into HTML: {html:?}"
+        !html.contains(sentinels::INLINE),
+        "sentinels::INLINE leaked into HTML: {html:?}"
     );
 }
 
@@ -50,9 +47,9 @@ fn render_consumes_every_inline_sentinel_on_simple_ruby() {
 fn render_consumes_every_block_sentinel_on_page_break() {
     let html = render_to_string("前\n\n［＃改ページ］\n\n後");
     for s in [
-        BLOCK_LEAF_SENTINEL,
-        BLOCK_OPEN_SENTINEL,
-        BLOCK_CLOSE_SENTINEL,
+        sentinels::BLOCK_LEAF,
+        sentinels::BLOCK_OPEN,
+        sentinels::BLOCK_CLOSE,
     ] {
         assert!(!html.contains(s), "block sentinel {s:?} leaked: {html:?}");
     }
@@ -62,10 +59,10 @@ fn render_consumes_every_block_sentinel_on_page_break() {
 fn render_consumes_sentinels_for_mixed_inline_and_block() {
     let html = render_to_string("｜漢字《かんじ》の話。\n\n［＃改ページ］\n\n［＃ほげ］まとめ");
     for s in [
-        INLINE_SENTINEL,
-        BLOCK_LEAF_SENTINEL,
-        BLOCK_OPEN_SENTINEL,
-        BLOCK_CLOSE_SENTINEL,
+        sentinels::INLINE,
+        sentinels::BLOCK_LEAF,
+        sentinels::BLOCK_OPEN,
+        sentinels::BLOCK_CLOSE,
     ] {
         assert!(!html.contains(s), "sentinel {s:?} leaked: {html:?}");
     }
@@ -189,7 +186,7 @@ proptest! {
     fn render_survives_arbitrary_aozora_shaped_input(src in aozora_fragment(16)) {
         let html = render_to_string(&src);
         if lexer_is_well_formed(&src) {
-            for s in [INLINE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, BLOCK_CLOSE_SENTINEL] {
+            for s in [sentinels::INLINE, sentinels::BLOCK_LEAF, sentinels::BLOCK_OPEN, sentinels::BLOCK_CLOSE] {
                 prop_assert!(
                     !html.contains(s),
                     "sentinel {:?} leaked for src {:?}, html {:?}",

@@ -1,5 +1,5 @@
 [package]
-name = "afm-parser-fuzz"
+name = "afm-markdown-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -9,10 +9,9 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-afm-parser   = { path = ".." }
-afm-lexer    = { path = "../../afm-lexer" }
-afm-encoding = { path = "../../afm-encoding" }
-comrak       = { path = "../../../upstream/comrak", default-features = false }
+afm-markdown              = { path = ".." }
+afm-markdown-test-support = { path = "../../afm-markdown-test-support" }
+aozora-encoding           = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", branch = "main" }
 
 # Prevent this crate from joining the afm workspace.
 # Each fuzz target needs libfuzzer-sys (nightly-gated), which the

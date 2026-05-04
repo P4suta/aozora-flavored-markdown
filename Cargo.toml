@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/afm-markdown",
+    "crates/afm-markdown-test-support",
     "crates/afm-cli",
     "crates/afm-wasm",
     "crates/xtask",
@@ -156,6 +157,9 @@ redundant_pub_crate     = "allow"
 [workspace.dependencies]
 # Internal crate (the Markdown-integration layer that lives in this repo)
 afm-markdown = { version = "0.3.0", path = "crates/afm-markdown" }
+# Internal test-only crate. `publish = false` so the version is purely
+# a cargo-deny placeholder; the real coupling is the workspace path.
+afm-markdown-test-support = { version = "0.3.0", path = "crates/afm-markdown-test-support" }
 
 # Sibling repo aozora — pure 青空文庫記法 parser. Tracks the upstream
 # `main` branch; `cargo update -p aozora-spec ...` advances the
