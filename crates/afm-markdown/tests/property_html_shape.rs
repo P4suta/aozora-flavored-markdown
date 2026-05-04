@@ -1,7 +1,7 @@
 //! Property test — "must-never-be" invariants for rendered HTML shape.
 //!
 //! Runs every tier-A/B/D/E/G/H/I/J/K/L predicate from
-//! [`afm_markdown::test_support`] against adversarial random input drawn
+//! [`afm_markdown_test_support`] against adversarial random input drawn
 //! from three stratified generators:
 //!
 //! * [`aozora_fragment`] — balanced and unbalanced mixes of Aozora
@@ -25,19 +25,19 @@
 //!   before calling `check_no_sentinel_leak`.
 //!
 //! * Tier A likewise only applies when the bracket pairing is
-//!   well-formed (per [`afm_markdown::test_support::check_no_bare_bracket`]'s
+//!   well-formed (per [`afm_markdown_test_support::check_no_bare_bracket`]'s
 //!   own documented contract). Malformed inputs may legitimately leave
 //!   bare `［＃` because the lexer's fallback classifier does not wrap
 //!   them. For those inputs we only assert the predicate does not
 //!   panic.
 
 use afm_markdown::html::render_to_string;
-use afm_markdown::test_support::{
+use afm_markdown::{Options, render_to_string as render_to_diagnostics};
+use afm_markdown_test_support::{
     check_annotation_wrapper_shape, check_content_model, check_css_class_contract,
     check_escape_invariants, check_heading_integrity, check_html_tag_balance,
     check_markup_completeness, check_no_bare_bracket, check_no_sentinel_leak,
 };
-use afm_markdown::{Options, render_to_string as render_to_diagnostics};
 use aozora_proptest::config::default_config;
 use aozora_proptest::generators::{aozora_fragment, commonmark_adversarial, pathological_aozora};
 use proptest::prelude::*;

@@ -21,7 +21,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
-use afm_markdown::test_support::AFM_CLASSES;
+use afm_markdown_test_support::AFM_CLASSES;
 
 /// Absolute path to one of the theme CSS files. Resolving via
 /// `CARGO_MANIFEST_DIR` keeps the test stable regardless of the

@@ -40,15 +40,28 @@ mod code_block_mask;
 pub mod html;
 pub mod ir;
 mod post_process;
-mod sentinels;
+mod sentinel_stream;
 mod source_line_anchors;
 
-#[doc(hidden)]
-pub mod test_support;
+/// PUA sentinel codepoints embedded by `aozora_pipeline`.
+///
+/// Re-exported here under afm-side names so afm's public API never
+/// names sibling crate constants — if the upstream renames or removes
+/// one of these, the change surfaces in this module instead of
+/// breaking every downstream consumer.
+pub mod sentinels {
+    /// Inline Aozora span (ruby / bouten / annotation / gaiji /
+    /// TCY / kaeriten).
+    pub const INLINE: char = aozora_pipeline::INLINE_SENTINEL;
+    /// Block-leaf Aozora line (page break, section break, leaf
+    /// indent, sashie).
+    pub const BLOCK_LEAF: char = aozora_pipeline::BLOCK_LEAF_SENTINEL;
+    /// Paired-container open line (e.g. `［＃ここから字下げ］`).
+    pub const BLOCK_OPEN: char = aozora_pipeline::BLOCK_OPEN_SENTINEL;
+    /// Paired-container close line (e.g. `［＃ここで字下げ終わり］`).
+    pub const BLOCK_CLOSE: char = aozora_pipeline::BLOCK_CLOSE_SENTINEL;
+}
 
-pub use aozora_pipeline::{
-    BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, INLINE_SENTINEL,
-};
 pub use aozora_spec::{Diagnostic, DiagnosticSource, Severity};
 
 use aozora_render::serialize as aozora_serialize;
@@ -56,9 +69,14 @@ use aozora_syntax::borrowed::Arena;
 use comrak::nodes::AstNode;
 
 /// Parse-time configuration for [`render_to_string`] and friends.
+///
+/// `comrak::Options` is held with a `'static` lifetime: afm doesn't
+/// install URL rewriters or broken-link callbacks (which are the
+/// only comrak fields that need a non-`'static` lifetime), so the
+/// borrow parameter would be dead weight in our public API.
 #[derive(Debug, Clone, Default)]
-pub struct Options<'c> {
-    pub comrak: comrak::Options<'c>,
+pub struct Options {
+    pub comrak: comrak::Options<'static>,
     /// When `true`, run the aozora lex pre-pass and HTML
     /// post-processing. When `false`, the input flows straight into
     /// vanilla `comrak::parse_document` + `format_html` — used by the
@@ -77,7 +95,7 @@ pub struct Options<'c> {
     pub source_line_anchors: bool,
 }
 
-impl Options<'_> {
+impl Options {
     /// Default afm configuration: GFM extensions on (strikethrough,
     /// table, autolink, tasklist), hardbreaks on so each Aozora source
     /// newline becomes a `<br>` (verse / dialogue boundaries are
@@ -188,61 +206,9 @@ pub struct RenderedIr {
 /// `String` sink — `String` cannot fail as a `fmt::Write`, so this
 /// branch is unreachable in normal use.
 #[must_use]
-pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
-    if !options.aozora_enabled {
-        let comrak_arena = comrak::Arena::new();
-        let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
-        let anchors = if options.source_line_anchors {
-            source_line_anchors::collect_top_level_lines(root)
-        } else {
-            Vec::new()
-        };
-        let mut html = String::new();
-        comrak::format_html(root, &options.comrak, &mut html)
-            .expect("formatting to a String never fails");
-        let final_html = if options.source_line_anchors {
-            source_line_anchors::inject_anchors(&html, &anchors)
-        } else {
-            html
-        };
-        return Rendered {
-            html: final_html,
-            diagnostics: Vec::new(),
-        };
-    }
-
-    // Pre-process: hide aozora trigger characters that live inside a
-    // CommonMark fenced code block from the lexer. `aozora_pipeline` is
-    // CommonMark-blind by design (ADR-0010), so this lives here. See
-    // `code_block_mask` module docs for the masking scheme.
-    let (masked_source, mask_originals) = code_block_mask::mask_code_block_triggers(input);
-
-    let arena = Arena::new();
-    let lex_out = aozora_pipeline::lex_into_arena(&masked_source, &arena);
-
-    let comrak_arena = comrak::Arena::new();
-    let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
-    let anchors = if options.source_line_anchors {
-        source_line_anchors::collect_top_level_lines(root)
-    } else {
-        Vec::new()
-    };
-    let mut comrak_html = String::new();
-    comrak::format_html(root, &options.comrak, &mut comrak_html)
-        .expect("formatting to a String never fails");
-
-    let spliced = post_process::splice_aozora_html(&comrak_html, &lex_out);
-    let unmasked = code_block_mask::unmask_html(&spliced, &mask_originals);
-    let html = if options.source_line_anchors {
-        source_line_anchors::inject_anchors(&unmasked, &anchors)
-    } else {
-        unmasked
-    };
-
-    Rendered {
-        html,
-        diagnostics: lex_out.diagnostics,
-    }
+pub fn render_to_string(input: &str, options: &Options) -> Rendered {
+    let (html, diagnostics, ()) = drive_pipeline(input, options, |_root, _lex_out| ());
+    Rendered { html, diagnostics }
 }
 
 /// Render afm source to a structured IR + HTML + diagnostics.
@@ -265,31 +231,40 @@ pub fn render_to_string(input: &str, options: &Options<'_>) -> Rendered {
 /// `String` sink — `String` cannot fail as a `fmt::Write`, so this
 /// branch is unreachable in normal use.
 #[must_use]
-pub fn render_to_ir(input: &str, options: &Options<'_>) -> RenderedIr {
+pub fn render_to_ir(input: &str, options: &Options) -> RenderedIr {
+    let (html, diagnostics, ir) = drive_pipeline(input, options, ir::build_ir);
+    RenderedIr {
+        ir,
+        html,
+        diagnostics,
+    }
+}
+
+/// Internal pipeline driver shared between `render_to_string` and
+/// `render_to_ir`.
+///
+/// Runs the full lex → comrak → format → post-process → unmask →
+/// anchors chain and threads the AST root + optional `BorrowedLexOutput`
+/// through `project` *before* HTML formatting starts. The closure
+/// returns whatever extra data the caller needs alongside the HTML
+/// (`()` for the plain renderer, an `IrDocument` for the IR
+/// renderer).
+fn drive_pipeline<F, T>(input: &str, options: &Options, project: F) -> (String, Vec<Diagnostic>, T)
+where
+    F: for<'a> FnOnce(&'a AstNode<'a>, Option<&aozora_pipeline::BorrowedLexOutput<'a>>) -> T,
+{
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
         let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
-        let ir_doc = ir::build_ir(root, None);
-        let anchors = if options.source_line_anchors {
-            source_line_anchors::collect_top_level_lines(root)
-        } else {
-            Vec::new()
-        };
-        let mut html = String::new();
-        comrak::format_html(root, &options.comrak, &mut html)
-            .expect("formatting to a String never fails");
-        let final_html = if options.source_line_anchors {
-            source_line_anchors::inject_anchors(&html, &anchors)
-        } else {
-            html
-        };
-        return RenderedIr {
-            ir: ir_doc,
-            html: final_html,
-            diagnostics: Vec::new(),
-        };
+        let extra = project(root, None);
+        let html = format_with_anchors(root, options, None);
+        return (html, Vec::new(), extra);
     }
 
+    // Pre-process: hide aozora trigger characters that live inside a
+    // CommonMark fenced code block from the lexer. `aozora_pipeline` is
+    // CommonMark-blind by design (ADR-0010), so this lives here. See
+    // `code_block_mask` module docs for the masking scheme.
     let (masked_source, mask_originals) = code_block_mask::mask_code_block_triggers(input);
 
     let arena = Arena::new();
@@ -297,28 +272,35 @@ pub fn render_to_ir(input: &str, options: &Options<'_>) -> RenderedIr {
 
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
-    let ir_doc = ir::build_ir(root, Some(&lex_out));
-    let anchors = if options.source_line_anchors {
-        source_line_anchors::collect_top_level_lines(root)
-    } else {
-        Vec::new()
-    };
-    let mut comrak_html = String::new();
-    comrak::format_html(root, &options.comrak, &mut comrak_html)
-        .expect("formatting to a String never fails");
+    let extra = project(root, Some(&lex_out));
 
-    let spliced = post_process::splice_aozora_html(&comrak_html, &lex_out);
-    let unmasked = code_block_mask::unmask_html(&spliced, &mask_originals);
+    let html = format_with_anchors(root, options, Some((&lex_out, mask_originals.as_slice())));
+    (html, lex_out.diagnostics, extra)
+}
+
+/// Common HTML finalisation: comrak-format the root (per top-level
+/// child when `source_line_anchors` is on, so each child's first
+/// open tag picks up its `data-afm-source-line` attribute), splice
+/// Aozora sentinels when `pipeline` is `Some`, then unmask code-block
+/// triggers.
+fn format_with_anchors<'a>(
+    root: &'a AstNode<'a>,
+    options: &Options,
+    pipeline: Option<(&aozora_pipeline::BorrowedLexOutput<'a>, &[char])>,
+) -> String {
     let html = if options.source_line_anchors {
-        source_line_anchors::inject_anchors(&unmasked, &anchors)
+        source_line_anchors::format_root_with_anchors(root, &options.comrak)
     } else {
-        unmasked
+        let mut html = String::new();
+        comrak::format_html(root, &options.comrak, &mut html)
+            .expect("formatting to a String never fails");
+        html
     };
-
-    RenderedIr {
-        ir: ir_doc,
-        html,
-        diagnostics: lex_out.diagnostics,
+    if let Some((lex_out, mask_originals)) = pipeline {
+        let spliced = post_process::splice_aozora_html(&html, lex_out);
+        code_block_mask::unmask_html(&spliced, mask_originals).into_owned()
+    } else {
+        html
     }
 }
 
@@ -359,7 +341,7 @@ pub struct RenderedBlock {
 #[must_use]
 pub fn render_blocks_to_ir(
     input: &str,
-    options: &Options<'_>,
+    options: &Options,
 ) -> (Vec<RenderedBlock>, Vec<Diagnostic>) {
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
@@ -379,7 +361,7 @@ pub fn render_blocks_to_ir(
 
 fn collect_rendered_blocks<'a>(
     root: &'a AstNode<'a>,
-    options: &Options<'_>,
+    options: &Options,
     lex_out: Option<&aozora_pipeline::BorrowedLexOutput<'a>>,
 ) -> Vec<RenderedBlock> {
     // Single builder threads its cursor across blocks so the
@@ -391,9 +373,7 @@ fn collect_rendered_blocks<'a>(
     let mut blocks = Vec::new();
     for child in root.children() {
         let data = child.data.borrow();
-        let line = u32::try_from(data.sourcepos.start.line)
-            .unwrap_or(u32::MAX)
-            .max(1);
+        let line = sentinel_stream::saturating_u32(data.sourcepos.start.line).max(1);
         drop(data);
         let ir_blocks = ir_builder.walk_block(child);
         let mut block_html = String::new();

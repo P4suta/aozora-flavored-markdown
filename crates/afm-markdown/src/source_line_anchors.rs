@@ -1,174 +1,79 @@
-//! Source-line anchor injection for the HTML renderer.
+//! Per-top-level-block render with source-line anchor injection.
 //!
-//! When `Options::source_line_anchors` is `true`, top-level block
-//! elements in the rendered HTML get a `data-afm-source-line="N"`
-//! attribute (1-based) pointing back at the source line where the
-//! block began. The afm-obsidian document-mode adapter (Pillar 6)
-//! relies on this to map Obsidian's per-block post-processor calls
-//! back to slices of the full rendered fragment.
+//! When `Options::source_line_anchors` is `true`, the renderer
+//! attaches a `data-afm-source-line="N"` (1-based) attribute to the
+//! first opening tag of every top-level block. The afm-obsidian
+//! document-mode adapter (Pillar 6) uses these anchors to map
+//! Obsidian's per-block post-processor calls back to slices of the
+//! full rendered fragment.
 //!
-//! Algorithm:
+//! ## Design
 //!
-//! 1. Walk comrak's top-level AST children (`root.children()`) and
-//!    collect each child's source position from
-//!    `node.data.borrow().sourcepos.start.line`.
-//! 2. After comrak emits the HTML string, scan it once and inject
-//!    `data-afm-source-line="N"` into the *first* opening tag at
-//!    each top-level block boundary. Top-level blocks are
-//!    identified positionally — the Nth top-level element in the
-//!    HTML corresponds to the Nth child of the comrak root.
+//! Iterate `root.children()`, format each child with `comrak::
+//! format_html` into its own buffer, and inject the anchor onto the
+//! first opening tag of that buffer. The Nth top-level child becomes
+//! the Nth anchored tag — no depth tracking, no full-document HTML
+//! scan, no ambiguity about which open tag is "top-level".
 //!
-//! Why string-level injection rather than custom rendering: comrak's
-//! `format_html` doesn't expose a per-node attribute hook on every
-//! block kind we care about. A scan-and-inject pass is O(html) and
-//! deterministic; the per-element overhead is dwarfed by the comrak
-//! formatter's own cost.
+//! The buffer-per-child loop replaces the older two-pass design
+//! (collect lines + post-format HTML scan) which had to reconstruct
+//! the top-level boundary by hand-rolling a tag walker with quote
+//! tracking, void-tag detection, and self-closing handling.
 
 use comrak::nodes::AstNode;
 
-/// 1-based source line for each top-level child, in document order.
-pub(crate) fn collect_top_level_lines<'a>(root: &'a AstNode<'a>) -> Vec<usize> {
-    let mut out = Vec::new();
-    for child in root.children() {
-        let line = child.data.borrow().sourcepos.start.line;
-        // sourcepos is 1-based but defaults to 0 for synthetic nodes;
-        // clamp to >=1 so the attribute value is always meaningful.
-        out.push(line.max(1));
+use crate::sentinel_stream::saturating_u32;
+
+/// Format every top-level child of `root` into a single HTML string,
+/// prepending a `data-afm-source-line="N"` attribute onto the first
+/// opening tag of each child's output.
+pub(crate) fn format_root_with_anchors<'a>(
+    root: &'a AstNode<'a>,
+    options: &comrak::Options<'static>,
+) -> String {
+    let children: Vec<&AstNode<'a>> = root.children().collect();
+    let mut out = String::with_capacity(children.len() * 64);
+    for child in children {
+        let line = saturating_u32(child.data.borrow().sourcepos.start.line).max(1);
+        let mut buf = String::new();
+        comrak::format_html(child, options, &mut buf).expect("formatting to a String never fails");
+        inject_anchor_into_first_open_tag(&mut buf, line);
+        out.push_str(&buf);
     }
     out
 }
 
-/// Insert `data-afm-source-line="N"` into the first opening tag at
-/// each top-level block boundary. Tags considered top-level are
-/// `<p>`, `<h1..h6>`, `<ul>`, `<ol>`, `<blockquote>`, `<pre>`,
-/// `<table>`, `<hr>`, `<div>` (containers).
-pub(crate) fn inject_anchors(html: &str, lines: &[usize]) -> String {
-    if lines.is_empty() {
-        return html.to_owned();
-    }
-    let mut out = String::with_capacity(html.len() + lines.len() * 24);
-    let mut idx = 0_usize;
-    let bytes = html.as_bytes();
-    let mut next_line = 0_usize;
-    let mut depth: i32 = 0;
-    while idx < bytes.len() {
-        let b = bytes[idx];
-        if b == b'<' && idx + 1 < bytes.len() && bytes[idx + 1] != b'/' {
-            // Possible opening tag (we ignore comments / declarations
-            // here — comrak doesn't emit them at the top level).
-            if let Some(tag_end) = find_tag_end(bytes, idx) {
-                let tag_slice = &html[idx..tag_end];
-                if depth == 0 && next_line < lines.len() && is_top_level_tag(tag_slice) {
-                    out.push_str(&inject_attribute(tag_slice, lines[next_line]));
-                    next_line += 1;
-                } else {
-                    out.push_str(tag_slice);
-                }
-                if !tag_slice.ends_with("/>") && !is_void_tag(tag_slice) {
-                    depth += 1;
-                }
-                idx = tag_end;
-                continue;
-            }
-        }
-        if b == b'<' && idx + 1 < bytes.len() && bytes[idx + 1] == b'/' {
-            // Closing tag.
-            if let Some(tag_end) = find_tag_end(bytes, idx) {
-                out.push_str(&html[idx..tag_end]);
-                depth = (depth - 1).max(0);
-                idx = tag_end;
-                continue;
-            }
-        }
-        out.push(b as char);
-        idx += 1;
-    }
-    out
-}
-
-fn find_tag_end(bytes: &[u8], start: usize) -> Option<usize> {
-    // Walk forward to the next '>' that is not inside an attribute
-    // value. We assume comrak's output is well-formed (no `>` inside
-    // attribute strings for the tag types we recognise).
-    let mut i = start;
-    let mut in_quote: Option<u8> = None;
+/// Insert `data-afm-source-line="<line>"` immediately after the
+/// element name of the first opening tag in `buf`.
+///
+/// "First opening tag" means the first `<X` sequence where `X` is an
+/// ASCII letter — this skips over comments (`<!--`), doctype
+/// declarations (`<!DOCTYPE>`), and processing instructions
+/// (`<?xml`), none of which comrak normally emits but which a raw
+/// HTML block can carry verbatim from the source.
+///
+/// If no eligible open tag is present (rare: a top-level child whose
+/// rendered output is purely whitespace or a comment), the buffer
+/// is left untouched.
+fn inject_anchor_into_first_open_tag(buf: &mut String, line: u32) {
+    let bytes = buf.as_bytes();
+    let mut i = 0;
     while i < bytes.len() {
-        let c = bytes[i];
-        match in_quote {
-            None => match c {
-                b'"' | b'\'' => in_quote = Some(c),
-                b'>' => return Some(i + 1),
-                _ => {}
-            },
-            Some(q) if q == c => in_quote = None,
-            _ => {}
+        if bytes[i] == b'<'
+            && let Some(&next) = bytes.get(i + 1)
+            && next.is_ascii_alphabetic()
+        {
+            let mut j = i + 1;
+            while j < bytes.len() && !matches!(bytes[j], b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'>')
+            {
+                j += 1;
+            }
+            let attr = format!(r#" data-afm-source-line="{line}""#);
+            buf.insert_str(j, &attr);
+            return;
         }
         i += 1;
     }
-    None
-}
-
-fn is_top_level_tag(tag: &str) -> bool {
-    let name = tag_name(tag);
-    matches!(
-        name,
-        "p" | "h1"
-            | "h2"
-            | "h3"
-            | "h4"
-            | "h5"
-            | "h6"
-            | "ul"
-            | "ol"
-            | "blockquote"
-            | "pre"
-            | "table"
-            | "hr"
-            | "div"
-            | "section"
-            | "details"
-    )
-}
-
-fn is_void_tag(tag: &str) -> bool {
-    // Only relevant for the depth tracker; comrak emits `<hr>` and
-    // `<br>` at top level. Comrak does not currently use the XHTML
-    // self-closing form (`<br />`) by default.
-    let name = tag_name(tag);
-    matches!(name, "hr" | "br" | "img" | "input")
-}
-
-fn tag_name(tag: &str) -> &str {
-    let body = tag.trim_start_matches('<').trim_end_matches('>');
-    let body = body.trim_start_matches('/');
-    body.split(|c: char| c.is_whitespace() || c == '>' || c == '/')
-        .next()
-        .unwrap_or("")
-}
-
-fn inject_attribute(tag: &str, line: usize) -> String {
-    if !tag.starts_with('<') {
-        return tag.to_owned();
-    }
-    // Insert `data-afm-source-line="N"` immediately after the tag
-    // name. We walk to the first whitespace, '/', or '>' to find
-    // the insertion point.
-    let bytes = tag.as_bytes();
-    let mut i = 1; // skip '<'
-    while i < bytes.len() {
-        let c = bytes[i];
-        if c == b' ' || c == b'\t' || c == b'/' || c == b'>' {
-            break;
-        }
-        i += 1;
-    }
-    let mut out = String::with_capacity(tag.len() + 28);
-    out.push_str(&tag[..i]);
-    out.push_str(" data-afm-source-line=\"");
-    out.push_str(&line.to_string());
-    out.push('"');
-    out.push_str(&tag[i..]);
-    out
 }
 
 #[cfg(test)]
@@ -176,51 +81,66 @@ mod tests {
     use super::*;
 
     #[test]
-    fn injects_anchor_into_first_paragraph() {
-        let out = inject_anchors("<p>hello</p>", &[1]);
-        assert_eq!(out, r#"<p data-afm-source-line="1">hello</p>"#);
+    fn injects_after_simple_open_tag_name() {
+        let mut buf = String::from("<p>hello</p>");
+        inject_anchor_into_first_open_tag(&mut buf, 1);
+        assert_eq!(buf, r#"<p data-afm-source-line="1">hello</p>"#);
     }
 
     #[test]
-    fn injects_anchors_for_multiple_top_level_blocks() {
-        let out = inject_anchors("<h1>a</h1><p>b</p>", &[1, 3]);
-        assert!(out.contains(r#"<h1 data-afm-source-line="1">"#));
-        assert!(out.contains(r#"<p data-afm-source-line="3">"#));
+    fn injects_after_self_closing_void_tag() {
+        let mut buf = String::from("<hr />");
+        inject_anchor_into_first_open_tag(&mut buf, 5);
+        assert_eq!(buf, r#"<hr data-afm-source-line="5" />"#);
     }
 
     #[test]
-    fn does_not_anchor_nested_blocks() {
-        // Only the outer <blockquote> gets the anchor, not the inner <p>.
-        let out = inject_anchors("<blockquote><p>x</p></blockquote>", &[1]);
-        assert!(out.contains(r#"<blockquote data-afm-source-line="1">"#));
-        assert!(!out.contains(r"<p data-afm-source-line="));
+    fn injects_after_void_open_without_slash() {
+        let mut buf = String::from("<hr>after");
+        inject_anchor_into_first_open_tag(&mut buf, 9);
+        assert_eq!(buf, r#"<hr data-afm-source-line="9">after"#);
     }
 
     #[test]
-    fn no_op_when_lines_is_empty() {
-        let html = "<p>x</p>";
-        assert_eq!(inject_anchors(html, &[]), html);
+    fn preserves_existing_attributes() {
+        let mut buf = String::from(r#"<p class="x">y</p>"#);
+        inject_anchor_into_first_open_tag(&mut buf, 2);
+        assert_eq!(buf, r#"<p data-afm-source-line="2" class="x">y</p>"#);
     }
 
     #[test]
-    fn handles_void_tags_at_top_level() {
-        let out = inject_anchors("<hr><p>x</p>", &[1, 2]);
-        assert!(out.contains(r#"<hr data-afm-source-line="1">"#));
-        assert!(out.contains(r#"<p data-afm-source-line="2">"#));
+    fn injects_on_block_with_leading_whitespace() {
+        let mut buf = String::from("\n<h1>title</h1>\n");
+        inject_anchor_into_first_open_tag(&mut buf, 3);
+        assert_eq!(buf, "\n<h1 data-afm-source-line=\"3\">title</h1>\n");
     }
 
     #[test]
-    fn ignores_inline_tags() {
-        let out = inject_anchors("<p><strong>x</strong></p>", &[1]);
-        assert!(out.contains(r#"<p data-afm-source-line="1">"#));
-        assert!(!out.contains(r"<strong data-afm-source-line="));
+    fn skips_html_comments_and_doctype() {
+        let mut buf = String::from("<!-- note -->\n<p>x</p>");
+        inject_anchor_into_first_open_tag(&mut buf, 1);
+        assert_eq!(buf, "<!-- note -->\n<p data-afm-source-line=\"1\">x</p>");
     }
 
     #[test]
-    fn tag_name_extracts_the_lower_case_element_name() {
-        assert_eq!(tag_name("<p>"), "p");
-        assert_eq!(tag_name("<p class=\"x\">"), "p");
-        assert_eq!(tag_name("</p>"), "p");
-        assert_eq!(tag_name("<hr/>"), "hr");
+    fn no_op_when_no_open_tag_present() {
+        let mut buf = String::from("just text");
+        inject_anchor_into_first_open_tag(&mut buf, 1);
+        assert_eq!(buf, "just text");
+    }
+
+    #[test]
+    fn injects_only_into_first_top_level_block() {
+        // The walker injects per top-level block; this helper only
+        // touches the first tag of the buffer it sees. The caller
+        // (`format_root_with_anchors`) feeds it one child at a time,
+        // so child-internal nested tags never match the "first open
+        // tag" of *their* buffer slice.
+        let mut buf = String::from("<blockquote><p>x</p></blockquote>");
+        inject_anchor_into_first_open_tag(&mut buf, 1);
+        assert_eq!(
+            buf,
+            r#"<blockquote data-afm-source-line="1"><p>x</p></blockquote>"#
+        );
     }
 }

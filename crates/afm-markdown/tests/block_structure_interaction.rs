@@ -16,7 +16,7 @@
 //! leaking) across every shape.
 
 use afm_markdown::html::render_to_string;
-use afm_markdown::test_support::strip_annotation_wrappers;
+use afm_markdown_test_support::strip_annotation_wrappers;
 
 /// Strip afm-annotation wrappers then assert no `［＃` survives.
 /// Wrappers carry the raw markup inside a `hidden` span for round-trip

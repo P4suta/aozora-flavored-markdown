@@ -29,7 +29,7 @@
 //! the indent-leakage failure mode is exercised heavily.
 
 use afm_markdown::html::render_to_string;
-use afm_markdown::test_support::check_heading_integrity;
+use afm_markdown_test_support::check_heading_integrity;
 use aozora_proptest::config::default_config;
 use aozora_proptest::generators::kanji_fragment;
 use proptest::prelude::*;

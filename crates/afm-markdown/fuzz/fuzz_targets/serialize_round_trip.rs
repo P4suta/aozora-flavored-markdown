@@ -1,26 +1,23 @@
-//! Fuzz target — `serialize ∘ parse` fixed point on arbitrary UTF-8.
+//! Fuzz target — `afm_markdown::serialize` fixed point on arbitrary UTF-8.
 //!
-//! First `serialize(parse(src))` canonicalises the source. A second
-//! application must be byte-identical: oscillation means the
+//! `serialize(serialize(src))` must be byte-identical to
+//! `serialize(src)`: the lex pipeline canonicalises the source on
+//! the first pass; oscillation on the second pass would mean the
 //! classifier and serializer disagree on the canonical form.
 //!
 //! Run with: `just fuzz serialize_round_trip -- -runs=10000`
 
 #![no_main]
 
-use afm_markdown::{Options, parse, serialize};
-use comrak::Arena;
+use afm_markdown::serialize;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     let Ok(src) = core::str::from_utf8(data) else {
         return;
     };
-    let opts = Options::afm_default();
-    let arena_a = Arena::new();
-    let first = serialize(&parse(&arena_a, src, &opts));
-    let arena_b = Arena::new();
-    let second = serialize(&parse(&arena_b, &first, &opts));
+    let first = serialize(src);
+    let second = serialize(&first);
     assert_eq!(
         first, second,
         "I3 fixed-point broken for src={src:?}: first vs second differ"

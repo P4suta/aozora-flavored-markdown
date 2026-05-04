@@ -30,6 +30,7 @@ thiserror = { workspace = true }
 serde     = { workspace = true }
 
 [dev-dependencies]
+afm-markdown-test-support = { workspace = true }
 aozora-proptest   = { workspace = true }
 proptest          = { workspace = true }
 pretty_assertions = { workspace = true }
