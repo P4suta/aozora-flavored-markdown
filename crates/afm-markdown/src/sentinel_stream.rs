@@ -18,10 +18,10 @@
 //!   both walkers consume entries linearly. The `EytzingerMap`
 //!   upstream is binary-search-friendly but we never look up by
 //!   position at HTML rewrite time — the order alone is sufficient.
-//! - `sole_block_sentinel` walks a `&str` of paragraph-inner text
-//!   without allocating; `paragraph_sole_block_sentinel` walks a
-//!   comrak paragraph node directly with the same semantics, also
-//!   allocation-free.
+//! - `paragraph_sole_block_sentinel` walks a comrak paragraph node
+//!   directly with allocation-free semantics, returning the kind of
+//!   block sentinel iff the paragraph carries exactly one and no
+//!   other non-whitespace content.
 
 use core::ops::ControlFlow;
 
@@ -30,7 +30,7 @@ use aozora_pipeline::{
     INLINE_SENTINEL,
 };
 use aozora_spec::NormalizedOffset;
-use aozora_syntax::borrowed::NodeRef;
+use aozora_syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
 use comrak::nodes::{AstNode, NodeValue};
 
 /// Which paired sentinel a block-sentinel paragraph carries.
@@ -76,19 +76,6 @@ pub(crate) fn saturating_u32(n: usize) -> u32 {
 #[inline]
 pub(crate) const fn is_sentinel_char(ch: char) -> bool {
     (ch as u32).wrapping_sub(INLINE_SENTINEL as u32) < 4
-}
-
-/// If `inner` consists of exactly one block-sentinel character
-/// (optionally surrounded by ASCII whitespace), return its kind.
-/// Inline sentinels never qualify.
-pub(crate) fn sole_block_sentinel(inner: &str) -> Option<BlockSentinelKind> {
-    let trimmed = inner.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r'));
-    let mut chars = trimmed.chars();
-    let first = chars.next()?;
-    if chars.next().is_some() {
-        return None;
-    }
-    BlockSentinelKind::from_char(first)
 }
 
 /// How [`visit_text_leaves`] handles non-`Text` child nodes
@@ -167,15 +154,12 @@ where
     recurse(node, mode, &mut visit)
 }
 
-/// Allocation-free analogue of [`sole_block_sentinel`] that walks a
-/// comrak paragraph node directly.
-///
-/// Returns `Some(kind)` iff the paragraph's body, taken across all
-/// `Text`-node descendants, contains exactly one block-sentinel
-/// codepoint and otherwise consists only of ASCII whitespace, AND
-/// the paragraph has no non-`Text` descendants (which would imply
-/// embedded inline structure incompatible with a sole-sentinel
-/// paragraph).
+/// Walk a comrak paragraph node and return `Some(kind)` iff its
+/// body, taken across all `Text`-node descendants, contains exactly
+/// one block-sentinel codepoint and otherwise consists only of ASCII
+/// whitespace, AND the paragraph has no non-`Text` descendants
+/// (which would imply embedded inline structure incompatible with a
+/// sole-sentinel paragraph). Allocation-free.
 pub(crate) fn paragraph_sole_block_sentinel<'a>(
     node: &'a AstNode<'a>,
 ) -> Option<BlockSentinelKind> {
@@ -295,6 +279,50 @@ impl<'src> SentinelCursor<'src> {
     }
 }
 
+/// Single-descent paragraph profile: counts sentinel chars and
+/// remembers the registry's first `HeadingHint` payload.
+///
+/// Both [`crate::ir`] and [`crate::ast_splice`] need this exact
+/// summary to dispatch a paragraph to either heading-hint promotion
+/// (Case 2) or ordinary inline processing (Case 3). Computing it here,
+/// once, keeps the two walkers in lockstep without duplicating the
+/// peek-and-count loop.
+#[derive(Debug)]
+pub(crate) struct ParaScan<'src> {
+    /// Total sentinel chars in the paragraph's text descendants.
+    /// Equals the number of registry entries the paragraph would
+    /// consume during inline projection.
+    pub(crate) total_sentinels: usize,
+    /// First sentinel that the registry classifies as a heading hint.
+    /// `None` if the paragraph carries no inline heading hint.
+    pub(crate) first_heading_hint: Option<&'src HeadingHint<'src>>,
+}
+
+impl<'src> ParaScan<'src> {
+    pub(crate) fn run<'a>(node: &'a AstNode<'a>, cursor: &SentinelCursor<'src>) -> Self {
+        let mut total_sentinels = 0usize;
+        let mut first_heading_hint = None;
+        for_each_text_descendant(node, |text| {
+            for ch in text.chars() {
+                if !is_sentinel_char(ch) {
+                    continue;
+                }
+                if first_heading_hint.is_none()
+                    && let Some(NodeRef::Inline(AozoraNode::HeadingHint(h))) =
+                        cursor.peek(total_sentinels)
+                {
+                    first_heading_hint = Some(h);
+                }
+                total_sentinels += 1;
+            }
+        });
+        Self {
+            total_sentinels,
+            first_heading_hint,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -337,25 +365,6 @@ mod tests {
         // Inline does NOT count as a block sentinel.
         assert!(BlockSentinelKind::from_char(INLINE_SENTINEL).is_none());
         assert!(BlockSentinelKind::from_char('a').is_none());
-    }
-
-    #[test]
-    fn sole_block_sentinel_accepts_block_with_whitespace_around() {
-        assert_eq!(
-            sole_block_sentinel(&format!("\n{BLOCK_LEAF_SENTINEL}\n")),
-            Some(BlockSentinelKind::Leaf)
-        );
-    }
-
-    #[test]
-    fn sole_block_sentinel_rejects_inline() {
-        assert!(sole_block_sentinel(&format!("{INLINE_SENTINEL}")).is_none());
-    }
-
-    #[test]
-    fn sole_block_sentinel_rejects_multiple() {
-        let s = format!("{BLOCK_LEAF_SENTINEL}{BLOCK_OPEN_SENTINEL}");
-        assert!(sole_block_sentinel(&s).is_none());
     }
 
     #[test]

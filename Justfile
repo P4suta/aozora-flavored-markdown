@@ -75,9 +75,152 @@ spec-gfm:
 # now live in the sibling `aozora` repo; run `just spec-aozora`
 # / `just spec-golden-56656` / `just corpus-sweep` from there.
 
-# Fuzz smoke (60s per harness) — runs the registered cargo-fuzz harnesses
+# --- fuzzing -----------------------------------------------------------------
+#
+# The `parse_render` / `serialize_round_trip` / `sjis_decode` harnesses live in
+# `crates/afm-markdown/fuzz/`. They run libFuzzer under nightly rustc inside
+# the dev container.
+#
+# Workflow:
+#   1. `just fuzz-quick TARGET` (60 s) — smoke run for development loops.
+#   2. `just fuzz-deep TARGET`  (5 min) — release-gate run.
+#   3. When a crash surfaces, libFuzzer writes the input to
+#      `fuzz/artifacts/<target>/crash-<sha>` automatically.
+#   4. `just fuzz-triage TARGET` reproduces every artifact in turn and
+#      prints its Debug-formatted bytes + the panic message — analysis
+#      becomes one shell call instead of N manual reproductions.
+#   5. `just fuzz-promote TARGET ARTIFACT` lifts a triaged artifact into
+#      `crates/afm-markdown/tests/fuzz_regressions/<target>/` so the
+#      `tests/fuzz_regressions.rs` integration test treats it as a
+#      permanent regression case (runs on every `just test`, no nightly
+#      required). After fixing the underlying bug, `just test` is the
+#      only thing the contributor needs to verify the fix in CI.
+
+# Run the named fuzz target with arbitrary args (escape hatch for advanced use).
 fuzz *ARGS:
     {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
+
+# 60-second smoke fuzz — fits inside a development inner loop.
+fuzz-quick TARGET:
+    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
+
+# 5-minute deep fuzz — the gate to clear before tagging a release.
+fuzz-deep TARGET:
+    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
+
+# 15-minute marathon fuzz — the strongest single-target soak we run by
+# hand. Reach for this when the 5-minute deep gate has been clean for a
+# full development cycle and you want to push the corpus another order
+# of magnitude. The harness exits cleanly after 15 min regardless of
+# whether new paths were found.
+fuzz-marathon TARGET:
+    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
+
+# Reproduce every artifact under `fuzz/artifacts/<target>/` and print
+# (bytes, panic-message) for each. Exit status is the count of artifacts
+# that still crash, so this can drive a CI gate. Order is alphabetical
+# by hash so output stays stable across machines.
+fuzz-triage TARGET:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="{{TARGET}}"
+    art_dir="crates/afm-markdown/fuzz/artifacts/${target}"
+    if [[ ! -d "$art_dir" ]]; then
+        echo "fuzz-triage: no artifacts for target ${target}"
+        exit 0
+    fi
+    failed=0
+    for art in $(find "$art_dir" -type f -name 'crash-*' -o -name 'leak-*' -o -name 'oom-*' | sort); do
+        # `cargo fuzz run` resolves relative paths against the crate's
+        # own directory (we cd into `crates/afm-markdown` before
+        # invoking it), so strip only the `crates/afm-markdown/`
+        # prefix — `fuzz/artifacts/...` is the form cargo-fuzz wants.
+        rel="${art#crates/afm-markdown/}"
+        echo "==> ${rel}"
+        out=$({{_dev}} bash -c "cd crates/afm-markdown && cargo +nightly fuzz run ${target} ${rel} 2>&1" || true)
+        # Slice out the panic block: from the `thread … panicked` line
+        # through the line just before the stack trace begins. That is
+        # exactly where `assert_html_invariants` prints its tier label
+        # + src + html + details — the only four lines a developer
+        # actually reads. If no panic block is present, fall back to
+        # the tail of the output so we never go silent.
+        panic_block=$(awk '
+            /^thread .* panicked at/ { capturing = 1 }
+            capturing {
+                if (/^stack backtrace:/ || /^=================/) exit
+                print
+            }
+        ' <<<"$out")
+        if [[ -n "$panic_block" ]]; then
+            printf "%s\n" "$panic_block"
+        else
+            tail -5 <<<"$out"
+        fi
+        if grep -q "exit status: 77" <<<"$out"; then
+            failed=$((failed + 1))
+        fi
+        echo
+    done
+    if (( failed > 0 )); then
+        echo "fuzz-triage: ${failed} artifact(s) still crash" >&2
+        exit "${failed}"
+    fi
+    echo "fuzz-triage: every artifact replays cleanly"
+
+# Lift a fuzz artifact into the permanent regression set so the
+# `tests/fuzz_regressions.rs` integration test asserts it forever.
+# Drop the matching entry from `fuzz/artifacts/` once promoted (a
+# regression case lives in tests/, not in libFuzzer's working set).
+fuzz-promote TARGET ARTIFACT:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="crates/afm-markdown/fuzz/artifacts/{{TARGET}}/{{ARTIFACT}}"
+    dst_dir="crates/afm-markdown/tests/fuzz_regressions/{{TARGET}}"
+    if [[ ! -f "$src" ]]; then
+        echo "fuzz-promote: artifact not found: $src" >&2
+        exit 1
+    fi
+    # The artifact was written by libFuzzer running as root inside the
+    # dev container, so the move + rm must go back through the
+    # container too — host-side permissions can't unlink it.
+    {{_dev}} bash -c "mkdir -p '$dst_dir' && mv '$src' '$dst_dir/{{ARTIFACT}}'"
+    echo "promoted ${src} -> ${dst_dir}/{{ARTIFACT}}"
+
+# Run every registered fuzz target in turn for 60 s each. Smoke pass:
+# typically used after touching anything in `crates/afm-markdown/src/`
+# or `crates/afm-markdown-test-support/src/`.
+fuzz-all-quick:
+    just fuzz-quick parse_render
+    just fuzz-quick serialize_round_trip
+    just fuzz-quick sjis_decode
+
+# Run every registered fuzz target in turn for 5 min each. Release
+# pre-flight pass: a clean run is the gate before tagging a release.
+fuzz-all-deep:
+    just fuzz-deep parse_render
+    just fuzz-deep serialize_round_trip
+    just fuzz-deep sjis_decode
+
+# At-a-glance health check: how many crash artifacts are pending
+# triage, how many regression cases are pinned per target. Nothing
+# here invokes nightly, so it stays cheap and shell-friendly.
+fuzz-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    targets=(parse_render serialize_round_trip sjis_decode)
+    printf "%-22s  %-10s  %-12s\n" target pending_crashes pinned_regressions
+    printf "%-22s  %-10s  %-12s\n" ---------------------- ---------- ------------
+    for t in "${targets[@]}"; do
+        crashes=0
+        regressions=0
+        if [[ -d "crates/afm-markdown/fuzz/artifacts/${t}" ]]; then
+            crashes=$(find "crates/afm-markdown/fuzz/artifacts/${t}" -maxdepth 1 -type f \( -name 'crash-*' -o -name 'leak-*' -o -name 'oom-*' \) 2>/dev/null | wc -l | tr -d ' ')
+        fi
+        if [[ -d "crates/afm-markdown/tests/fuzz_regressions/${t}" ]]; then
+            regressions=$(find "crates/afm-markdown/tests/fuzz_regressions/${t}" -maxdepth 1 -type f ! -name '*.txt' ! -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+        fi
+        printf "%-22s  %-10s  %-12s\n" "$t" "$crashes" "$regressions"
+    done
 
 # Benchmarks (criterion)
 bench *ARGS:

@@ -22,10 +22,12 @@
 //!   │
 //!   ▼ comrak::format_html_with_options     ── HTML with sentinels
 //!   │
-//!   ▼ post_process::splice_aozora_html     ── sentinel → aozora-render
-//!   │   · INLINE_SENTINEL → render_node::render output
-//!   │   · BLOCK_LEAF paragraphs → leaf node HTML
-//!   │   · BLOCK_OPEN/CLOSE paragraphs → container open/close
+//!   ▼ ast_splice::splice_into_ast          ── sentinel → aozora-render,
+//!   │   · INLINE_SENTINEL → NodeValue::Raw inline node
+//!   │   · BLOCK_LEAF paragraphs → NodeValue::Raw block node
+//!   │   · BLOCK_OPEN/CLOSE paragraphs → container open/close raws
+//!   │
+//!   ▼ comrak::format_html                  ── vanilla, sentinel-free AST
 //!   │
 //!   ▼
 //! HTML
@@ -36,10 +38,10 @@
 
 #![forbid(unsafe_code)]
 
+mod ast_splice;
 mod code_block_mask;
 pub mod html;
 pub mod ir;
-mod post_process;
 mod sentinel_stream;
 mod source_line_anchors;
 
@@ -63,6 +65,8 @@ pub mod sentinels {
 }
 
 pub use aozora_spec::{Diagnostic, DiagnosticSource, Severity};
+
+use core::mem;
 
 use aozora_render::serialize as aozora_serialize;
 use aozora_syntax::borrowed::Arena;
@@ -257,7 +261,7 @@ where
         let comrak_arena = comrak::Arena::new();
         let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
         let extra = project(root, None);
-        let html = format_with_anchors(root, options, None);
+        let html = format_root(root, options, None);
         return (html, Vec::new(), extra);
     }
 
@@ -272,21 +276,36 @@ where
 
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
+
+    // IR projection sees the AST *before* sentinel splicing — it
+    // walks the same Text-with-sentinel-char pre-mutation tree the
+    // splicer is about to consume. Both walkers share
+    // `SentinelCursor` primitives (each materialises its own cursor)
+    // so they stay in lockstep without serial coupling.
     let extra = project(root, Some(&lex_out));
 
-    let html = format_with_anchors(root, options, Some((&lex_out, mask_originals.as_slice())));
+    // Mutate the AST: every PUA sentinel becomes a `NodeValue::Raw`
+    // node carrying the rendered Aozora HTML. After this returns,
+    // the AST contains no sentinel character; `comrak::format_html`
+    // emits final HTML in a single verbatim pass.
+    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out);
+
+    let html = format_root(root, options, Some(mask_originals.as_slice()));
     (html, lex_out.diagnostics, extra)
 }
 
 /// Common HTML finalisation: comrak-format the root (per top-level
 /// child when `source_line_anchors` is on, so each child's first
-/// open tag picks up its `data-afm-source-line` attribute), splice
-/// Aozora sentinels when `pipeline` is `Some`, then unmask code-block
-/// triggers.
-fn format_with_anchors<'a>(
+/// open tag picks up its `data-afm-source-line` attribute), then
+/// unmask code-block triggers.
+///
+/// AST-level Aozora sentinel splicing runs in [`drive_pipeline`]
+/// before this is called, so by the time we hand the AST to
+/// `comrak::format_html` no PUA sentinel remains.
+fn format_root<'a>(
     root: &'a AstNode<'a>,
     options: &Options,
-    pipeline: Option<(&aozora_pipeline::BorrowedLexOutput<'a>, &[char])>,
+    mask_originals: Option<&[char]>,
 ) -> String {
     let html = if options.source_line_anchors {
         source_line_anchors::format_root_with_anchors(root, &options.comrak)
@@ -296,9 +315,8 @@ fn format_with_anchors<'a>(
             .expect("formatting to a String never fails");
         html
     };
-    if let Some((lex_out, mask_originals)) = pipeline {
-        let spliced = post_process::splice_aozora_html(&html, lex_out);
-        code_block_mask::unmask_html(&spliced, mask_originals).into_owned()
+    if let Some(originals) = mask_originals {
+        code_block_mask::unmask_html(&html, originals).into_owned()
     } else {
         html
     }
@@ -346,7 +364,7 @@ pub fn render_blocks_to_ir(
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
         let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
-        let blocks = collect_rendered_blocks(root, options, /* lex_out */ None);
+        let blocks = collect_rendered_blocks(root, options, Vec::new());
         return (blocks, Vec::new());
     }
 
@@ -355,38 +373,54 @@ pub fn render_blocks_to_ir(
     let lex_out = aozora_pipeline::lex_into_arena(&masked_source, &arena);
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
-    let blocks = collect_rendered_blocks(root, options, Some(&lex_out));
+    // IR projection runs before AST mutation so it walks the
+    // sentinel-bearing Text nodes; AST splicing afterwards rewrites
+    // the same nodes for `comrak::format_html` consumption. A single
+    // `StreamingIrBuilder` threads its cursor across every top-level
+    // child so the registry stays in lockstep — a per-call builder
+    // would restart the cursor at 0 for every block and misalign
+    // Aozora projection against the registry.
+    let blocks_ir: Vec<Vec<ir::IrBlock>> = {
+        let mut builder = ir::StreamingIrBuilder::new(Some(&lex_out));
+        root.children()
+            .map(|child| builder.walk_block(child))
+            .collect()
+    };
+    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out);
+    let blocks = collect_rendered_blocks(root, options, blocks_ir);
     (blocks, lex_out.diagnostics)
 }
 
 fn collect_rendered_blocks<'a>(
     root: &'a AstNode<'a>,
     options: &Options,
-    lex_out: Option<&aozora_pipeline::BorrowedLexOutput<'a>>,
+    mut blocks_ir: Vec<Vec<ir::IrBlock>>,
 ) -> Vec<RenderedBlock> {
-    // Single builder threads its cursor across blocks so the
-    // sentinel stream stays in lockstep with comrak's depth-first
-    // walk over `root.children()`. A per-call walker would restart
-    // the cursor at 0 for every block and misalign Aozora projection
-    // against the registry.
-    let mut ir_builder = ir::StreamingIrBuilder::new(lex_out);
+    // The AST has already been spliced at the document level by the
+    // caller (so `format_html` sees no sentinels here), and the IR
+    // was already projected from the *pre-splice* AST in source
+    // order. We zip them back together one block at a time.
+    //
+    // Pure-markdown mode (`Options::aozora_enabled = false`) hands
+    // us an empty IR vector; we emit `Vec::new()` per block in that
+    // case so the per-block IR field stays consistent with the IR
+    // builder's no-op behaviour.
     let mut blocks = Vec::new();
-    for child in root.children() {
+    for (idx, child) in root.children().enumerate() {
         let data = child.data.borrow();
         let line = sentinel_stream::saturating_u32(data.sourcepos.start.line).max(1);
         drop(data);
-        let ir_blocks = ir_builder.walk_block(child);
         let mut block_html = String::new();
         comrak::format_html(child, &options.comrak, &mut block_html)
             .expect("formatting a String never fails");
-        let html_final = if let Some(lo) = lex_out {
-            post_process::splice_aozora_html(&block_html, lo)
+        let ir_blocks = if idx < blocks_ir.len() {
+            mem::take(&mut blocks_ir[idx])
         } else {
-            block_html
+            Vec::new()
         };
         blocks.push(RenderedBlock {
             ir: ir_blocks,
-            html: html_final,
+            html: block_html,
             source_line: line,
         });
     }

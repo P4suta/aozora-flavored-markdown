@@ -50,6 +50,7 @@
 
 use core::error::Error;
 use core::fmt;
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 // AFM_CLASSES is the complete CSS-class contract emitted by the
@@ -590,14 +591,19 @@ pub fn check_no_xss_marker(html: &str) -> Result<(), Violation> {
 /// `afm-container-indent-N`).
 ///
 /// Non-`afm-` classes (e.g. comrak's own `language-rust` on code
-/// blocks) are ignored.
+/// blocks) are ignored. Code-block info-strings the user supplied
+/// surface as `class="language-X"` where `X` is arbitrary user
+/// markup, so the check strips `<pre><code>...</code></pre>` regions
+/// before scanning — the contents (including the open tag's class
+/// attribute) belong to the user, not afm.
 ///
 /// # Errors
 ///
 /// Returns [`Violation::UnknownCssClass`] on the first unrecognised
 /// afm class.
 pub fn check_css_class_contract(html: &str) -> Result<(), Violation> {
-    let tokens = collect_class_tokens(html);
+    let scope = strip_pre_code_blocks(html);
+    let tokens = collect_class_tokens(&scope);
     for token in &tokens {
         if !token.starts_with("afm-") {
             continue;
@@ -607,7 +613,7 @@ pub fn check_css_class_contract(html: &str) -> Result<(), Violation> {
         }
         return Err(Violation::UnknownCssClass {
             class: token.clone(),
-            snippet: first_occurrence_context(html, token, 80),
+            snippet: first_occurrence_context(&scope, token, 80),
         });
     }
     Ok(())
@@ -618,6 +624,12 @@ pub fn check_css_class_contract(html: &str) -> Result<(), Violation> {
 /// Detects the patterns that indicate the escape pass ran twice —
 /// `&amp;lt;`, `&amp;gt;`, `&amp;amp;`, `&amp;quot;`, `&amp;#x27;` —
 /// any of which means `&lt;` was re-escaped into `&amp;lt;`.
+///
+/// **Code blocks are excluded.** A `<pre><code>` body literally
+/// contains the user's bytes verbatim, so a body that originally
+/// carried `&amp;` MUST surface as `&amp;amp;` once HTML-escaped —
+/// that is the spec, not a double-encode bug. The check therefore
+/// strips `<pre><code>...</code></pre>` regions before scanning.
 ///
 /// # Errors
 ///
@@ -631,14 +643,139 @@ pub fn check_escape_invariants(html: &str) -> Result<(), Violation> {
         "&amp;#x27;",
         "&amp;#39;",
     ];
+    let scope = strip_pre_code_blocks(html);
     for &needle in DOUBLE_ENCODED {
-        if let Some(offset) = html.find(needle) {
+        if let Some(offset) = scope.find(needle) {
             return Err(Violation::DoubleEncodedEntity {
-                snippet: first_occurrence_context_bytes(html, offset, 80),
+                snippet: first_occurrence_context_bytes(&scope, offset, 80),
             });
         }
     }
     Ok(())
+}
+
+/// Run every always-on invariant check against `html` and panic with
+/// a rich, copy-pastable diagnostic if any one fails.
+///
+/// The panic message includes the source bytes (Debug-formatted), the
+/// produced HTML (truncated to keep the message shell-friendly), and
+/// the failing tier label. Fuzz targets and regression tests both call
+/// this so a libFuzzer crash artifact translates straight into
+/// "tier + source + html" without manual triage. Tier I is gated on
+/// [`source_contains_html_entity_literal`]: a source carrying entity
+/// literals legitimately produces `&amp;{lt,gt,amp,…};` on output.
+///
+/// # Panics
+///
+/// Panics on the first invariant violation. The panic message is
+/// engineered for `cargo test` / `cargo fuzz` output — it reads
+/// linearly without needing a stack-trace pass.
+pub fn assert_html_invariants(src: &str, html: &str) {
+    let context = || {
+        let html_excerpt = if html.len() > 600 {
+            format!(
+                "{:?}…[+{} more bytes]",
+                &html[..html.char_indices().nth(160).map_or(html.len(), |(i, _)| i)],
+                html.len() - 600
+            )
+        } else {
+            format!("{html:?}")
+        };
+        format!("\n  src = {src:?}\n  html = {html_excerpt}")
+    };
+    let report = |tier: &str, e: Violation| -> ! {
+        panic!("{tier} violated:{}\n  details = {e:?}", context())
+    };
+    if let Err(e) = check_html_tag_balance(html) {
+        report("Tier D (tag balance)", e);
+    }
+    if let Err(e) = check_annotation_wrapper_shape(html) {
+        report("Tier E (annotation wrapper)", e);
+    }
+    if let Err(e) = check_no_xss_marker(html) {
+        report("Tier F (xss marker)", e);
+    }
+    if let Err(e) = check_css_class_contract(html) {
+        report("Tier G (css class)", e);
+    }
+    if !source_contains_html_entity_literal(src)
+        && let Err(e) = check_escape_invariants(html)
+    {
+        report("Tier I (double-encoded entity)", e);
+    }
+    if let Err(e) = check_content_model(html) {
+        report("Tier J (content model)", e);
+    }
+    if let Err(e) = check_markup_completeness(html) {
+        report("Tier K (markup completeness)", e);
+    }
+    if let Err(e) = check_heading_integrity(html) {
+        report("Tier C (heading integrity)", e);
+    }
+}
+
+/// True iff `src` would let comrak's escape pass legitimately
+/// surface a `&amp;{lt,gt,amp,…};` on output.
+///
+/// Matches an entity-prefix literal (`&lt`, `&gt`, …) or a PUA
+/// sentinel character (U+E000..U+E004).
+///
+/// Callers gate [`check_escape_invariants`] on the negation of this.
+/// Two distinct sources of spec-correct apparent double-encodes:
+///
+/// 1. The source contains `&amp;`, `&lt;`, etc. (or CommonMark-escaped
+///    variants like `&lt\;` that comrak resolves to the same character
+///    sequence). The escape pass turns the leading `&` into `&amp;`
+///    and the rest is preserved, surfacing as `&amp;{lt,gt,amp,…};`.
+/// 2. The source contains a PUA sentinel (U+E000..U+E004). The lexer
+///    flags this with a `SourceContainsPua` diagnostic, but the AST
+///    splicer still walks the resulting Text nodes; the sentinel
+///    splits the text around itself and the leading half can collapse
+///    to a `&` adjacent to a literal `amp;` substring, which comrak
+///    then escapes to `&amp;amp;`. Apparent double-encode, structural
+///    cause — not an afm-side bug.
+///
+/// The check is intentionally **permissive**: false negatives (missed
+/// afm-side double-escape because the source happened to contain
+/// `&amp` somewhere) are preferable to false positives (fuzz wedged
+/// on comrak-correct output). Tier I targets afm-side regressions,
+/// not a forensic accounting of every entity in the output.
+#[must_use]
+pub fn source_contains_html_entity_literal(src: &str) -> bool {
+    const HINTS: &[&str] = &["&lt", "&gt", "&amp", "&quot", "&apos", "&#"];
+    if HINTS.iter().any(|hint| src.contains(hint)) {
+        return true;
+    }
+    src.chars()
+        .any(|ch| ('\u{E000}'..='\u{E004}').contains(&ch))
+}
+
+/// Strip every `<pre><code...>...</code></pre>` region from `html`.
+/// The double-encoded-entity check defers to this helper because code
+/// blocks legitimately host `&amp;amp;` and friends in their literal
+/// payload (CommonMark §6.1: code-block content is verbatim, then
+/// escape-pass-once for output safety).
+fn strip_pre_code_blocks(html: &str) -> Cow<'_, str> {
+    if !html.contains("<pre><code") {
+        return Cow::Borrowed(html);
+    }
+    let mut out = String::with_capacity(html.len());
+    let mut cursor = 0;
+    while let Some(rel_open) = html[cursor..].find("<pre><code") {
+        let abs_open = cursor + rel_open;
+        out.push_str(&html[cursor..abs_open]);
+        let after_open = abs_open + "<pre><code".len();
+        if let Some(rel_close) = html[after_open..].find("</code></pre>") {
+            cursor = after_open + rel_close + "</code></pre>".len();
+        } else {
+            // Malformed (unclosed `<pre><code`): treat the remainder
+            // as code-block content so a stray `&amp;amp;` inside the
+            // unclosed block does not false-positive the Tier I gate.
+            return Cow::Owned(out);
+        }
+    }
+    out.push_str(&html[cursor..]);
+    Cow::Owned(out)
 }
 
 /// Tier J — HTML content-model correctness for the handful of elements
@@ -769,20 +906,58 @@ pub fn assert_invariants(html: &str) -> Result<(), Vec<Violation>> {
 /// value anywhere in `html`. Used by the heading-integrity and
 /// CSS-class-contract predicates; shared so the tokeniser stays
 /// consistent across both.
+///
+/// **Tag-boundary aware.** A naive `find("class=\"")` would also
+/// match `class=` substrings that appear inside body text (e.g. an
+/// `<img alt="raw text with class=…">` whose alt attribute happens to
+/// carry the four-byte `class=` sequence). The tokeniser walks every
+/// `<` ... `>` tag body, respecting quoted attribute values so the
+/// `>` inside a quote doesn't prematurely close the tag, and only
+/// looks for `class="..."` inside that scope.
 fn collect_class_tokens(html: &str) -> HashSet<String> {
-    const NEEDLE: &str = "class=\"";
     let mut out = HashSet::new();
-    let mut rest = html;
-    while let Some(at) = rest.find(NEEDLE) {
-        let after = &rest[at + NEEDLE.len()..];
-        let Some(close) = after.find('"') else {
-            break;
-        };
-        let value = &after[..close];
-        for tok in value.split_whitespace() {
-            out.insert(tok.to_owned());
+    let bytes = html.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] != b'<' {
+            i += 1;
+            continue;
         }
-        rest = &after[close + 1..];
+        let tag_start = i + 1;
+        let mut j = tag_start;
+        let mut quote: Option<u8> = None;
+        while j < bytes.len() {
+            let b = bytes[j];
+            match quote {
+                Some(q) => {
+                    if b == q {
+                        quote = None;
+                    }
+                }
+                None => {
+                    if b == b'"' || b == b'\'' {
+                        quote = Some(b);
+                    } else if b == b'>' {
+                        break;
+                    }
+                }
+            }
+            j += 1;
+        }
+        if j >= bytes.len() {
+            break;
+        }
+        let inside = &html[tag_start..j];
+        if let Some(rel) = inside.find("class=\"") {
+            let after = &inside[rel + "class=\"".len()..];
+            if let Some(close) = after.find('"') {
+                let value = &after[..close];
+                for tok in value.split_whitespace() {
+                    out.insert(tok.to_owned());
+                }
+            }
+        }
+        i = j + 1;
     }
     out
 }
