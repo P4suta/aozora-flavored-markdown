@@ -17,7 +17,7 @@
 //!   `Gaiji` / `Annotation` (inline) and `Container` / `PageBreak` /
 //!   `SectionBreak` (block). Heading hints
 //!   (`［＃「X」は大見出し］`) promote their host paragraph to
-//!   `IrBlock::Heading` directly, mirroring [`crate::post_process`].
+//!   `IrBlock::Heading` directly, mirroring [`crate::ast_splice`].
 //!
 //! # Module map
 //!
@@ -36,7 +36,7 @@
 //! The walker is built from three small primitives:
 //!
 //! 1. [`crate::sentinel_stream::SentinelCursor`] — the shared registry-stream
-//!    cursor. The HTML splicer ([`crate::post_process`]) and this
+//!    cursor. The HTML splicer ([`crate::ast_splice`]) and this
 //!    builder both consume the same source-order sequence of
 //!    `NodeRef` entries; the cursor abstraction keeps them in
 //!    lockstep.
@@ -64,12 +64,12 @@ use core::mem;
 
 use aozora_pipeline::BorrowedLexOutput;
 use aozora_syntax::ContainerKind;
-use aozora_syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
+use aozora_syntax::borrowed::{HeadingHint, NodeRef};
 use comrak::nodes::{AstNode, ListType, NodeHeading, NodeList, NodeValue};
 
 use crate::sentinel_stream::{
-    BlockSentinelKind, SentinelCursor, for_each_text_descendant, is_sentinel_char,
-    paragraph_sole_block_sentinel, saturating_u32,
+    BlockSentinelKind, ParaScan, SentinelCursor, is_sentinel_char, paragraph_sole_block_sentinel,
+    saturating_u32,
 };
 
 use projection::{
@@ -154,10 +154,10 @@ impl<'src> StreamingIrBuilder<'src> {
 /// Tree builder that consumes comrak nodes plus a sentinel cursor and
 /// emits `IrBlock`s into a stack-balanced container hierarchy.
 ///
-/// The state mirrors [`crate::post_process`]'s `SpliceState` for the
-/// HTML side: same cursor, same balanced-container model, same
+/// The state mirrors [`crate::ast_splice`]'s splicer for the HTML
+/// side: same cursor, same balanced-container model, same
 /// orphan-close drain at end-of-document. They differ only in the
-/// emit target (string buffer vs. tree of `Vec<IrBlock>`).
+/// emit target (rewritten comrak AST vs. tree of `Vec<IrBlock>`).
 ///
 /// Lifetime: `'src` is the arena/source lifetime that every
 /// borrowed [`AozoraNode`] payload references — shared with the
@@ -551,7 +551,7 @@ impl<'src> IrWalker<'src> {
             };
             // Block sentinels surviving into an inline context (e.g.
             // raw text inside a fenced code block) drop silently —
-            // matches `crate::post_process::splice_inline_pass`.
+            // matches `crate::ast_splice::split_text_node`.
             if let NodeRef::Inline(aozora) = node_ref
                 && let Some(inline) = project_inline(aozora)
             {
@@ -610,46 +610,4 @@ fn top_metadata(node: &AstNode<'_>) -> (u32, bool) {
     let line = saturating_u32(data.sourcepos.start.line).max(1);
     let is_para = matches!(data.value, NodeValue::Paragraph);
     (line, is_para)
-}
-
-// ===================================================================
-// Single-descent paragraph profile.
-// ===================================================================
-
-/// Collected paragraph properties. The walker computes this in one
-/// pass over the paragraph's text descendants and dispatches off the
-/// result.
-struct ParaScan<'src> {
-    /// Total sentinel chars in the paragraph's text descendants.
-    /// Equals the number of registry entries the paragraph would
-    /// consume during inline projection.
-    total_sentinels: usize,
-    /// First sentinel that the registry classifies as a heading hint.
-    /// `None` if the paragraph carries no inline heading hint.
-    first_heading_hint: Option<&'src HeadingHint<'src>>,
-}
-
-impl<'src> ParaScan<'src> {
-    fn run<'a>(node: &'a AstNode<'a>, cursor: &SentinelCursor<'src>) -> Self {
-        let mut total_sentinels = 0usize;
-        let mut first_heading_hint = None;
-        for_each_text_descendant(node, |text| {
-            for ch in text.chars() {
-                if !is_sentinel_char(ch) {
-                    continue;
-                }
-                if first_heading_hint.is_none()
-                    && let Some(NodeRef::Inline(AozoraNode::HeadingHint(h))) =
-                        cursor.peek(total_sentinels)
-                {
-                    first_heading_hint = Some(h);
-                }
-                total_sentinels += 1;
-            }
-        });
-        Self {
-            total_sentinels,
-            first_heading_hint,
-        }
-    }
 }

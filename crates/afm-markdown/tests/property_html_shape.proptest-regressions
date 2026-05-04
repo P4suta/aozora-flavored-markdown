@@ -7,3 +7,5 @@
 cc aa9a0e48f98c5631beaccfac53450dc47f4302e830d957e3685e93e59a05fddb # shrinks to src = "［＃ここから字下げ］"
 cc 5fbe41b67e203163fb2ae6455208c29b612c2945a37d19414ff0092aca23e538 # shrinks to src = "［＃改丁］"
 cc affa2733bbb84f4f4d2bf6fb93a16fda9c4810c87f508f9ddfc4ac413db69e60 # shrinks to src = "［＃"
+cc 339bbd9ac77f7757d087094934f67b7a3665b5ce30fc198d5ff917aa3fa89669 # shrinks to src = "［＃］"
+cc 80859b2fe33810c12626da4253198701ee1363bef016cfa47d158fa121424487 # shrinks to src = "［＃］《》"

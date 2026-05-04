@@ -1,4 +1,14 @@
-//! HTML post-processing: splice Aozora sentinels into rendered comrak HTML.
+//! Legacy HTML post-processor (frozen for differential testing only).
+//!
+//! Replaced by [`crate::ast_splice`] which mutates the comrak AST in
+//! place rather than re-scanning the formatted HTML. This file is
+//! kept under `#![cfg(test)]` so the unit-test differential gate
+//! (`mod tests` below) can pin the AST splicer's output byte-equal
+//! against the legacy four-pass pipeline. Once the cleanup PR runs
+//! the cargo-fuzz harness for 24 h with no divergence, the entire
+//! file disappears.
+//!
+//! Original module documentation, preserved for archaeology:
 //!
 //! ## Pipeline shape
 //!
@@ -71,6 +81,8 @@
 //! sequentially. No byte-position lookup is needed at HTML-rewrite
 //! time.
 
+#![cfg(test)]
+
 use core::fmt;
 use std::borrow::Cow;
 
@@ -79,9 +91,21 @@ use aozora_render::render_node;
 use aozora_syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
 use aozora_syntax::{Container, ContainerKind};
 
-use crate::sentinel_stream::{
-    BlockSentinelKind, SentinelCursor, is_sentinel_char, sole_block_sentinel,
-};
+use crate::sentinel_stream::{BlockSentinelKind, SentinelCursor, is_sentinel_char};
+
+/// String-paragraph-inner variant of `paragraph_sole_block_sentinel`.
+/// Inlined here from the (now-removed) `sentinel_stream::sole_block_sentinel`
+/// helper because only the legacy splicer scans HTML `<p>...</p>`
+/// inner text — every production walker now consumes the comrak AST.
+fn sole_block_sentinel(inner: &str) -> Option<BlockSentinelKind> {
+    let trimmed = inner.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r'));
+    let mut chars = trimmed.chars();
+    let first = chars.next()?;
+    if chars.next().is_some() {
+        return None;
+    }
+    BlockSentinelKind::from_char(first)
+}
 
 /// Splice every Aozora sentinel in `comrak_html` into its real HTML
 /// rendering, using the registry inside `lex_out`.
@@ -93,7 +117,10 @@ use crate::sentinel_stream::{
 /// itself. Each subsequent pass is a no-op fast-path when its
 /// trigger pattern is absent from the previous output.
 #[must_use]
-pub(crate) fn splice_aozora_html(comrak_html: &str, lex_out: &BorrowedLexOutput<'_>) -> String {
+pub(crate) fn splice_aozora_html_legacy(
+    comrak_html: &str,
+    lex_out: &BorrowedLexOutput<'_>,
+) -> String {
     // Pass 1 — sentinel substitution. The first allocation: comrak
     // emitted PUA sentinels and we expand each into its real HTML.
     let mut state = SpliceState {
@@ -530,7 +557,7 @@ mod tests {
         let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &opts);
         let mut html = String::new();
         comrak::format_html(root, &opts, &mut html).unwrap();
-        splice_aozora_html(&html, &lex_out)
+        splice_aozora_html_legacy(&html, &lex_out)
     }
 
     #[test]
@@ -578,7 +605,7 @@ mod tests {
         // confirm the splice walks it without panicking.
         let arena = Arena::new();
         let lex_out = aozora_pipeline::lex_into_arena("hello", &arena);
-        let out = splice_aozora_html("<p>unclosed paragraph", &lex_out);
+        let out = splice_aozora_html_legacy("<p>unclosed paragraph", &lex_out);
         assert!(out.contains("unclosed paragraph"), "got: {out}");
     }
 
@@ -594,7 +621,7 @@ mod tests {
         // payload that pretends to contain one. The splicer should
         // produce no Aozora HTML for that paragraph and not panic.
         let payload = format!("<p>{BLOCK_LEAF_SENTINEL}</p>\n");
-        let out = splice_aozora_html(&payload, &lex_out);
+        let out = splice_aozora_html_legacy(&payload, &lex_out);
         assert!(
             !out.contains(BLOCK_LEAF_SENTINEL),
             "sentinel survived: {out}"
@@ -707,7 +734,7 @@ mod tests {
         let lex_out = aozora_pipeline::lex_into_arena("plain", &arena);
         // `<p data-…>` first, then plain `<p>`. Both must survive.
         let payload = "<p data-afm-source-line=\"1\">first</p>\n<p>second</p>\n";
-        let out = splice_aozora_html(payload, &lex_out);
+        let out = splice_aozora_html_legacy(payload, &lex_out);
         let first_pos = out.find("first").expect("first paragraph dropped");
         let second_pos = out.find("second").expect("second paragraph dropped");
         assert!(first_pos < second_pos, "order changed: {out}");
