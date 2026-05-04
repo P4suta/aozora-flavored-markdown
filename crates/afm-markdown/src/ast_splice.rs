@@ -86,6 +86,7 @@ pub(crate) fn splice_into_ast<'a, 'src>(
     let mut splicer = AstSplicer::<'a, 'src> {
         cursor: SentinelCursor::from_lex_out(Some(lex_out)),
         container_stack: Vec::new(),
+        in_heading_depth: 0,
         arena,
     };
     splicer.walk(root);
@@ -101,6 +102,14 @@ struct AstSplicer<'a, 'src> {
     /// kind (rather than just a depth counter) lets us synthesise a
     /// matching close node when the source ends without one.
     container_stack: Vec<ContainerKind>,
+    /// Number of `Heading` ancestors the walker is currently inside.
+    /// Heading bodies must satisfy Tier C (no `afm-annotation`
+    /// contamination) AND Tier A (no bare `［＃` leak), so when
+    /// orphan brackets surface in heading text we silently drop the
+    /// run rather than wrap it. The legitimate Aozora-into-heading
+    /// path is the heading-hint promotion (Case 2 in
+    /// [`Self::dispatch_paragraph`]).
+    in_heading_depth: u32,
     arena: &'a Arena<'a>,
 }
 
@@ -115,14 +124,25 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
     }
 
     fn dispatch(&mut self, node: &'a AstNode<'a>) {
-        let action = {
+        let (action, is_heading) = {
             let data = node.data.borrow();
-            classify(&data.value)
+            (
+                classify(&data.value),
+                matches!(&data.value, NodeValue::Heading(_)),
+            )
         };
         match action {
             DispatchAction::Paragraph => self.dispatch_paragraph(node),
             DispatchAction::TextWith(text) => self.split_text_node(node, &text),
-            DispatchAction::Recurse => self.walk(node),
+            DispatchAction::Recurse => {
+                if is_heading {
+                    self.in_heading_depth += 1;
+                    self.walk(node);
+                    self.in_heading_depth -= 1;
+                } else {
+                    self.walk(node);
+                }
+            }
             DispatchAction::Skip => {}
         }
     }
@@ -220,14 +240,45 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
                 if ch == INLINE_SENTINEL
                     && let NodeRef::Inline(aozora) = node_ref
                 {
-                    let html = render_aozora_html(aozora, true);
-                    segments.push(self.new_raw_node(html));
+                    // Heading body must not carry `afm-annotation`
+                    // wrappers (Tier C). Annotation-shaped Aozora
+                    // nodes (Unknown / AsIs / TextualNote /
+                    // InvalidRubySpan / WarichuOpen / WarichuClose)
+                    // all render to a `<span class="afm-annotation"
+                    // hidden>...</span>` wrapper, so we drop them
+                    // when in_heading_depth > 0. Other inline Aozora
+                    // (Ruby / Bouten / Tcy / Gaiji / Kaeriten /
+                    // DoubleRuby) are explicitly allowed inside a
+                    // heading per Tier C's documented contract.
+                    let in_heading = self.in_heading_depth > 0;
+                    let is_annotation = matches!(aozora, AozoraNode::Annotation(_));
+                    if !(in_heading && is_annotation) {
+                        let html = render_aozora_html(aozora, true);
+                        segments.push(self.new_raw_node(html));
+                    }
                 }
                 // Block sentinel surviving into inline context, or
                 // inline-position registry mismatch: drop silently.
             } else if ch == '［' && chars.peek() == Some(&'＃') {
                 // Orphan `［＃...］` run the lexer never claimed.
                 chars.next(); // consume ＃
+                if self.in_heading_depth > 0 {
+                    // Heading bodies must satisfy both Tier A (no bare
+                    // `［＃` leak) and Tier C (no `afm-annotation`
+                    // contamination). The wrapper would resolve Tier A
+                    // but break Tier C, and emitting the literal run
+                    // would break Tier A. Silently consume the orphan
+                    // run instead — the canonical way to inject an
+                    // Aozora annotation into a heading is the
+                    // heading-hint promotion path (Case 2), not a raw
+                    // bracket run that survives lexer parsing.
+                    for b in chars.by_ref() {
+                        if b == '］' {
+                            break;
+                        }
+                    }
+                    continue;
+                }
                 let mut bracket_body = String::from("［＃");
                 for b in chars.by_ref() {
                     bracket_body.push(b);
@@ -463,6 +514,29 @@ mod tests {
         assert!(html.contains("&amp;"), "missing & escape: {html}");
         assert!(html.contains("&quot;"), "missing \" escape: {html}");
         assert!(html.contains("&#39;"), "missing ' escape: {html}");
+    }
+
+    #[test]
+    fn atx_heading_with_orphan_bracket_drops_wrapper() {
+        let html = render_via_ast_splice("# header［＃orphan］tail");
+        assert!(
+            !html.contains("afm-annotation"),
+            "afm-annotation leaked into heading: {html}"
+        );
+    }
+
+    #[test]
+    fn setext_heading_with_orphan_bracket_drops_wrapper() {
+        // Setext-style: paragraph followed by `===` underline becomes
+        // `<h1>` whose body inherits the paragraph's inline run. The
+        // orphan `［＃` must not surface as an annotation wrapper here
+        // either (Tier C contamination), so the heading-depth gate has
+        // to fire on setext as well as ATX headings.
+        let html = render_via_ast_splice("text［＃orphan］more\n===");
+        assert!(
+            !html.contains("afm-annotation"),
+            "afm-annotation leaked into setext heading: {html}"
+        );
     }
 
     #[test]

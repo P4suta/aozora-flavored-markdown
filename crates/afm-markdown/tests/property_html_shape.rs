@@ -34,9 +34,7 @@
 use afm_markdown::html::render_to_string;
 use afm_markdown::{Options, render_to_string as render_to_diagnostics};
 use afm_markdown_test_support::{
-    check_annotation_wrapper_shape, check_content_model, check_css_class_contract,
-    check_escape_invariants, check_heading_integrity, check_html_tag_balance,
-    check_markup_completeness, check_no_bare_bracket, check_no_sentinel_leak,
+    assert_html_invariants, check_no_bare_bracket, check_no_sentinel_leak,
 };
 use aozora_proptest::config::default_config;
 use aozora_proptest::generators::{aozora_fragment, commonmark_adversarial, pathological_aozora};
@@ -53,22 +51,11 @@ fn lexer_is_well_formed(src: &str) -> bool {
 
 /// Assert every always-on shape predicate. Tier A / B are conditionally
 /// asserted by the caller because they have input preconditions
-/// documented above.
+/// documented above. Tier I is gated on
+/// [`afm_markdown_test_support::source_contains_html_entity_literal`]
+/// inside [`assert_html_invariants`].
 fn assert_always_on(html: &str, src: &str) {
-    check_html_tag_balance(html)
-        .unwrap_or_else(|e| panic!("Tier D (tag balance) violated for src={src:?}: {e}"));
-    check_annotation_wrapper_shape(html)
-        .unwrap_or_else(|e| panic!("Tier E (annotation wrapper) violated for src={src:?}: {e}"));
-    check_css_class_contract(html)
-        .unwrap_or_else(|e| panic!("Tier G (CSS class contract) violated for src={src:?}: {e}"));
-    check_escape_invariants(html)
-        .unwrap_or_else(|e| panic!("Tier I (escape invariants) violated for src={src:?}: {e}"));
-    check_content_model(html)
-        .unwrap_or_else(|e| panic!("Tier J (content model) violated for src={src:?}: {e}"));
-    check_markup_completeness(html)
-        .unwrap_or_else(|e| panic!("Tier K (markup completeness) violated for src={src:?}: {e}"));
-    check_heading_integrity(html)
-        .unwrap_or_else(|e| panic!("Tier C (heading integrity) violated for src={src:?}: {e}"));
+    assert_html_invariants(src, html);
 }
 
 /// Assert input-gated predicates (Tier A, Tier B) when the lexer

@@ -2,26 +2,23 @@
 //!
 //! Arbitrary bytes are decoded as UTF-8 (invalid sequences skip this
 //! iteration). The resulting source is pushed through
-//! `render_to_string`; every always-on invariant predicate is then
-//! asserted. Property-test coverage gives this the same shape
-//! predicates as `tests/property_html_shape.rs`, scaled to
-//! libFuzzer's coverage-guided mutations for inputs the proptest
-//! strategies don't reach.
+//! `render_to_string` and every always-on invariant predicate is
+//! asserted via [`assert_html_invariants`]. A crash artifact's
+//! Debug-formatted panic message is therefore self-contained: tier
+//! label + source + html excerpt + violation details — no manual
+//! triage needed.
 //!
-//! Tier A / Tier B are skipped — they have input preconditions (see
-//! the property test's `assert_gated` helper) that would make this
-//! target noisy on raw bytes.
-//!
-//! Run with: `just fuzz parse_render -- -runs=10000`
+//! Run with:
+//! - `just fuzz-quick parse_render` (60 s) — inner-loop smoke
+//! - `just fuzz-deep  parse_render` (5 min) — release pre-flight
+//! - `just fuzz-triage parse_render`         — replay every artifact
+//! - `just fuzz-promote parse_render <hash>` — lift to permanent
+//!   regression set under `tests/fuzz_regressions/`
 
 #![no_main]
 
 use afm_markdown::html::render_to_string;
-use afm_markdown_test_support::{
-    check_annotation_wrapper_shape, check_content_model, check_css_class_contract,
-    check_escape_invariants, check_heading_integrity, check_html_tag_balance,
-    check_markup_completeness, check_no_xss_marker,
-};
+use afm_markdown_test_support::assert_html_invariants;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -29,12 +26,5 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
     let html = render_to_string(src);
-    check_html_tag_balance(&html).expect("Tier D violated");
-    check_annotation_wrapper_shape(&html).expect("Tier E violated");
-    check_no_xss_marker(&html).expect("Tier F violated");
-    check_css_class_contract(&html).expect("Tier G violated");
-    check_escape_invariants(&html).expect("Tier I violated");
-    check_content_model(&html).expect("Tier J violated");
-    check_markup_completeness(&html).expect("Tier K violated");
-    check_heading_integrity(&html).expect("Tier C violated");
+    assert_html_invariants(src, &html);
 });
