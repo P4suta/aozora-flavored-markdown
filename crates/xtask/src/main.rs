@@ -1,40 +1,47 @@
 //! Workspace automation.
 //!
-//! Every task invoked by the `Justfile` or by CI that isn't a direct cargo/mdbook
-//! invocation lives here. Sub-commands:
+//! Every task invoked by the `Justfile` or by CI that isn't a direct
+//! cargo / mdbook invocation lives here. Sub-commands:
 //!
-//! - `upstream-diff` — assert the vendored comrak tree is still pinned
-//!   to the recorded SHA and that the ADR-0001 diff budget is
-//!   documented in `upstream/comrak/UPSTREAM_DIFF.md`.
-//! - `upstream-sync` — *deferred*: fetch a new comrak tag, replace
-//!   `upstream/comrak`, re-apply the afm hook patches.
-//! - `corpus-refresh` — *deferred*: pull the pinned Aozora corpus,
-//!   verify SHA256, rewrite `spec/aozora/corpus.lock`.
-//! - `corpus-test` — *deferred*: run Tier A/B (and optionally C)
-//!   against the pinned corpus.
+//! - `upstream-diff` — assert the vendored comrak tree is still
+//!   pinned to the recorded SHA and that the ADR-0001 0-line diff
+//!   budget is documented in `upstream/comrak/UPSTREAM_DIFF.md`.
+//! - `upstream-sync` — replace `upstream/comrak/` with the source
+//!   tree at a given upstream tag. Pure tree-replace per ADR-0001
+//!   v0.2.4: no patches to re-apply since the diff budget is 0.
 //! - `new-adr` — scaffold a new MADR file under `docs/adr/`.
-//! - `spec-refresh` — regenerate `spec/commonmark-*.json` / `spec/gfm-*.json`
-//!   from cmark-format `spec.txt` inputs. Network fetching is handled by the
-//!   `just spec-refresh` target (shell-side `curl`); this xtask only
-//!   transforms the already-downloaded spec files into fixture JSON.
+//! - `spec-refresh` — regenerate `spec/commonmark-*.json` /
+//!   `spec/gfm-*.json` from cmark-format `spec.txt` inputs. Network
+//!   fetching is handled by the `just spec-refresh` target
+//!   (shell-side `curl`); this xtask only transforms
+//!   already-downloaded spec files into fixture JSON.
 //!
-//! Deferred sub-commands return a clear error message rather than a
-//! generic bail so the `Justfile` wrappers surface actionable intent
-//! instead of a mysterious failure.
+//! Aozora corpus refresh / Tier-A/B/C runs were once stubbed as
+//! deferred sub-commands here. ADR-0010 (v0.2.0) moved every Aozora
+//! parser / corpus concern into the sibling `P4suta/aozora` repo, so
+//! those sub-commands now live there.
 
 #![forbid(unsafe_code)]
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 mod spec_refresh;
 
-/// ADR-0001 upstream diff budget, in lines. Changing this requires an ADR.
-const UPSTREAM_DIFF_BUDGET_LINES: usize = 200;
+/// ADR-0001 upstream diff budget, in lines. Changing this requires
+/// a new ADR. Held at 200 from v0.1 through v0.2.3; collapsed to 0
+/// in v0.2.4 (2026-04-30) — the historical patch surface was
+/// removed once afm switched to HTML-sentinel post-processing
+/// (ADR-0008). The budget value below tracks the v0.2.4 status.
+const UPSTREAM_DIFF_BUDGET_LINES: usize = 0;
+
+/// Upstream comrak repository URL. `upstream-sync` shallow-clones a
+/// single tag from this remote.
+const UPSTREAM_COMRAK_URL: &str = "https://github.com/kivikakk/comrak.git";
 
 #[derive(Parser, Debug)]
 #[command(version, about = "afm workspace automation", long_about = None)]
@@ -47,18 +54,11 @@ struct Cli {
 enum Command {
     /// Verify the ADR-0001 upstream-diff policy is in force.
     UpstreamDiff,
-    /// Sync `upstream/comrak/` to the given tag and re-apply afm hook patches.
+    /// Replace `upstream/comrak/` with the source tree at the given
+    /// upstream tag. Pure tree-replace (ADR-0001 v0.2.4).
     UpstreamSync {
         /// Upstream tag name (e.g. `v0.53.0`).
         tag: String,
-    },
-    /// Refresh the Aozora Bunko corpus lockfile.
-    CorpusRefresh,
-    /// Run the corpus regression tests at the requested tier.
-    CorpusTest {
-        /// Comma-separated tiers to run: `a`, `b`, `c`.
-        #[arg(long, default_value = "a,b")]
-        tier: String,
     },
     /// Create a new Architecture Decision Record under `docs/adr/`.
     NewAdr { title: String },
@@ -78,13 +78,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::UpstreamDiff => upstream_diff(),
-        Command::UpstreamSync { tag } => {
-            Err(deferred("upstream-sync", &format!("requested tag: {tag}")))
-        }
-        Command::CorpusRefresh => Err(deferred("corpus-refresh", "")),
-        Command::CorpusTest { tier } => {
-            Err(deferred("corpus-test", &format!("requested tiers: {tier}")))
-        }
+        Command::UpstreamSync { tag } => upstream_sync(&tag),
         Command::NewAdr { title } => new_adr(&title),
         Command::SpecRefresh { input, output } => {
             let n = spec_refresh::refresh_one(&input, &output).with_context(|| {
@@ -102,11 +96,16 @@ fn main() -> Result<()> {
 
 /// Verify the ADR-0001 upstream-diff policy is in force.
 ///
-/// Byte-level enforcement (fetch upstream at the pinned SHA, diff against
-/// the vendored tree, hard-fail on overage) is scheduled for a follow-up
-/// ADR. For the current CI gate we assert the policy documentation exists
-/// and is internally consistent — the contract a human reviewer would
-/// enforce on any PR touching `upstream/comrak/`.
+/// Reads the pinned SHA + tag from `upstream/comrak/COMRAK_SHA` and
+/// asserts that `upstream/comrak/UPSTREAM_DIFF.md` mentions the
+/// current budget number ([`UPSTREAM_DIFF_BUDGET_LINES`]).
+///
+/// Byte-level enforcement against the upstream remote (network
+/// fetch + diff) is **not** part of this gate: developers run
+/// `cargo xtask upstream-sync <tag>` (a pure tree replace per ADR-0001
+/// v0.2.4) to refresh the vendored tree, and any local modification
+/// has to pass code review. The gate here catches accidental drift
+/// in the policy file itself.
 fn upstream_diff() -> Result<()> {
     let sha_path = PathBuf::from("upstream/comrak/COMRAK_SHA");
     let raw =
@@ -126,7 +125,12 @@ fn upstream_diff() -> Result<()> {
     let diff_md = fs::read_to_string(&diff_md_path)
         .with_context(|| format!("reading {}", diff_md_path.display()))?;
 
-    if !diff_md.contains(&UPSTREAM_DIFF_BUDGET_LINES.to_string()) {
+    // We want the budget number to appear in a phrase that names a
+    // line count, not as a stray digit. `<n>-line` and `<n> lines`
+    // are the two phrasings UPSTREAM_DIFF.md uses; either is enough.
+    let needle_hyphen = format!("{UPSTREAM_DIFF_BUDGET_LINES}-line");
+    let needle_word = format!("{UPSTREAM_DIFF_BUDGET_LINES} lines");
+    if !diff_md.contains(&needle_hyphen) && !diff_md.contains(&needle_word) {
         bail!(
             "{} does not mention the {}-line upstream diff budget (ADR-0001)",
             diff_md_path.display(),
@@ -143,12 +147,135 @@ fn upstream_diff() -> Result<()> {
         "upstream-diff: budget {UPSTREAM_DIFF_BUDGET_LINES} lines (ADR-0001), policy documented in {}",
         diff_md_path.display()
     );
-    println!(
-        "upstream-diff: NOTE — byte-level enforcement via network fetch + diff \
-         is scheduled for a follow-up ADR. This gate currently verifies the \
-         policy documentation is in force."
-    );
 
+    Ok(())
+}
+
+/// Replace `upstream/comrak/` with the source tree at `tag`.
+///
+/// Pure tree-replace per ADR-0001 v0.2.4: there are no afm patches
+/// to re-apply because the diff budget is 0. We preserve the two
+/// afm-side metadata files (`COMRAK_SHA` and `UPSTREAM_DIFF.md`)
+/// across the wipe, then rewrite `COMRAK_SHA` with the new pin.
+///
+/// Network: shells out to `git clone --depth 1 --branch <tag>`.
+/// Run from a developer machine with internet access; CI does not
+/// invoke this command.
+fn upstream_sync(tag: &str) -> Result<()> {
+    let upstream_dir = PathBuf::from("upstream/comrak");
+    if !upstream_dir.is_dir() {
+        bail!(
+            "upstream-sync: {} not found; run from the workspace root",
+            upstream_dir.display()
+        );
+    }
+
+    let sha_path = upstream_dir.join("COMRAK_SHA");
+    let diff_md_path = upstream_dir.join("UPSTREAM_DIFF.md");
+    let preserved: Vec<(PathBuf, Vec<u8>)> = [&sha_path, &diff_md_path]
+        .into_iter()
+        .filter_map(|p| fs::read(p).ok().map(|c| (p.clone(), c)))
+        .collect();
+
+    let scratch = PathBuf::from("target/upstream-sync-tmp");
+    if scratch.exists() {
+        fs::remove_dir_all(&scratch)
+            .with_context(|| format!("removing stale {}", scratch.display()))?;
+    }
+    if let Some(parent) = scratch.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("ensuring {}", parent.display()))?;
+    }
+
+    let status = ProcessCommand::new("git")
+        .args([
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            tag,
+            UPSTREAM_COMRAK_URL,
+        ])
+        .arg(&scratch)
+        .status()
+        .context("running `git clone`")?;
+    if !status.success() {
+        bail!("git clone failed for tag {tag:?}");
+    }
+
+    let sha_out = ProcessCommand::new("git")
+        .arg("-C")
+        .arg(&scratch)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .context("running `git rev-parse HEAD`")?;
+    if !sha_out.status.success() {
+        bail!(
+            "git rev-parse failed: {}",
+            String::from_utf8_lossy(&sha_out.stderr)
+        );
+    }
+    let sha = String::from_utf8(sha_out.stdout)
+        .context("git rev-parse output not UTF-8")?
+        .trim()
+        .to_owned();
+
+    // Drop the .git/ directory — we vendor the source tree, not a
+    // working clone.
+    let dot_git = scratch.join(".git");
+    if dot_git.exists() {
+        fs::remove_dir_all(&dot_git).with_context(|| format!("removing {}", dot_git.display()))?;
+    }
+
+    // Wipe and replace.
+    fs::remove_dir_all(&upstream_dir)
+        .with_context(|| format!("removing {}", upstream_dir.display()))?;
+    copy_dir_recursive(&scratch, &upstream_dir)
+        .with_context(|| format!("copying scratch tree into {}", upstream_dir.display()))?;
+
+    // Restore afm metadata, then update COMRAK_SHA with the new pin.
+    for (path, content) in preserved {
+        fs::write(&path, content).with_context(|| format!("restoring {}", path.display()))?;
+    }
+    fs::write(&sha_path, format!("{sha}\n{tag}\n"))
+        .with_context(|| format!("writing {}", sha_path.display()))?;
+
+    fs::remove_dir_all(&scratch).with_context(|| format!("cleaning {}", scratch.display()))?;
+
+    println!("upstream-sync: replaced upstream/comrak/ with comrak {tag} ({sha})");
+    println!("upstream-sync: review the diff and run `just ci` before committing");
+    Ok(())
+}
+
+/// Copy `src/` into `dst/` recursively. Mirrors the subset of
+/// behaviour we need from a real `cp -R` for vendored source trees:
+/// regular files are copied byte-for-byte, directories are
+/// reconstructed, and symlinks fail loudly (comrak's tree has none,
+/// and silently dropping them would break a future upstream change
+/// without warning).
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+    fs::create_dir_all(dst).with_context(|| format!("mkdir {}", dst.display()))?;
+    for entry in fs::read_dir(src).with_context(|| format!("read_dir {}", src.display()))? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_recursive(&from, &to)?;
+        } else if ty.is_symlink() {
+            bail!(
+                "unsupported symlink at {}; upstream comrak should only contain \
+                 regular files and directories",
+                from.display()
+            );
+        } else {
+            // Regular file (or platform-specific kind we treat as a
+            // file). `is_file()` would be too narrow on some
+            // filesystems; `!is_dir() && !is_symlink()` handles
+            // hardlinked entries that `fs::copy` accepts.
+            fs::copy(&from, &to)
+                .with_context(|| format!("copy {} -> {}", from.display(), to.display()))?;
+        }
+    }
     Ok(())
 }
 
@@ -235,18 +362,4 @@ fn today_yyyy_mm_dd() -> Result<String> {
         .context("date output was not valid UTF-8")?
         .trim()
         .to_owned())
-}
-
-fn deferred(subcmd: &str, hint: &str) -> anyhow::Error {
-    let mut msg = format!(
-        "`xtask {subcmd}` is declared for forward compatibility but not yet \
-         implemented. A follow-up ADR tracks the design; for now perform the \
-         operation manually. See CLAUDE.md for the interim workflow."
-    );
-    if !hint.is_empty() {
-        msg.push_str(" [");
-        msg.push_str(hint);
-        msg.push(']');
-    }
-    anyhow!(msg)
 }

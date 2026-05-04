@@ -25,7 +25,7 @@
 #![forbid(unsafe_code)]
 
 use afm_markdown::ir::{IrBlock, IrDocument};
-use afm_markdown::{Options, render_blocks_to_ir, render_to_ir};
+use afm_markdown::{Diagnostic, Options, render_blocks_to_ir, render_to_ir};
 use serde::Serialize;
 use twox_hash::XxHash3_64;
 use wasm_bindgen::prelude::*;
@@ -56,15 +56,36 @@ struct RenderResult {
     diagnostics: Vec<DiagnosticOut>,
 }
 
+/// Wire-format projection of [`Diagnostic`] for the JS side.
+///
+/// `level` (`"error" | "warning" | "note"`) and `source`
+/// (`"source" | "internal"`) come from the upstream stable wire-format
+/// strings. `code` is the dotted machine-readable identifier (e.g.
+/// `"aozora::lex::source_contains_pua"`). `message` is the human
+/// readable rendering via `Diagnostic`'s `Display` impl — already
+/// localised by the upstream `#[error("...")]` macro.
 #[derive(Serialize)]
 struct DiagnosticOut {
     level: &'static str,
+    source: &'static str,
+    code: &'static str,
     message: String,
 }
 
+impl DiagnosticOut {
+    fn from_diagnostic(d: &Diagnostic) -> Self {
+        Self {
+            level: d.severity().as_wire_str(),
+            source: d.source().as_wire_str(),
+            code: d.code(),
+            message: d.to_string(),
+        }
+    }
+}
+
 /// Optional render configuration accepted from JS. All fields are
-/// optional so callers can omit them entirely (legacy callers pass
-/// `undefined`).
+/// optional; missing fields fall back to `Options::afm_default()`
+/// (aozora on, anchors off).
 #[derive(serde::Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct RenderOptions {
@@ -109,10 +130,7 @@ pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
         diagnostics: rendered
             .diagnostics
             .iter()
-            .map(|d| DiagnosticOut {
-                level: "info",
-                message: format!("{d:?}"),
-            })
+            .map(DiagnosticOut::from_diagnostic)
             .collect(),
     };
     serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
@@ -120,10 +138,12 @@ pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
 
 /// Render aozora-only inline text (no markdown re-parse).
 ///
-/// For v0.1 this routes through the same `render_to_ir`; once
-/// `aozora-render` exposes a standalone "render this text as
-/// inline aozora HTML" entry point we'll switch to it for
-/// performance.
+/// Routes through the full afm pipeline with default options.
+/// The naming preserves an entry point that callers can target
+/// without committing to the `renderAfm` shape; the implementation
+/// is intentionally a thin wrapper because the `aozora-render`
+/// boundary lives in the sibling repo (ADR-0010) and afm
+/// composes — never extends — its public API.
 ///
 /// # Errors
 ///
@@ -144,7 +164,10 @@ pub fn hash_source(source: &str) -> u64 {
 
 #[derive(Serialize)]
 struct BlockResult {
-    ir: IrBlock,
+    /// IR blocks for this comrak top-level child. Usually one entry;
+    /// may be empty (comrak constructs without an IR projection) or
+    /// multiple (paired-container drain at the call boundary).
+    ir: Vec<IrBlock>,
     html: String,
     /// 1-based source line.
     source_line: u32,
@@ -188,10 +211,7 @@ pub fn render_blocks(source: &str, options: JsValue) -> Result<JsValue, JsValue>
             .collect(),
         diagnostics: diagnostics
             .iter()
-            .map(|d| DiagnosticOut {
-                level: "info",
-                message: format!("{d:?}"),
-            })
+            .map(DiagnosticOut::from_diagnostic)
             .collect(),
     };
     serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))

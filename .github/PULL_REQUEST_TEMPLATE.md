@@ -5,11 +5,12 @@
 ## Type of change
 
 - [ ] Bug fix
-- [ ] New feature (new Aozora notation, CLI flag, API surface, …)
+- [ ] New feature (CLI flag, public API surface, IR variant, …)
 - [ ] Refactor (no behaviour change)
 - [ ] Documentation / book / ADR
 - [ ] CI / developer tooling
 - [ ] Upstream comrak touch-up (requires an approving ADR — see ADR-0001)
+- [ ] Bumping the pinned `aozora-*` workspace version
 
 ## Checklist
 
@@ -20,15 +21,15 @@
       doesn't need a changelog entry).
 - [ ] Commit messages follow Conventional Commits (lefthook enforces).
 - [ ] If this touches `upstream/comrak/`: linked the approving ADR and
-      confirmed the diff is still within the 200-line budget
-      (`just upstream-diff`).
-- [ ] If this adds a new Aozora notation: followed the 10-step TDD flow
-      in `CLAUDE.md` (spec fixture → AST variant → lexer test (red) →
-      lexer impl (green) → post_process splice → renderer → serializer
-      → CSS themes → cross-layer invariants → verify).
-- [ ] If this adds a renderer-emitted class or HTML shape: updated
-      `tests/css_class_contract.rs` and both afm-book themes
-      (`afm-horizontal.css` / `afm-vertical.css`).
+      confirmed `just upstream-diff` still passes (0-line diff budget,
+      ADR-0001 v0.2.4).
+- [ ] If this adds a new 青空文庫 notation: filed it in the sibling
+      [`P4suta/aozora`](https://github.com/P4suta/aozora) repo first
+      (ADR-0010); afm-side follow-up is usually a one-line mapping in
+      `afm_markdown::ir` plus a test.
+- [ ] If this adds a renderer-emitted class: updated
+      `crates/afm-markdown/src/test_support.rs::AFM_CLASSES` and both
+      afm-book themes (`afm-horizontal.css` / `afm-vertical.css`).
 
 ## Related
 

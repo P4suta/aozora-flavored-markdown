@@ -1,8 +1,26 @@
 # 0003. afm-parser architecture: trait-object extension, in-place inline/block hooks, arena-shared AST
 
-- Status: accepted
+- Status: **superseded by ADR-0010 (2026-04-25)**
 - Date: 2026-04-23
 - Tags: architecture, parser, api
+
+> **Superseded.** This ADR specified a trait-object extension into
+> upstream comrak (`AozoraExtension` registered via `comrak::Options`)
+> with inline / block / decode-time hooks, plus an `afm-parser` crate
+> living inside this repo. ADR-0008 first removed the in-comrak hooks
+> in favour of a pure-functional pre-pass + post-process. Then
+> ADR-0010 (v0.2.0, 2026-04-25) extracted every parser concern —
+> `aozora-syntax`, `aozora-pipeline`, `aozora-render`, `aozora-encoding`,
+> `aozora-spec` — into the sibling `P4suta/aozora` repository, and
+> renamed the surviving in-tree crate from `afm-parser` to
+> `afm-markdown` to reflect its new responsibility (Markdown ↔ Aozora
+> composition glue). The `AozoraExtension` trait described below no
+> longer exists; comrak carries zero Aozora-aware code (ADR-0001
+> diff budget = 0 lines).
+>
+> This ADR is kept for historical record. Follow ADR-0008 (HTML
+> sentinel post-process) and ADR-0010 (sibling-repo split) for the
+> current design.
 
 ## Context
 

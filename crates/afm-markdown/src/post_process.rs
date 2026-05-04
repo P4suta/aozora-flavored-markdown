@@ -45,22 +45,23 @@
 
 use core::fmt;
 
-use aozora_pipeline::{
-    BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, BorrowedLexOutput,
-    INLINE_SENTINEL,
-};
+use aozora_pipeline::{BorrowedLexOutput, INLINE_SENTINEL};
 use aozora_render::render_node;
 use aozora_syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
 use aozora_syntax::{Container, ContainerKind};
+
+use crate::sentinels::{
+    BlockSentinelKind, SentinelCursor, flatten_registry_in_source_order, is_sentinel_char,
+    sole_block_sentinel,
+};
 
 /// Splice every Aozora sentinel in `comrak_html` into its real HTML
 /// rendering, using the registry inside `lex_out`.
 #[must_use]
 pub(crate) fn splice_aozora_html(comrak_html: &str, lex_out: &BorrowedLexOutput<'_>) -> String {
-    let nodes = collect_node_refs_in_normalized_order(lex_out);
+    let nodes = flatten_registry_in_source_order(lex_out);
     let mut state = SpliceState {
-        nodes: nodes.as_slice(),
-        node_idx: 0,
+        cursor: SentinelCursor::new(nodes.as_slice()),
         container_stack: Vec::new(),
     };
 
@@ -254,29 +255,8 @@ fn wrap_orphan_brackets_in_place(html: &str) -> String {
     out
 }
 
-/// Walk `normalized` in byte order; for every PUA sentinel, query the
-/// registry and append the resulting [`NodeRef`] to a `Vec`.
-fn collect_node_refs_in_normalized_order<'a>(lex_out: &BorrowedLexOutput<'a>) -> Vec<NodeRef<'a>> {
-    let mut out = Vec::with_capacity(lex_out.registry.len());
-    for (idx, ch) in lex_out.normalized.char_indices() {
-        let is_sentinel = matches!(
-            ch,
-            INLINE_SENTINEL | BLOCK_LEAF_SENTINEL | BLOCK_OPEN_SENTINEL | BLOCK_CLOSE_SENTINEL
-        );
-        if !is_sentinel {
-            continue;
-        }
-        let pos = u32::try_from(idx).expect("normalized text fits u32 (Phase 0 cap)");
-        if let Some(node_ref) = lex_out.registry.node_at(aozora_spec::NormalizedOffset(pos)) {
-            out.push(node_ref);
-        }
-    }
-    out
-}
-
 struct SpliceState<'a, 'src> {
-    nodes: &'a [NodeRef<'src>],
-    node_idx: usize,
+    cursor: SentinelCursor<'a, 'src>,
     /// `ContainerKind` of every still-open paired container, in LIFO
     /// order. Push on `BlockOpen`, pop on `BlockClose`. Tracking the
     /// kind (rather than just a depth counter) lets us synthesise a
@@ -286,17 +266,13 @@ struct SpliceState<'a, 'src> {
 
 impl<'src> SpliceState<'_, 'src> {
     fn peek(&self, offset: usize) -> Option<NodeRef<'src>> {
-        self.nodes.get(self.node_idx + offset).copied()
+        self.cursor.peek(offset)
     }
     fn next(&mut self) -> Option<NodeRef<'src>> {
-        let n = self.nodes.get(self.node_idx).copied();
-        if n.is_some() {
-            self.node_idx += 1;
-        }
-        n
+        self.cursor.next()
     }
     fn advance(&mut self, n: usize) {
-        self.node_idx = self.node_idx.saturating_add(n).min(self.nodes.len());
+        self.cursor.advance(n);
     }
 }
 
@@ -393,30 +369,6 @@ fn process_paragraph(inner: &str, state: &mut SpliceState<'_, '_>, out: &mut Str
     out.push_str("</p>");
 }
 
-#[derive(Debug, Clone, Copy)]
-enum BlockSentinelKind {
-    Leaf,
-    Open,
-    Close,
-}
-
-/// If `inner` consists of exactly one block-sentinel character
-/// (optionally surrounded by ASCII whitespace), return its kind.
-fn sole_block_sentinel(inner: &str) -> Option<BlockSentinelKind> {
-    let trimmed = inner.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r'));
-    let mut chars = trimmed.chars();
-    let first = chars.next()?;
-    if chars.next().is_some() {
-        return None;
-    }
-    Some(match first {
-        BLOCK_LEAF_SENTINEL => BlockSentinelKind::Leaf,
-        BLOCK_OPEN_SENTINEL => BlockSentinelKind::Open,
-        BLOCK_CLOSE_SENTINEL => BlockSentinelKind::Close,
-        _ => return None,
-    })
-}
-
 /// Peek the inline sentinels in this paragraph against the registry.
 /// If the first inline sentinel is a `HeadingHint`, return it.
 fn heading_hint_in_paragraph<'src>(
@@ -470,13 +422,6 @@ fn splice_inline_pass(slice: &str, state: &mut SpliceState<'_, '_>, out: &mut St
     out.push_str(&slice[cursor..]);
 }
 
-fn is_sentinel_char(ch: char) -> bool {
-    matches!(
-        ch,
-        INLINE_SENTINEL | BLOCK_LEAF_SENTINEL | BLOCK_OPEN_SENTINEL | BLOCK_CLOSE_SENTINEL
-    )
-}
-
 fn render_node_into(node: AozoraNode<'_>, entering: bool, out: &mut String) {
     render_node::render(node, entering, &mut StringSink(out))
         .expect("writing AozoraNode HTML to a String cannot fail");
@@ -510,6 +455,7 @@ use core::fmt::Write as _;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aozora_pipeline::BLOCK_LEAF_SENTINEL;
     use aozora_syntax::borrowed::Arena;
 
     fn render(input: &str) -> String {

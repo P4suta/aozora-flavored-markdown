@@ -141,9 +141,11 @@ lossy_float_literal              = "warn"
 suspicious_xor_used_as_pow       = "warn"  # `2 ^ 10` is 8, not 1024
 
 # Justified carve-outs. Keep this list short and documented.
-module_name_repetitions = "allow" # `afm_syntax::syntax_error` is clearer than fighting this
+module_name_repetitions = "allow" # e.g. `aozora_syntax::SyntaxError` is clearer than fighting this
 multiple_crate_versions = "allow" # transitive dep collisions are not our problem
-# Public APIs on stubs need these in places; we revisit when crate stabilises.
+# `Options::afm_default()` and similar zero-arg builders are clearer
+# as functions than associated const items; the lint is over-eager
+# for our public surface.
 missing_const_for_fn    = "allow"
 # `redundant_pub_crate` (nursery) conflicts with rustc's `unreachable_pub`:
 # the former asks `pub(crate)` → `pub` inside private modules, the latter
@@ -169,7 +171,6 @@ aozora-pipeline  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.
 aozora-render    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", branch = "main" }
 aozora-encoding  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", branch = "main" }
 aozora-spec      = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", branch = "main" }
-aozora-corpus    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", branch = "main" }
 aozora-proptest  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", branch = "main" }
 
 # comrak vendored fork (path, not crates.io).

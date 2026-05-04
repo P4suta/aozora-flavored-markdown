@@ -179,8 +179,11 @@ Rust コミュニティ慣例にしたがい、[Apache-2.0](./LICENSE-APACHE) OR
 vendored `upstream/comrak/` は上流のライセンス(BSD-2-Clause)のまま
 です。`upstream/comrak/COPYING` を参照。
 
-`spec/aozora/fixtures/` 配下の本文は青空文庫(public domain)由来で、
-作品ごとに作者・訳者などの帰属を記載しています。
+パーサ側の spec / golden / corpus fixture が利用する青空文庫の
+本文は sibling repo [`P4suta/aozora`](https://github.com/P4suta/aozora)
+側にまとめてあります(public domain、作品ごとに作者・訳者などの帰属を
+記載)。afm 本体は `spec/` 配下に CommonMark 0.31.2 / GFM 0.29 の
+spec fixture のみを同梱しています。
 
 第三者由来素材の帰属は [NOTICE](./NOTICE) に集約しています
 (vendored comrak、CommonMark / GFM spec fixture、青空文庫の仕様

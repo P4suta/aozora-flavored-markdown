@@ -177,8 +177,11 @@ at your option, matching Rust community convention.
 The vendored `upstream/comrak/` tree remains under its upstream license
 (BSD-2-Clause). See `upstream/comrak/COPYING`.
 
-Sample texts under `spec/aozora/fixtures/` are sourced from 青空文庫
-(public domain) and attributed per work.
+Sample 青空文庫 texts used by the parser-side spec / golden / corpus
+fixtures live in the sibling
+[`P4suta/aozora`](https://github.com/P4suta/aozora) repo (public
+domain, attributed per work). afm itself ships only the CommonMark
+0.31.2 and GFM 0.29 spec fixtures under `spec/`.
 
 See [NOTICE](./NOTICE) for the full third-party attribution index
 (vendored comrak, CommonMark / GFM spec fixtures, Aozora Bunko material).
