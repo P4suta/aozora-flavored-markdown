@@ -7,6 +7,102 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Browser playground at `/afm/playground/`** — Solid + Vite frontend
+  over `crates/afm-wasm`, deployed to
+  <https://p4suta.github.io/afm/playground/>. CodeMirror 6 editor with
+  a small Aozora syntax overlay (`｜《》`, 連結ルビ, `［＃...］`,
+  `※［＃...］`); 縦書き / 横書き toggle that swaps stylesheets without
+  re-rendering; seven curated example snippets; URL-shareable state
+  via `lz-string`; diagnostics drawer surfacing every lexer warning /
+  error. CSS imported from the existing `crates/afm-book/theme/` —
+  single source of truth, no duplication. (#27)
+- **`just check`** — `cargo check --workspace --all-targets` for a
+  sub-second warm "does it still compile" gate. (#27)
+- **`just doctor`** — one-screen environment audit (docker images,
+  named volumes, aozora SHA pin agreement, playground prerequisites)
+  with explicit OK / `--` / `!!` markers so the user never wonders
+  whether the local env is broken. (#27)
+- **`just ci` fail-fast progress markers** — every step prints
+  `[HH:MM:SS] →→→ STEP n/N: name` start banner + `✓ name (took Ns)`
+  or `✗ name FAILED (after Ns)` trailer; first failure halts the run
+  with that step's exit code. 17 ordered steps; typos / fmt-check /
+  upstream-diff / strict-code surface in <10 s if broken. (#27, #30)
+- **`just wasm-build-dev`** — fast `--dev`-profile wasm build for
+  inner-loop playground iteration (4-6× faster than the release
+  pipeline; output is not for shipping). (#27)
+- **`just doc`** — `cargo doc --workspace --no-deps
+  --document-private-items`; exercises the
+  `broken_intra_doc_links = "deny"` workspace lint which no other
+  `cargo` pass runs. Slotted as a Phase-2 CI gate so dead doc-links
+  surface on the PR rather than post-merge in `docs.yml`. (#30)
+- **`just aozora-bump SHA`** — `cargo xtask aozora-bump <sha>`
+  rewrites every `aozora-*` git rev pin in workspace `Cargo.toml`
+  and refreshes `Cargo.lock` against the same six packages in one
+  pass. Idempotent and validates the SHA shape before any FS
+  mutation. (#32)
+- **`fuzz` Dockerfile stage** — dev superset that adds nightly +
+  `cargo-fuzz` + `cargo-udeps`. Used only by `just udeps` /
+  `just fuzz*` / `just coverage-branch` via a new `_fuzz` Justfile
+  helper, so the plain `dev` image stays slim. (#27)
+
+### Changed
+
+- **Cold dev Docker image build dropped from 30+ min to 2m 24s**
+  (12× faster). The cargo-tools layer that previously compiled 14
+  cargo helpers from source now uses `cargo-binstall` to fetch
+  prebuilt GitHub Release binaries; the install graph is re-tiered
+  by churn frequency so a single bump no longer invalidates the
+  whole layer. Image disk usage falls ~1 GB once nightly +
+  cargo-fuzz / cargo-udeps move into the `fuzz` stage. (#27)
+- **sccache pinned to 0.10.0** — 0.15+ aborts inside cargo's rustc-
+  wrapper subprocess with "SCCACHE_GHA_ENABLED must be 'true', 'on',
+  '1', 'false', 'off' or '0'" even when the env is unset, blocking
+  every cargo invocation in the dev image. Hold the downgrade until
+  upstream fixes. (#27)
+- **`aozora-*` workspace deps pinned to a commit SHA** (currently
+  `40af7769b0f81802b1bf2470f2e535e78c765269`) instead of
+  `branch = "main"` so `cargo update` no longer silently advances
+  the borrowed-AST surface mid-PR. Bump cadence is one PR per
+  intentional sync, automated by `just aozora-bump SHA`. (#27, #32)
+- **GitHub Actions `ci.yml` is now fail-fast layered**: a `check`
+  job (`cargo check --workspace`) is the Phase-1 gate, and
+  `build-and-test` / `spec` / `coverage` / `audit` / `doc` all
+  declare `needs: check`. A syntax error surfaces in 1-2 min instead
+  of after a 10-min `build && test` cycle. `setup-dev-image`
+  composite action wires `mozilla-actions/sccache-action@v0.0.9` and
+  forwards SCCACHE_GHA_ENABLED / ACTIONS_CACHE_URL /
+  ACTIONS_RUNTIME_TOKEN into the compose services so every matrix
+  job shares a hot cross-run cache. (#27, #30)
+- **Playground toolchain migrated from npm to bun 1.3.14**. bun 1.3
+  ships a text lockfile (`bun.lock`) by default, so diff-able
+  lockfile reviews are preserved; `playground-install` +
+  `playground-build` together dropped ~30 % (14 s → 9.3 s warm).
+  bun lives inside the dev image (`oven-sh/bun` GitHub Release
+  binary, ADR-0002 preserved). Node 22 stays in the dev image for
+  the `book` / `browser` services that still consume npm tooling. (#29)
+- **Playground bundle split into vendor chunks**. The previous
+  monolithic 803 kB / 224 kB-gzipped `index.js` is now four files:
+  `index.js` (34 kB / 11 kB gzip — app only), `vendor-codemirror.js`
+  (678 kB / 203 kB), `vendor-solid.js` (13 kB / 5 kB),
+  `vendor-lz-string.js` (8 kB / 2 kB). Browsers fetch in parallel;
+  CodeMirror chunk survives every app-code deploy via the immutable
+  content-hash URL. (#31)
+- **`fuzz-quick` / `fuzz-deep` / `fuzz-marathon`** wrapped with
+  `timeout --kill-after=10s Ns` as a hard backstop so a libFuzzer
+  hang returns control to the caller in known time. (#27)
+
+### Fixed
+
+- Repaired 4 broken intra-doc links in `afm-markdown` that turned
+  `cargo doc --workspace` into a hard failure under the
+  `broken_intra_doc_links = "deny"` workspace lint, blocking the
+  Pages deploy. (`tests::indent_of_four_spaces_disables_the_fence`
+  in `code_block_mask.rs`, `crate::ir::walker` in `ir/projection.rs`,
+  `AozoraNode` in `ir/mod.rs`, `crate::post_process` × 2 in
+  `sentinel_stream.rs`.) (#28)
+
 ### Changed (breaking)
 
 - **`IrInline::Range` / `IrBlock::Range`** are now
