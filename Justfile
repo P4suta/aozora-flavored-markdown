@@ -492,6 +492,13 @@ upstream-diff:
 upstream-sync TAG:
     {{_dev}} cargo run --package xtask --quiet -- upstream-sync {{TAG}}
 
+# Pin every `aozora-*` git dep in Cargo.toml to a new commit SHA in one
+# pass, then refresh Cargo.lock. Idempotent (no-op when the SHA already
+# matches). Use the full 40-char hex SHA from `git ls-remote
+# https://github.com/P4suta/aozora.git refs/heads/main`.
+aozora-bump SHA:
+    {{_dev}} cargo run --package xtask --quiet -- aozora-bump {{SHA}}
+
 # Regenerate `spec/*.json` from the vendored cmark-format sources under
 # `spec/sources/*.txt`. Offline-pure: both the sources and the generated
 # fixtures are committed to the repo. Add new `spec/sources/<name>.txt`
