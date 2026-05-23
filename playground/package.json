@@ -3,7 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Browser playground for aozora-flavored-markdown (afm). Solid + Vite frontend over the afm-wasm crate.",
+  "description": "Browser playground for aozora-flavored-markdown (afm). Solid + Vite frontend over the afm-wasm crate, managed by bun.",
+  "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
