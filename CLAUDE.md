@@ -147,6 +147,7 @@ Docker is the only accepted execution surface. Host toolchain
 invocations are forbidden in automation.
 
 ```
+just check                # cargo check workspace — fastest "still compiles?" gate
 just build                # cargo build --workspace --all-targets
 just test                 # cargo nextest run --workspace
 just lint                 # fmt-check + clippy pedantic+nursery + typos + strict-code
@@ -154,13 +155,46 @@ just spec-commonmark      # CommonMark 0.31.2 spec (652 cases)
 just spec-gfm             # GFM spec
 just upstream-diff        # verify the upstream comrak tree is verbatim
 just book-serve           # mdbook preview on http://localhost:3000
-just ci                   # replicate the full CI pipeline locally
+just ci                   # full CI pipeline (fail-fast, with progress markers)
+just doctor               # one-screen env audit: images, volumes, pin agreement
+
+just wasm-build           # afm-wasm release pkg/ for the playground
+just wasm-build-dev       # 4-6× faster wasm build, dev profile (do not ship)
+just playground-dev       # Vite at http://localhost:5173 (release wasm)
+just playground-dev-fast  # same but seeds the dev-profile wasm first
 
 just watch [JOB]          # bacon watcher
 just hooks                # install lefthook git hooks
 just hooks-uninstall      # remove them
 just sccache-stats        # sccache hit/miss ratio + cache size
 ```
+
+### Fast-feedback workflow
+
+The single biggest source of "is it hung or working?" frustration is
+running a long recipe when a cheap one would have caught the same
+defect. Reach for these *first*:
+
+1. **`just check`** (<1 s warm, ~30 s cold) — catches syntax / type
+   errors across the workspace without codegen. Run after every edit;
+   if it fails, no point running `just build` / `just test`.
+2. **`just doctor`** (<1 s) — when something is "wrong" but you don't
+   know what, this is the single-screen state dump (images present,
+   volumes mounted, aozora SHA pin agreement, playground prerequisites).
+3. **`just ci`** — full pipeline ordered fail-fast: typos → fmt-check →
+   upstream-diff → strict-code → check → deny → audit → lint → build →
+   test → prop → spec → coverage → book → udeps. Each step prints
+   `[HH:MM:SS] →→→ STEP n/N: name` before and `✓` / `✗ FAILED (after Ns)`
+   after, so you always see where you are. First failure halts the run
+   with that step's exit code; no downstream work runs.
+
+The Docker stages map to image targets: `dev` (stable Rust + every
+cargo tool except cargo-fuzz/udeps), `fuzz` (dev + nightly +
+cargo-fuzz/udeps), `ci` (fuzz superset). `just fuzz*`, `just udeps`,
+and `just coverage-branch` automatically route through the `fuzz`
+service via the `_fuzz` Justfile helper. Everything else stays on
+`dev` — that smaller image (no nightly) is what `docker compose build
+dev` ships and what new contributors download from GHCR.
 
 ## Host vs container tools
 

@@ -8,10 +8,14 @@
 # Layout produced:
 #   https://p4suta.github.io/afm/            ← mdbook (Welcome, Getting Started, …)
 #   https://p4suta.github.io/afm/api/        ← cargo doc --workspace --no-deps
+#   https://p4suta.github.io/afm/playground/ ← Solid + Vite browser playground
 #
 # ADR-0002 scope exception (matching release.yml): docs builds use the
 # native runner toolchain rather than the dev Docker image, because the
-# Pages deploy actions expect artefacts on the runner filesystem.
+# Pages deploy actions expect artefacts on the runner filesystem. The
+# wasm-pack pin (jetli action `version:` below) matches the Dockerfile
+# WASM_PACK_VERSION arg so dev and CI agree on the wasm-bindgen-cli
+# that gets auto-fetched.
 #
 # Action pinning: @v<major> tags are intentional pre-first-run;
 # Dependabot will upgrade them to commit SHAs on its first weekly sweep.
@@ -57,6 +61,29 @@ jobs:
       - name: Build mdbook
         run: mdbook build crates/afm-book
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: playground/package-lock.json
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          # Pinned alongside the Dockerfile WASM_PACK_VERSION arg.
+          version: 'v0.13.1'
+
+      - name: Build afm-wasm package
+        run: wasm-pack build crates/afm-wasm --target bundler --release --out-dir pkg --out-name afm_wasm
+
+      - name: Install playground deps
+        # `npm install` (not `npm ci`) — `file:` deps invalidate the
+        # integrity hash whenever wasm-pack regenerates pkg/.
+        run: cd playground && npm install
+
+      - name: Build playground
+        run: cd playground && npm run build
+
       - name: Assemble site
         run: |
           set -euo pipefail
@@ -64,6 +91,8 @@ jobs:
           cp -r crates/afm-book/book/. site/
           mkdir -p site/api
           cp -r target/doc/. site/api/
+          mkdir -p site/playground
+          cp -r playground/dist/. site/playground/
           # GitHub Pages otherwise runs Jekyll and hides paths like `_sources`.
           touch site/.nojekyll
 

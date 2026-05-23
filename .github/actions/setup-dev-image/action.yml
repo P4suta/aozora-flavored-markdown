@@ -1,6 +1,7 @@
-# Composite action: install `just` on the runner and provision the
-# afm dev image (pulled from GHCR or, if pull fails, built locally
-# from the in-tree Dockerfile).
+# Composite action: install `just` on the runner, wire sccache to the
+# GitHub Actions cache backend, and provision the afm dev image
+# (pulled from GHCR or, if pull fails, built locally from the in-tree
+# Dockerfile).
 #
 # Used by every ci.yml job that invokes `just <target>`. Pulling the
 # pre-built image from ghcr.io/p4suta/afm-dev cuts ~30 minutes off the
@@ -8,9 +9,14 @@
 # `docker compose build` keeps CI self-bootstrapping when GHCR is
 # unavailable (first push, registry outage, fork PR without packages
 # read).
+#
+# After the Dockerfile fuzz/ci split, the GHCR image is the `ci` stage
+# (a superset of dev → fuzz → ci), so tagging it as all three
+# `afm-{dev,fuzz,ci}:local` keeps every compose service satisfiable
+# from the single pulled image.
 
 name: setup-dev-image
-description: Pull (or build) the afm dev image and install `just` on the runner.
+description: Pull (or build) the afm dev image, install `just`, and enable sccache GHA backend.
 
 runs:
   using: composite
@@ -18,6 +24,27 @@ runs:
     - uses: taiki-e/install-action@v2
       with:
         tool: just
+
+    # Provision sccache against the GitHub Actions cache backend. This
+    # action only configures the host; the sccache binary itself lives
+    # inside the dev image. Setting the three env vars below routes
+    # container-side `sccache` calls through the GHA cache via the
+    # runner's ACTIONS_CACHE_URL + ACTIONS_RUNTIME_TOKEN.
+    - uses: mozilla-actions/sccache-action@v0.0.9
+
+    # Forward the GHA cache env into the compose services. Without these
+    # the container sccache silently falls back to the disk volume at
+    # /workspace/.sccache — the local-dev behaviour, which on an
+    # ephemeral runner means a cold cache every job. Setting them here
+    # turns every matrix job's sccache into a hot, cross-run cache.
+    - name: Enable GHA-backend sccache for compose services
+      shell: bash
+      run: |
+        {
+          echo "SCCACHE_GHA_ENABLED=true"
+          echo "ACTIONS_CACHE_URL=${ACTIONS_CACHE_URL}"
+          echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}"
+        } >> "$GITHUB_ENV"
 
     # docker/login-action authenticates the runner against GHCR using
     # the standard GITHUB_TOKEN. Skipped on fork PRs where the token
@@ -37,10 +64,12 @@ runs:
         set -euo pipefail
         if docker pull ghcr.io/p4suta/afm-dev:latest; then
           docker tag ghcr.io/p4suta/afm-dev:latest afm-dev:local
+          docker tag ghcr.io/p4suta/afm-dev:latest afm-fuzz:local
           docker tag ghcr.io/p4suta/afm-dev:latest afm-ci:local
           echo "::notice title=dev image::Pulled afm-dev:latest from GHCR"
         else
           echo "::warning title=dev image::GHCR pull failed; falling back to local Dockerfile build"
           docker compose build dev
-          docker tag afm-dev:local afm-ci:local
+          docker compose build fuzz
+          docker tag afm-fuzz:local afm-ci:local
         fi

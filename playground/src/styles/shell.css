@@ -1,0 +1,355 @@
+/*
+ * afm playground chrome.
+ *
+ * SCOPE — this file owns the toolbar, panes, splitter, drawer, and
+ * editor surround. It MUST NOT style .afm-* or .aozora-* classes;
+ * those are owned by `crates/afm-book/theme/afm-{vertical,horizontal}.css`
+ * (ADR-0011 brand boundary). If a rule reaches into a content class,
+ * it is the wrong file for that rule.
+ */
+
+:root {
+  color-scheme: light;
+  --afm-pg-bg: #fdfaf2;
+  --afm-pg-bg-elevated: #ffffff;
+  --afm-pg-border: #d8d2c2;
+  --afm-pg-text: #1f1f24;
+  --afm-pg-text-soft: #6b6657;
+  --afm-pg-accent: #7a5cad;
+  --afm-pg-error: #b5302a;
+  --afm-pg-warning: #c47a18;
+  --afm-pg-note: #4a6b8c;
+  --afm-pg-toolbar-h: 44px;
+  --afm-pg-font-ja: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif;
+  --afm-pg-font-ui: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic',
+    'Noto Sans JP', sans-serif;
+  --afm-pg-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code',
+    'SFMono-Regular', Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--afm-pg-bg);
+  color: var(--afm-pg-text);
+  font-family: var(--afm-pg-font-ui);
+  font-size: 14px;
+}
+
+#app {
+  display: grid;
+  grid-template-rows: var(--afm-pg-toolbar-h) 1fr;
+  height: 100vh;
+}
+
+#boot-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--afm-pg-bg);
+  font-size: 18px;
+  color: var(--afm-pg-text-soft);
+  z-index: 10;
+}
+
+/* --- toolbar ------------------------------------------------------------- */
+
+.afm-pg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--afm-pg-bg-elevated);
+  border-bottom: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--afm-pg-text);
+}
+
+.afm-pg-brand-mark {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.afm-pg-brand-sub {
+  font-size: 11px;
+  color: var(--afm-pg-text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.afm-pg-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.afm-pg-toolbar-spacer {
+  flex: 1;
+}
+
+.afm-pg-label {
+  font-size: 12px;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-toggle,
+.afm-pg-share,
+.afm-pg-select {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--afm-pg-text);
+  background: var(--afm-pg-bg);
+  border: 1px solid var(--afm-pg-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.afm-pg-toggle[aria-pressed='true'] {
+  background: var(--afm-pg-text);
+  color: var(--afm-pg-bg);
+  border-color: var(--afm-pg-text);
+}
+
+.afm-pg-share:hover,
+.afm-pg-toggle:hover {
+  border-color: var(--afm-pg-accent);
+}
+
+.afm-pg-select {
+  min-width: 220px;
+}
+
+/* --- panes --------------------------------------------------------------- */
+
+.afm-pg-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.afm-pg-pane {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.afm-pg-pane-editor {
+  border-right: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-editor-mount {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--afm-pg-bg-elevated);
+}
+
+.afm-pg-editor-mount .cm-editor {
+  height: 100%;
+  font-family: var(--afm-pg-font-mono);
+  font-size: 14px;
+}
+
+.afm-pg-editor-mount .cm-scroller {
+  font-family: inherit;
+}
+
+.afm-pg-pane-preview {
+  position: relative;
+  background: var(--afm-pg-bg);
+}
+
+.afm-pg-preview-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 28px;
+}
+
+/* The host wraps the wasm output in `.afm-root`. Give it some breathing
+ * room and let the book theme own all typographic decisions inside. */
+.afm-pg-preview-content .afm-root {
+  max-width: 100%;
+}
+
+/* --- diagnostics drawer ------------------------------------------------- */
+
+.afm-pg-drawer {
+  border-top: 1px solid var(--afm-pg-border);
+  background: var(--afm-pg-bg-elevated);
+  max-height: 40%;
+  display: flex;
+  flex-direction: column;
+}
+
+.afm-pg-drawer-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--afm-pg-text);
+  cursor: pointer;
+}
+
+.afm-pg-drawer-toggle[aria-expanded='false'] .afm-pg-drawer-arrow {
+  transform: rotate(-90deg);
+}
+
+.afm-pg-drawer-arrow {
+  display: inline-block;
+  transition: transform 0.12s ease;
+}
+
+.afm-pg-drawer-count {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--afm-pg-error);
+  color: white;
+  font-size: 12px;
+  text-align: center;
+}
+
+.afm-pg-drawer-count[data-empty='1'] {
+  background: transparent;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 16px 12px;
+}
+
+.afm-pg-diagnostics-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.afm-pg-diagnostics-empty {
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-diagnostics-item {
+  display: grid;
+  grid-template-columns: 72px 220px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-left: 3px solid var(--afm-pg-border);
+  border-radius: 0 4px 4px 0;
+  background: var(--afm-pg-bg);
+}
+
+.afm-pg-diagnostics-item[data-level='error'] {
+  border-left-color: var(--afm-pg-error);
+}
+
+.afm-pg-diagnostics-item[data-level='warning'] {
+  border-left-color: var(--afm-pg-warning);
+}
+
+.afm-pg-diagnostics-item[data-level='note'] {
+  border-left-color: var(--afm-pg-note);
+}
+
+.afm-pg-diagnostics-level {
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-diagnostics-item[data-level='error'] .afm-pg-diagnostics-level {
+  color: var(--afm-pg-error);
+}
+.afm-pg-diagnostics-item[data-level='warning'] .afm-pg-diagnostics-level {
+  color: var(--afm-pg-warning);
+}
+.afm-pg-diagnostics-item[data-level='note'] .afm-pg-diagnostics-level {
+  color: var(--afm-pg-note);
+}
+
+.afm-pg-diagnostics-code {
+  font-family: var(--afm-pg-font-mono);
+  font-size: 12px;
+  color: var(--afm-pg-text-soft);
+  word-break: break-all;
+}
+
+.afm-pg-diagnostics-message {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* --- toast --------------------------------------------------------------- */
+
+.afm-pg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--afm-pg-text);
+  color: var(--afm-pg-bg);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  z-index: 20;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.afm-pg-toast[data-ok='0'] {
+  background: var(--afm-pg-error);
+}
+
+/* --- responsive ---------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .afm-pg-panes {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  .afm-pg-pane-editor {
+    border-right: 0;
+    border-bottom: 1px solid var(--afm-pg-border);
+  }
+  .afm-pg-toolbar {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .afm-pg-select {
+    min-width: 140px;
+  }
+}

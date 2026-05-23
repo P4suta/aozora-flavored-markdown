@@ -11,6 +11,10 @@ set dotenv-load := false
 _dev := "docker compose run --rm dev"
 # Non-interactive variant for CI-like invocations (no TTY)
 _ci  := "docker compose run --rm --no-TTY ci"
+# Nightly-bearing variant. The `dev` image is stable-only after the Dockerfile
+# fuzz-stage split; `_fuzz` is for recipes that need `cargo +nightly`
+# (`udeps`, every `fuzz*` recipe, `coverage-branch`).
+_fuzz := "docker compose run --rm fuzz"
 
 # --- metadata -----------------------------------------------------------------
 
@@ -19,6 +23,14 @@ default:
     @just --list --unsorted
 
 # --- build/shell --------------------------------------------------------------
+
+# Fastest possible "does it still compile" gate. Skips codegen and
+# linking; runs in seconds on a warm cache. Use as the first thing you
+# run after editing source — every other build/test recipe depends on
+# this being green, so failing here surfaces the problem 10× sooner than
+# waiting for `just test` to error out at the same site.
+check:
+    {{_dev}} cargo check --workspace --all-targets
 
 # Build all workspace crates
 build:
@@ -98,15 +110,20 @@ spec-gfm:
 
 # Run the named fuzz target with arbitrary args (escape hatch for advanced use).
 fuzz *ARGS:
-    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
+    {{_fuzz}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
 
 # 60-second smoke fuzz — fits inside a development inner loop.
+# `timeout` wraps libFuzzer as a hard backstop: if `-max_total_time`
+# fires correctly the wrapper exits with libFuzzer's status; if
+# libFuzzer ever hangs (rare on a busy CI runner), SIGTERM lands at
+# the wrapper deadline and SIGKILL 10 s later so control returns to
+# the caller in known time.
 fuzz-quick TARGET:
-    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
+    {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 90s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
 
 # 5-minute deep fuzz — the gate to clear before tagging a release.
 fuzz-deep TARGET:
-    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
+    {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 360s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
 
 # 15-minute marathon fuzz — the strongest single-target soak we run by
 # hand. Reach for this when the 5-minute deep gate has been clean for a
@@ -114,7 +131,7 @@ fuzz-deep TARGET:
 # of magnitude. The harness exits cleanly after 15 min regardless of
 # whether new paths were found.
 fuzz-marathon TARGET:
-    {{_dev}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
+    {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 1000s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
 
 # Reproduce every artifact under `fuzz/artifacts/<target>/` and print
 # (bytes, panic-message) for each. Exit status is the count of artifacts
@@ -137,7 +154,7 @@ fuzz-triage TARGET:
         # prefix — `fuzz/artifacts/...` is the form cargo-fuzz wants.
         rel="${art#crates/afm-markdown/}"
         echo "==> ${rel}"
-        out=$({{_dev}} bash -c "cd crates/afm-markdown && cargo +nightly fuzz run ${target} ${rel} 2>&1" || true)
+        out=$({{_fuzz}} bash -c "cd crates/afm-markdown && cargo +nightly fuzz run ${target} ${rel} 2>&1" || true)
         # Slice out the panic block: from the `thread … panicked` line
         # through the line just before the stack trace begins. That is
         # exactly where `assert_html_invariants` prints its tier label
@@ -183,7 +200,7 @@ fuzz-promote TARGET ARTIFACT:
     # The artifact was written by libFuzzer running as root inside the
     # dev container, so the move + rm must go back through the
     # container too — host-side permissions can't unlink it.
-    {{_dev}} bash -c "mkdir -p '$dst_dir' && mv '$src' '$dst_dir/{{ARTIFACT}}'"
+    {{_fuzz}} bash -c "mkdir -p '$dst_dir' && mv '$src' '$dst_dir/{{ARTIFACT}}'"
     echo "promoted ${src} -> ${dst_dir}/{{ARTIFACT}}"
 
 # Run every registered fuzz target in turn for 60 s each. Smoke pass:
@@ -306,7 +323,7 @@ coverage-html:
 # Informational only — no threshold. Use to surface uncovered conditionals
 # when working a specific file toward C1 100%.
 coverage-branch:
-    {{_dev}} cargo +nightly llvm-cov nextest \
+    {{_fuzz}} cargo +nightly llvm-cov nextest \
         --branch \
         --workspace \
         --ignore-filename-regex '{{_COV_IGNORE}}'
@@ -450,7 +467,7 @@ audit:
 
 # Unused dependency scan (requires nightly)
 udeps:
-    {{_dev}} cargo +nightly udeps --workspace --all-targets
+    {{_fuzz}} cargo +nightly udeps --workspace --all-targets
 
 # Semver break detection (runs against published baseline once crates are on crates.io)
 semver:
@@ -512,24 +529,240 @@ e2e *ARGS:
     docker compose run --rm browser \
         bash -c 'cd crates/afm-book && npm ci && npx playwright test {{ARGS}}'
 
+# --- playground (browser try-it-online) --------------------------------------
+
+# Vite dev/preview server container — `--service-ports` is required so
+# `docker compose run` actually publishes 5173 (it doesn't by default).
+_pg := "docker compose run --rm --service-ports playground"
+
+# Same container without publishing 5173. Used by `playground-install`
+# and `playground-build` so they share the `playground-node-modules`
+# named volume but don't trip "address already in use" when an existing
+# Vite or dev server is bound to 5173 on the host.
+_pg_install := "docker compose run --rm playground"
+
+# Build the afm-wasm package consumed by the playground (and any browser host).
+# Output lands in `crates/afm-wasm/pkg/`, referenced by `playground/package.json`
+# via `"afm-wasm": "file:../crates/afm-wasm/pkg"`.
+#
+# `RUSTC_WRAPPER=` (empty) bypasses sccache for the wasm-pack invocation:
+# wasm-pack internally triggers `rustup target add wasm32-unknown-unknown`
+# and the rustup-sync subprocess scrubs SCCACHE_GHA_ENABLED to an invalid
+# value, which sccache 0.15+ rejects with "must be 'true', 'on', ...". The
+# wasm build is per-target (separate target dir from native) so the cache
+# benefit was marginal anyway.
+wasm-build:
+    {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
+        --target bundler --release \
+        --out-dir pkg --out-name afm_wasm'
+
+# Dev-profile wasm build for playground iteration. Skips wasm-opt and uses
+# the `dev` cargo profile; output is 3-5× bigger and slower at runtime but
+# completes in ~10-20 s vs the 60-90 s `wasm-build` release path. Do NOT
+# ship the output to GitHub Pages — `just playground-build` and the docs
+# workflow both use the release `wasm-build` recipe instead.
+wasm-build-dev:
+    {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
+        --target bundler --dev \
+        --out-dir pkg --out-name afm_wasm'
+
+# Install playground deps. Depends on `wasm-build` because the `file:` link
+# requires the target directory to exist before `npm install` resolves it.
+# Runs inside the `playground` service (no published ports) so
+# `node_modules` lands in the named volume (`playground-node-modules`)
+# instead of the host bind mount — important on Docker Desktop / WSL
+# where cross-fs writes are slow.
+# We use `npm install` (not `npm ci`) because the file: integrity hash
+# changes every time wasm-pack regenerates `pkg/` — `npm ci` would reject it.
+playground-install: wasm-build
+    {{_pg_install}} bash -c 'npm install'
+
+# Vite dev server with HMR at http://localhost:5173/
+playground-dev: playground-install
+    {{_pg}} bash -c 'npm run dev -- --host 0.0.0.0'
+
+# Same as `playground-dev` but uses the fast dev-profile wasm build for
+# inner-loop iteration (TS edits get HMR; wasm changes still need a
+# reload after `just wasm-build-dev`).
+playground-dev-fast: wasm-build-dev
+    {{_pg_install}} bash -c 'npm install' && \
+    {{_pg}} bash -c 'npm run dev -- --host 0.0.0.0'
+
+# Production build → playground/dist/ (consumed by .github/workflows/docs.yml)
+# Also runs inside `playground` service to share the `node_modules` volume.
+playground-build: playground-install
+    {{_pg_install}} bash -c 'npm run build'
+
+# Preview the production build locally at http://localhost:5173/
+playground-serve: playground-build
+    {{_pg}} bash -c 'npm run preview -- --host 0.0.0.0 --port 5173'
+
 # --- aggregate ----------------------------------------------------------------
 
-# Local replica of the full CI pipeline — everything must pass before push
+# Local replica of the full CI pipeline. Ordered fail-fast: cheap checks
+# first, slow ones last. Every step prints its own `[HH:MM:SS] →→→ name`
+# start banner and `✓ name (took Ns)` or `✗ name FAILED (after Ns)`
+# trailer, so a long run never leaves the user wondering whether it's
+# stuck or progressing. A failure exits immediately with the failing
+# step's exit code; no downstream work runs.
 ci:
-    just lint
-    just build
-    just test
-    just prop
-    just spec-commonmark
-    just spec-gfm
-    just deny
-    just audit
-    just udeps
-    just upstream-diff
-    just coverage
-    just book-build
+    #!/usr/bin/env bash
+    set -uo pipefail
+
+    # Step ordering rationale:
+    #   1-3  no-compile static checks (seconds; fastest signal)
+    #   4    grep-based source rules (fast)
+    #   5    cargo check (typecheck only; warm-cache fast)
+    #   6-7  Cargo.lock-only checks (no compile required)
+    #   8    clippy via `lint` composite (heavy lint pass — full compile)
+    #   9    build (validate all targets compile)
+    #   10-13 test pyramid — unit → property → spec
+    #   14   coverage (instrumented compile, slow)
+    #   15   book — independent of cargo state
+    #   16   udeps — nightly only; deferred so a stable failure surfaces first
+    steps=(
+        "typos"
+        "fmt-check"
+        "upstream-diff"
+        "strict-code"
+        "check"
+        "deny"
+        "audit"
+        "lint"
+        "build"
+        "test"
+        "prop"
+        "spec-commonmark"
+        "spec-gfm"
+        "coverage"
+        "book-build"
+        "udeps"
+    )
+
+    total=${#steps[@]}
+    i=0
+    pipeline_start=$(date +%s)
+    for step in "${steps[@]}"; do
+        i=$((i + 1))
+        printf '\n\033[1;36m[%s] →→→ STEP %d/%d: %s\033[0m\n' \
+            "$(date +%T)" "$i" "$total" "$step"
+        start=$(date +%s)
+        if just "$step"; then
+            end=$(date +%s)
+            printf '\033[1;32m[%s] ✓ %s (took %ds)\033[0m\n' \
+                "$(date +%T)" "$step" $((end - start))
+        else
+            rc=$?
+            end=$(date +%s)
+            printf '\n\033[1;31m[%s] ✗ %s FAILED (after %ds, exit %d)\033[0m\n' \
+                "$(date +%T)" "$step" $((end - start)) "$rc"
+            printf '\033[1;31mPipeline halted at step %d/%d. %d step(s) remained.\033[0m\n' \
+                "$i" "$total" $((total - i))
+            exit "$rc"
+        fi
+    done
+    pipeline_end=$(date +%s)
+    printf '\n\033[1;32m[%s] ✓✓✓ all %d steps passed (total %ds)\033[0m\n' \
+        "$(date +%T)" "$total" $((pipeline_end - pipeline_start))
 
 # --- developer workflow helpers ----------------------------------------------
+
+# Snapshot of the local environment in one screen. Tells you
+# immediately which images are present, which volumes are mounted,
+# whether sccache is configured, whether the aozora SHA pin in
+# Cargo.toml matches Cargo.lock, and whether the playground artefacts
+# are ready to serve. Exit 0 = nothing wrong; exit 1 = missing
+# prerequisite a build will trip on. Run before / after major
+# operations so you never wonder "is my environment broken".
+doctor:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    OK="\033[1;32m[OK]\033[0m"
+    WARN="\033[1;33m[--]\033[0m"
+    ERR="\033[1;31m[!!]\033[0m"
+
+    fail=0
+
+    # --- Docker availability ---------------------------------------------
+    if command -v docker >/dev/null 2>&1; then
+        printf '%b docker: %s\n' "$OK" "$(docker --version | awk '{print $3}' | tr -d ,)"
+    else
+        printf '%b docker: NOT INSTALLED\n' "$ERR"
+        fail=1
+    fi
+    if docker compose version >/dev/null 2>&1; then
+        printf '%b docker compose: %s\n' "$OK" "$(docker compose version --short)"
+    else
+        printf '%b docker compose: missing (install Compose v2)\n' "$ERR"
+        fail=1
+    fi
+
+    # --- Images ----------------------------------------------------------
+    # docker images Go-template strings collide with just's `}}`
+    # interpolator; parse the human-readable table with awk instead.
+    # Output columns: REPOSITORY TAG IMAGE-ID CREATED SIZE. NR==2 picks
+    # the first data row; awk's last field is the size.
+    for tag in afm-dev:local afm-fuzz:local afm-ci:local; do
+        size=$(docker images "$tag" 2>/dev/null | awk 'NR==2 {print $NF}')
+        if [ -n "$size" ]; then
+            printf '%b image %s (%s)\n' "$OK" "$tag" "$size"
+        else
+            case "$tag" in
+                afm-dev:local)   hint='just check        # auto-builds dev' ;;
+                afm-fuzz:local)  hint='docker compose build fuzz' ;;
+                afm-ci:local)    hint='docker compose build ci  # superset' ;;
+            esac
+            printf '%b image %s missing  →  %s\n' "$WARN" "$tag" "$hint"
+        fi
+    done
+
+    # --- Volumes ---------------------------------------------------------
+    for vol in afm_cargo-registry afm_cargo-git afm_cargo-target afm_sccache; do
+        if docker volume inspect "$vol" >/dev/null 2>&1; then
+            printf '%b volume %s\n' "$OK" "$vol"
+        else
+            printf '%b volume %s missing (created on first compose run)\n' "$WARN" "$vol"
+        fi
+    done
+
+    # --- aozora SHA pin ↔ Cargo.lock --------------------------------------
+    pinned=$(grep -oE 'rev = "[0-9a-f]{40}"' Cargo.toml | head -1 | grep -oE '[0-9a-f]{40}' || true)
+    if [ -n "$pinned" ]; then
+        if grep -q "rev = \"$pinned\"" Cargo.lock 2>/dev/null \
+            || grep -q "#${pinned:0:7}" Cargo.lock 2>/dev/null; then
+            printf '%b aozora rev pin: %s (Cargo.lock agrees)\n' "$OK" "${pinned:0:12}…"
+        else
+            printf '%b aozora rev pin %s NOT reflected in Cargo.lock  →  cargo update -p aozora-syntax\n' \
+                "$ERR" "${pinned:0:12}…"
+            fail=1
+        fi
+    else
+        printf '%b aozora rev pin: not found in Cargo.toml\n' "$ERR"
+        fail=1
+    fi
+
+    # --- Playground prerequisites ----------------------------------------
+    if [ -f crates/afm-wasm/pkg/afm_wasm_bg.wasm ]; then
+        pkg_size=$(du -h crates/afm-wasm/pkg/afm_wasm_bg.wasm | awk '{print $1}')
+        printf '%b crates/afm-wasm/pkg (%s)\n' "$OK" "$pkg_size"
+    else
+        printf '%b crates/afm-wasm/pkg missing  →  just wasm-build  (or just wasm-build-dev for fast iter)\n' "$WARN"
+    fi
+    if [ -d playground/node_modules ]; then
+        printf '%b playground/node_modules\n' "$OK"
+    else
+        printf '%b playground/node_modules missing  →  just playground-install\n' "$WARN"
+    fi
+
+    # --- Summary ---------------------------------------------------------
+    echo
+    if [ "$fail" -eq 0 ]; then
+        printf '\033[1;32mall blocking prerequisites satisfied\033[0m\n'
+        exit 0
+    else
+        printf '\033[1;31m%d blocking issue(s) found — fix before continuing\033[0m\n' "$fail"
+        exit 1
+    fi
 
 # Run after a build to verify the cache is actually warm; a first-hand
 # way to notice when `RUSTC_WRAPPER` gets defeated by stray env or profile tweaks.
