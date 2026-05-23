@@ -47,39 +47,53 @@ RUN mkdir -p /root/.cargo && printf '%s\n' \
 ########################################################################
 FROM toolchain AS cargo-tools
 
+# cargo-binstall fetches prebuilt GitHub Release binaries for every
+# subsequent tool, avoiding the 30-min source compile that the previous
+# monolithic `cargo install --locked` layer cost. Only binstall itself
+# is built from source (~30 s, one bin).
+ARG BINSTALL_VERSION=1.15.6
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/tmp/cargo-build \
     CARGO_TARGET_DIR=/tmp/cargo-build \
-    cargo install --locked --root /usr/local \
-        cargo-nextest \
-        cargo-llvm-cov \
-        cargo-deny \
-        cargo-audit \
-        cargo-udeps \
-        cargo-semver-checks \
-        cargo-insta \
-        cargo-release \
-        cargo-edit \
-        cargo-fuzz \
-        typos-cli \
+    cargo install --locked --version "${BINSTALL_VERSION}" --root /usr/local cargo-binstall
+
+# Tier A — yearly-churn tools. Cached for the longest; bumping any one
+# of these is rare enough to be worth its own dedicated invalidation.
+RUN cargo binstall --no-confirm --locked --root /usr/local \
         mdbook \
         mdbook-linkcheck \
-        sccache
+        typos-cli
 
-# bacon is intentionally installed in its own layer so version bumps don't
-# invalidate the expensive 14-tool install above (cargo-udeps / semver-checks
-# alone take >15 min from scratch because they transitively depend on cargo).
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/tmp/cargo-build \
-    CARGO_TARGET_DIR=/tmp/cargo-build \
-    cargo install --locked --root /usr/local bacon
+# Tier B — quarterly-churn tools. Test infrastructure that moves at a
+# moderate cadence.
+RUN cargo binstall --no-confirm --locked --root /usr/local \
+        cargo-nextest \
+        cargo-deny \
+        cargo-audit \
+        cargo-insta
 
-# git-cliff for CHANGELOG generation. Same-reasoning as bacon: kept
-# in its own layer so version bumps don't invalidate the big install.
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/tmp/cargo-build \
-    CARGO_TARGET_DIR=/tmp/cargo-build \
-    cargo install --locked --root /usr/local git-cliff
+# Tier C — monthly-churn tools. Heavier upstream churn — these used to
+# dominate the old monolithic install's cold-build time. sccache is
+# pinned to 0.10.0: 0.15+ introduces a GHA-backend probe that errors
+# inside cargo's rustc-wrapper invocation path with "SCCACHE_GHA_ENABLED
+# must be 'true', 'on', '1', 'false', 'off' or '0'" even when the env
+# is unset and we're nowhere near GHA. Hold the pin until upstream fixes.
+RUN cargo binstall --no-confirm --locked --root /usr/local \
+        cargo-llvm-cov \
+        cargo-semver-checks \
+        sccache@0.10.0
+
+# Tier D — as-needed release helpers. Split so a bump here doesn't
+# touch the test-cycle tier.
+RUN cargo binstall --no-confirm --locked --root /usr/local \
+        cargo-edit \
+        cargo-release
+
+# bacon — kept in its own layer (separate churn axis from the test/lint tiers).
+RUN cargo binstall --no-confirm --locked --root /usr/local bacon
+
+# git-cliff for CHANGELOG generation — kept separate for the same reason.
+RUN cargo binstall --no-confirm --locked --root /usr/local git-cliff
 
 # just (task runner) installed separately; upstream provides an install script
 RUN curl -fsSL https://just.systems/install.sh \
@@ -91,6 +105,15 @@ RUN curl -fsSL \
     "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_x86_64.gz" \
     | gunzip > /usr/local/bin/lefthook \
     && chmod +x /usr/local/bin/lefthook
+
+# wasm-pack — builds the afm-wasm crate consumed by `playground/` and any
+# browser host. Pinned alongside the workflow pin in .github/workflows/docs.yml
+# so dev and CI agree on the wasm-bindgen-cli that gets auto-fetched.
+ARG WASM_PACK_VERSION=0.13.1
+RUN curl -fsSL \
+    "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+    | tar -xz -C /usr/local/bin --strip-components=1 \
+        "wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack"
 
 ########################################################################
 # Stage: node — Node.js 22 for mdbook plugins & Playwright (used by book/browser)
@@ -105,15 +128,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     corepack enable
 
 ########################################################################
-# Stage: dev — everything a contributor needs
+# Stage: dev — stable-only contributor image (no nightly, no fuzz/udeps)
 ########################################################################
 FROM node-base AS dev
 
 COPY --from=cargo-tools /usr/local/cargo/bin/ /usr/local/cargo/bin/
 COPY --from=cargo-tools /usr/local/bin/ /usr/local/bin/
 
-# nightly toolchain is needed for cargo-udeps and cargo-fuzz harnesses
-RUN rustup toolchain install nightly --component rust-src --profile minimal
+# Pre-install the components `rust-toolchain.toml` requires (rustfmt,
+# clippy, rust-src). Without this, the first `cargo` invocation from
+# inside /workspace triggers an automatic `rustup` channel sync that
+# spawns subprocesses with a scrubbed env — `SCCACHE_GHA_ENABLED`
+# arrives empty and sccache 0.15+ aborts with "must be 'true', 'on',
+# '1', 'false', 'off' or '0'". Installing them at image build time
+# means the sync never fires.
+RUN rustup component add rustfmt clippy rust-src
 
 ENV CARGO_HOME=/workspace/.cargo \
     CARGO_TARGET_DIR=/workspace/target \
@@ -135,9 +164,37 @@ WORKDIR /workspace
 CMD ["bash"]
 
 ########################################################################
-# Stage: ci — same image as dev; named separately so CI pins an explicit target
+# Stage: fuzz — dev superset adding nightly + cargo-fuzz + cargo-udeps
+#
+# Only `just udeps` / `just fuzz*` / `just coverage-branch` need nightly.
+# Splitting them here means a plain `target: dev` image (used by the
+# `dev` and `playground` compose services) skips a 90 s + 400 MB
+# nightly install. ADR-0002 is preserved because everything still runs
+# in a container; `strict-code`'s ban on nightly in `rust-toolchain.toml`
+# is preserved because nightly is only an opt-in `cargo +nightly` here.
 ########################################################################
-FROM dev AS ci
+FROM dev AS fuzz
+
+# `rustup toolchain install` tries to self-update by looking for the
+# rustup binary at $CARGO_HOME/bin/rustup. The inherited
+# `CARGO_HOME=/workspace/.cargo` (set in the dev stage for runtime
+# volume mounts) is empty at image-build time, so the self-update step
+# bails with "rustup is not installed at '/workspace/.cargo'". Override
+# the env for this one RUN so rustup finds itself at the parent rust
+# image's `/usr/local/cargo` location; the runtime CARGO_HOME setting
+# is unaffected.
+RUN CARGO_HOME=/usr/local/cargo \
+    rustup toolchain install nightly --component rust-src --profile minimal
+
+RUN cargo binstall --no-confirm --locked --root /usr/local \
+        cargo-fuzz \
+        cargo-udeps
+
+########################################################################
+# Stage: ci — fuzz superset; the published GHCR image (used by CI matrix
+# jobs) carries every tool every recipe might invoke.
+########################################################################
+FROM fuzz AS ci
 
 ########################################################################
 # Stage: book — lean image for mdbook build / serve

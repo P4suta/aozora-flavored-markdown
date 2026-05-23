@@ -79,6 +79,21 @@ jobs:
             fi
           done < <(git log --format='%H %s' "$range")
 
+  # Phase-1 fast gate. `just check` runs `cargo check` workspace-wide
+  # (no codegen, no link) — with the GHA-backed sccache wired in via
+  # setup-dev-image, this is typically under 60 s on a warm cache and
+  # 2-3 min cold. Slow Phase-2 jobs gate on this so a compile error
+  # surfaces in minutes instead of after a 10-min build+test cycle.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: ./.github/actions/setup-dev-image
+      - run: just check
+
+  # Phase-1 (parallel with `check`). Style + grep checks have no compile
+  # dependency, so they run independently and surface formatter/typo
+  # complaints in the first minute regardless of whether `check` passes.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -86,21 +101,35 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just lint
 
+  # Phase-1 (parallel with `check`). Repo-shape sanity (vendored comrak
+  # diff = 0 per ADR-0001) does not depend on rust compilation.
+  upstream-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: ./.github/actions/setup-dev-image
+      - run: just upstream-diff
+
+  # Phase-2 (needs check). Full build + test cycle. Doesn't start until
+  # `check` has proved the workspace at least typechecks — saves 10 min
+  # of wasted compile when a syntax error would have caught it earlier.
   build-and-test:
     runs-on: ubuntu-latest
+    needs: check
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: ./.github/actions/setup-dev-image
       - run: just build
       - run: just test
 
+  # Phase-2 (needs check). CommonMark + GFM conformance.
+  # spec-aozora and spec-golden-56656 moved to the aozora sibling repo
+  # as part of the v0.2.0 split (see aozora/Justfile). The Aozora
+  # notation pipeline is exercised end-to-end through the
+  # `aozora_parity` test in afm-markdown's integration suite.
   spec:
-    # spec-aozora and spec-golden-56656 moved to the aozora sibling
-    # repo as part of the v0.2.0 split (see aozora/Justfile). afm
-    # tests CommonMark + GFM conformance only at this level; the
-    # Aozora notation pipeline is exercised end-to-end through the
-    # `aozora_parity` test in afm-markdown's integration suite.
     runs-on: ubuntu-latest
+    needs: check
     strategy:
       fail-fast: false
       matrix:
@@ -112,22 +141,23 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just ${{ matrix.target }}
 
-  upstream-diff:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      - uses: ./.github/actions/setup-dev-image
-      - run: just upstream-diff
-
+  # Phase-2 (needs check). Instrumented compile, slow.
   coverage:
     runs-on: ubuntu-latest
+    needs: check
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: ./.github/actions/setup-dev-image
       - run: just coverage
 
+  # Phase-1 partial (deny, audit gate cheaply on Cargo.lock alone), but
+  # `udeps` is nightly-bound and needs the dep graph compiled — so the
+  # job gates on check to skip wasted work when typecheck has already
+  # failed. `fail-fast: false` keeps `deny` failures from masking an
+  # `audit` failure and vice-versa.
   audit:
     runs-on: ubuntu-latest
+    needs: check
     strategy:
       fail-fast: false
       matrix:

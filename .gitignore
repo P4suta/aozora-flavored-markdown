@@ -26,6 +26,13 @@ Thumbs.db
 # mdbook build output
 /crates/afm-book/book/
 
+# wasm-pack output (generated; consumed by playground/ via file: link)
+/crates/afm-wasm/pkg/
+
+# Playground build artefacts
+/playground/dist/
+/playground/.vite/
+
 # Coverage
 /coverage/
 *.profraw
@@ -61,3 +68,4 @@ fuzz/artifacts/
 
 # Personal Claude Code settings (do not check in)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock

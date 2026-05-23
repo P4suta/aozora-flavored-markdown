@@ -1,10 +1,12 @@
 # afm workspace compose file. Every `just` target runs a command here.
 #
 # Services:
-#   dev     — interactive development (VS Code Dev Containers attaches here)
-#   ci      — identical to dev; used by CI and `just ci` for provenance separation
-#   book    — mdbook serve / build
-#   browser — Playwright (Chromium + WebKit) for M3+ browser tests
+#   dev        — interactive development (stable Rust only; no nightly)
+#   fuzz       — dev + nightly + cargo-fuzz + cargo-udeps
+#   ci         — fuzz superset; everything every recipe might invoke
+#   book       — mdbook serve / build
+#   browser    — Playwright (Chromium + WebKit) for M3+ browser tests
+#   playground — Vite dev server for the browser playground (port 5173)
 #
 # Volumes are named so cargo registry + target + sccache persist between runs.
 
@@ -31,6 +33,16 @@ x-common-env: &common-env
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: "safe.directory"
   GIT_CONFIG_VALUE_0: "/workspace"
+  # Optional GitHub Actions cache backend for sccache. The forward-from-
+  # host pattern below ({KEY}: ) leaves the variable UNSET in the
+  # container when the host doesn't have it set — important because
+  # sccache 0.15+ rejects an empty string ("must be 'true', 'on', '1',
+  # 'false', 'off' or '0'") and even "false" is treated as enabled in
+  # some sccache code paths. Local dev: unset = sccache uses the disk
+  # volume cache. CI: setup-dev-image sets these three on the runner so
+  # the container sees the real GHA cache backend.
+  # (Listed under the service's `environment:` blocks below — YAML
+  # maps can't have key-only entries.)
 
 services:
   dev:
@@ -39,6 +51,27 @@ services:
       dockerfile: Dockerfile
       target: dev
     image: afm-dev:local
+    working_dir: /workspace
+    environment: *common-env
+    volumes:
+      - .:/workspace:cached
+      - cargo-registry:/workspace/.cargo/registry
+      - cargo-git:/workspace/.cargo/git
+      - cargo-target:/workspace/target
+      - sccache:/workspace/.sccache
+    init: true
+    tty: true
+    stdin_open: true
+
+  # Dev + nightly + cargo-fuzz + cargo-udeps. Used by `just udeps`,
+  # `just fuzz*`, and `just coverage-branch` so the plain `dev` image
+  # stays slim (no nightly toolchain) for the majority of inner-loop use.
+  fuzz:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: fuzz
+    image: afm-fuzz:local
     working_dir: /workspace
     environment: *common-env
     volumes:
@@ -102,8 +135,35 @@ services:
       - cargo-git:/workspace/.cargo/git
       - cargo-target:/workspace/target
 
+  # Vite dev / preview server for the browser playground.
+  # Reuses the `dev` image (which already has Node 22 + wasm-pack) so no
+  # extra build target is needed. `node_modules` lives in a named volume so
+  # the bind-mount of `/workspace` doesn't drag npm's tree through the
+  # cross-filesystem boundary (slow on Docker Desktop / WSL).
+  playground:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: afm-dev:local
+    working_dir: /workspace/playground
+    environment: *common-env
+    volumes:
+      - .:/workspace:cached
+      - cargo-registry:/workspace/.cargo/registry
+      - cargo-git:/workspace/.cargo/git
+      - cargo-target:/workspace/target
+      - sccache:/workspace/.sccache
+      - playground-node-modules:/workspace/playground/node_modules
+    ports:
+      - "5173:5173"
+    init: true
+    tty: true
+    stdin_open: true
+
 volumes:
   cargo-registry:
   cargo-git:
   cargo-target:
   sccache:
+  playground-node-modules:
