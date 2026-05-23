@@ -35,7 +35,7 @@
 //! (blank-line boundaries, list-item interleaving, etc.). In every
 //! Aozora Bunko source we've seen, code-shaped runs use fenced
 //! syntax; the pinned test
-//! [`tests::indent_of_four_spaces_disables_the_fence`] codifies the
+//! `tests::indent_of_four_spaces_disables_the_fence` codifies the
 //! current behaviour. If a future corpus exhibits real-world
 //! 4-space indented code blocks with Aozora trigger chars, this is
 //! the place to extend.
