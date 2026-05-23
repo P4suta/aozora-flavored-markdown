@@ -566,36 +566,34 @@ wasm-build-dev:
         --target bundler --dev \
         --out-dir pkg --out-name afm_wasm'
 
-# Install playground deps. Depends on `wasm-build` because the `file:` link
-# requires the target directory to exist before `npm install` resolves it.
-# Runs inside the `playground` service (no published ports) so
-# `node_modules` lands in the named volume (`playground-node-modules`)
+# Install playground deps via bun. Depends on `wasm-build` because the
+# `file:` link requires the target directory to exist before `bun install`
+# resolves it. Runs inside the `playground` service (no published ports)
+# so `node_modules` lands in the named volume (`playground-node-modules`)
 # instead of the host bind mount — important on Docker Desktop / WSL
 # where cross-fs writes are slow.
-# We use `npm install` (not `npm ci`) because the file: integrity hash
-# changes every time wasm-pack regenerates `pkg/` — `npm ci` would reject it.
 playground-install: wasm-build
-    {{_pg_install}} bash -c 'npm install'
+    {{_pg_install}} bash -c 'bun install'
 
 # Vite dev server with HMR at http://localhost:5173/
 playground-dev: playground-install
-    {{_pg}} bash -c 'npm run dev -- --host 0.0.0.0'
+    {{_pg}} bash -c 'bun run dev -- --host 0.0.0.0'
 
 # Same as `playground-dev` but uses the fast dev-profile wasm build for
 # inner-loop iteration (TS edits get HMR; wasm changes still need a
 # reload after `just wasm-build-dev`).
 playground-dev-fast: wasm-build-dev
-    {{_pg_install}} bash -c 'npm install' && \
-    {{_pg}} bash -c 'npm run dev -- --host 0.0.0.0'
+    {{_pg_install}} bash -c 'bun install' && \
+    {{_pg}} bash -c 'bun run dev -- --host 0.0.0.0'
 
 # Production build → playground/dist/ (consumed by .github/workflows/docs.yml)
 # Also runs inside `playground` service to share the `node_modules` volume.
 playground-build: playground-install
-    {{_pg_install}} bash -c 'npm run build'
+    {{_pg_install}} bash -c 'bun run build'
 
 # Preview the production build locally at http://localhost:5173/
 playground-serve: playground-build
-    {{_pg}} bash -c 'npm run preview -- --host 0.0.0.0 --port 5173'
+    {{_pg}} bash -c 'bun run preview -- --host 0.0.0.0 --port 5173'
 
 # --- aggregate ----------------------------------------------------------------
 

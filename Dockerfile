@@ -115,6 +115,20 @@ RUN curl -fsSL \
     | tar -xz -C /usr/local/bin --strip-components=1 \
         "wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack"
 
+# bun — JavaScript runtime + package manager for the playground (TS edits,
+# Vite dev server, production build). Node 22 stays in the dev image for
+# the book/playwright services that still consume npm tooling. Pinned
+# alongside the `oven-sh/setup-bun` version in .github/workflows/docs.yml
+# so dev and CI agree on the bun version that resolves the lockfile.
+ARG BUN_VERSION=1.3.14
+RUN curl -fsSL \
+    "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" \
+    -o /tmp/bun.zip \
+    && unzip -d /tmp /tmp/bun.zip \
+    && mv "/tmp/bun-linux-x64/bun" /usr/local/bin/bun \
+    && chmod +x /usr/local/bin/bun \
+    && rm -rf /tmp/bun.zip /tmp/bun-linux-x64
+
 ########################################################################
 # Stage: node — Node.js 22 for mdbook plugins & Playwright (used by book/browser)
 ########################################################################
