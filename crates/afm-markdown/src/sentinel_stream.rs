@@ -1,4 +1,4 @@
-//! Shared primitives for both [`crate::post_process`] (HTML splicer)
+//! Shared primitives for both [`crate::ast_splice`] (HTML splicer)
 //! and [`crate::ir`] (IR builder).
 //!
 //! Both downstream consumers walk the same sentinel-position stream
@@ -227,7 +227,7 @@ pub(crate) fn flatten_registry_in_source_order<'a>(
 
 /// Cursor over an owned sentinel-ordered `Vec<NodeRef>`.
 ///
-/// Both [`crate::post_process`] and [`crate::ir`] consume the
+/// Both [`crate::ast_splice`] and [`crate::ir`] consume the
 /// registry by materialising it into a `Vec` once, then walking it
 /// linearly. The cursor owns that `Vec` so callers don't have to
 /// thread a separate slice lifetime through every walker — a single

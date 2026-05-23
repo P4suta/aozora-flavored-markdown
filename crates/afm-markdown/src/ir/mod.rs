@@ -160,7 +160,7 @@ impl<'src> StreamingIrBuilder<'src> {
 /// emit target (rewritten comrak AST vs. tree of `Vec<IrBlock>`).
 ///
 /// Lifetime: `'src` is the arena/source lifetime that every
-/// borrowed [`AozoraNode`] payload references — shared with the
+/// borrowed [`aozora_syntax::borrowed::AozoraNode`] payload references — shared with the
 /// owned-cursor's `NodeRef` payloads and the `HeadingHint` borrows
 /// in [`ParagraphAction::HeadingHint`].
 ///
