@@ -6,6 +6,7 @@
 
 # Getting Started
 
+- [Try It Online](playground.md)
 - [Install](install.md)
 - [CLI Quickstart](cli.md)
 - [Library Usage](library.md)
