@@ -36,6 +36,15 @@ check:
 build:
     {{_dev}} cargo build --workspace --all-targets
 
+# Build rustdoc for every workspace crate, exercising the
+# `broken_intra_doc_links = "deny"` lint that lives in `[workspace.lints
+# .rustdoc]`. Running this on every PR catches dead doc-links *before*
+# docs.yml fails post-merge — the failure mode that bit us on the
+# May-4 docs run and again on PR #27's merge to main, both fixed
+# reactively in PR #28.
+doc:
+    {{_dev}} cargo doc --workspace --no-deps --document-private-items
+
 # Build release binaries
 build-release:
     {{_dev}} cargo build --release --workspace
@@ -611,19 +620,22 @@ ci:
     #   1-3  no-compile static checks (seconds; fastest signal)
     #   4    grep-based source rules (fast)
     #   5    cargo check (typecheck only; warm-cache fast)
-    #   6-7  Cargo.lock-only checks (no compile required)
-    #   8    clippy via `lint` composite (heavy lint pass — full compile)
-    #   9    build (validate all targets compile)
-    #   10-13 test pyramid — unit → property → spec
-    #   14   coverage (instrumented compile, slow)
-    #   15   book — independent of cargo state
-    #   16   udeps — nightly only; deferred so a stable failure surfaces first
+    #   6    cargo doc — exercises `broken_intra_doc_links = deny`; the
+    #        only place this lint actually runs (check / clippy skip it)
+    #   7-8  Cargo.lock-only checks (no compile required)
+    #   9    clippy via `lint` composite (heavy lint pass — full compile)
+    #   10   build (validate all targets compile)
+    #   11-14 test pyramid — unit → property → spec
+    #   15   coverage (instrumented compile, slow)
+    #   16   book — independent of cargo state
+    #   17   udeps — nightly only; deferred so a stable failure surfaces first
     steps=(
         "typos"
         "fmt-check"
         "upstream-diff"
         "strict-code"
         "check"
+        "doc"
         "deny"
         "audit"
         "lint"

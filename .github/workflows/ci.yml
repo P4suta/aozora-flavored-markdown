@@ -91,6 +91,19 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just check
 
+  # Phase-2 (needs check). `cargo doc` is the only build pass that runs
+  # `broken_intra_doc_links = "deny"` (the lint applies to rustdoc only —
+  # `cargo check` / clippy skip it). Without this job, a broken link
+  # escapes ci.yml entirely and surfaces post-merge in docs.yml,
+  # blocking the Pages deploy. Cheap on a warm sccache: typically 20-40 s.
+  doc:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: ./.github/actions/setup-dev-image
+      - run: just doc
+
   # Phase-1 (parallel with `check`). Style + grep checks have no compile
   # dependency, so they run independently and surface formatter/typo
   # complaints in the first minute regardless of whether `check` passes.
