@@ -33,5 +33,33 @@ export default defineConfig(({ command }) => ({
     target: 'es2022',
     sourcemap: true,
     assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        // Split vendor chunks so the initial download budget isn't
+        // dominated by a single 800 KB blob that includes CodeMirror,
+        // Solid, the lz-string codec, and the app code together.
+        // Browsers can request these in parallel, and CodeMirror in
+        // particular changes less often than the app code so its
+        // chunk stays cached across deploys.
+        manualChunks(id) {
+          if (
+            id.includes('node_modules/@codemirror/') ||
+            id.includes('node_modules/@lezer/') ||
+            id.includes('node_modules/codemirror/')
+          ) {
+            return 'vendor-codemirror';
+          }
+          if (id.includes('node_modules/solid-js/')) {
+            return 'vendor-solid';
+          }
+          if (id.includes('node_modules/lz-string/')) {
+            return 'vendor-lz-string';
+          }
+          // Everything else stays in the main entry chunk; afm-wasm is
+          // its own asset via vite-plugin-wasm and not bundled in JS.
+          return undefined;
+        },
+      },
+    },
   },
 }));
