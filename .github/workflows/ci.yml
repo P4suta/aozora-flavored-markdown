@@ -123,6 +123,19 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just upstream-diff
 
+  # Phase-1 (parallel). Pure grep — no docker image needed, runs in
+  # ~5 s on the bare runner. Catches version-pin drift between
+  # Dockerfile / playground/package.json / docs.yml that would
+  # otherwise let dev and CI silently resolve different tool versions.
+  verify-version-pins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - run: just verify-version-pins
+
   # Phase-2 (needs check). Full build + test cycle. Doesn't start until
   # `check` has proved the workspace at least typechecks — saves 10 min
   # of wasted compile when a syntax error would have caught it earlier.

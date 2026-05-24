@@ -117,9 +117,10 @@ RUN curl -fsSL \
 
 # bun — JavaScript runtime + package manager for the playground (TS edits,
 # Vite dev server, production build). Node 22 stays in the dev image for
-# the book/playwright services that still consume npm tooling. Pinned
-# alongside the `oven-sh/setup-bun` version in .github/workflows/docs.yml
-# so dev and CI agree on the bun version that resolves the lockfile.
+# the book/playwright services that still consume npm tooling. The pin
+# below must agree with `playground/package.json` "packageManager" and
+# `.github/workflows/docs.yml` setup-bun `bun-version:` — `just verify-
+# version-pins` is the mechanical gate that catches drift.
 ARG BUN_VERSION=1.3.14
 RUN curl -fsSL \
     "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" \
