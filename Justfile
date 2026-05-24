@@ -466,6 +466,54 @@ clippy:
 typos:
     {{_dev}} typos
 
+# Assert that tool-version pins which live in multiple files agree.
+# bun is pinned in three locations (Dockerfile / playground/package.json
+# / docs.yml); wasm-pack in two (Dockerfile / docs.yml). A patch bump
+# that only touches one would let dev and CI silently resolve different
+# versions. This recipe greps each file for the canonical pattern and
+# fails (exit 1) if any pair disagrees — the mechanical replacement for
+# a "remember to update all three" comment.
+verify-version-pins:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail=0
+    extract() {
+        local file="$1"
+        local pattern="$2"
+        grep -oE "$pattern" "$file" | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true
+    }
+
+    # bun: Dockerfile ARG / playground/package.json packageManager / docs.yml setup-bun
+    bun_docker=$(extract Dockerfile 'BUN_VERSION=[0-9.]+')
+    bun_pkg=$(extract playground/package.json '"bun@[0-9.]+"')
+    bun_docs=$(extract .github/workflows/docs.yml "bun-version: '[0-9.]+'")
+    if [[ -n "$bun_docker" && "$bun_docker" == "$bun_pkg" && "$bun_docker" == "$bun_docs" ]]; then
+        printf '[OK] bun pin: %s (Dockerfile / playground/package.json / docs.yml agree)\n' "$bun_docker"
+    else
+        printf '[!!] bun pin drift: Dockerfile=%s playground/package.json=%s docs.yml=%s\n' \
+            "$bun_docker" "$bun_pkg" "$bun_docs" >&2
+        fail=1
+    fi
+
+    # wasm-pack: Dockerfile ARG / docs.yml jetli/wasm-pack-action
+    wp_docker=$(extract Dockerfile 'WASM_PACK_VERSION=[0-9.]+')
+    wp_docs=$(extract .github/workflows/docs.yml "version: 'v[0-9.]+'")
+    if [[ -n "$wp_docker" && "$wp_docker" == "$wp_docs" ]]; then
+        printf '[OK] wasm-pack pin: %s (Dockerfile / docs.yml agree)\n' "$wp_docker"
+    else
+        printf '[!!] wasm-pack pin drift: Dockerfile=%s docs.yml=%s\n' \
+            "$wp_docker" "$wp_docs" >&2
+        fail=1
+    fi
+
+    if (( fail == 0 )); then
+        echo "verify-version-pins: all pins agree"
+        exit 0
+    else
+        echo "verify-version-pins: drift detected — see [!!] lines above" >&2
+        exit "$fail"
+    fi
+
 # Dependency linting (licenses, advisories, bans)
 deny:
     {{_dev}} cargo deny check
@@ -626,21 +674,23 @@ ci:
     # Step ordering rationale:
     #   1-3  no-compile static checks (seconds; fastest signal)
     #   4    grep-based source rules (fast)
-    #   5    cargo check (typecheck only; warm-cache fast)
-    #   6    cargo doc — exercises `broken_intra_doc_links = deny`; the
+    #   5    verify-version-pins — catches Dockerfile / docs.yml / package.json drift
+    #   6    cargo check (typecheck only; warm-cache fast)
+    #   7    cargo doc — exercises `broken_intra_doc_links = deny`; the
     #        only place this lint actually runs (check / clippy skip it)
-    #   7-8  Cargo.lock-only checks (no compile required)
-    #   9    clippy via `lint` composite (heavy lint pass — full compile)
-    #   10   build (validate all targets compile)
-    #   11-14 test pyramid — unit → property → spec
-    #   15   coverage (instrumented compile, slow)
-    #   16   book — independent of cargo state
-    #   17   udeps — nightly only; deferred so a stable failure surfaces first
+    #   8-9  Cargo.lock-only checks (no compile required)
+    #   10   clippy via `lint` composite (heavy lint pass — full compile)
+    #   11   build (validate all targets compile)
+    #   12-15 test pyramid — unit → property → spec
+    #   16   coverage (instrumented compile, slow)
+    #   17   book — independent of cargo state
+    #   18   udeps — nightly only; deferred so a stable failure surfaces first
     steps=(
         "typos"
         "fmt-check"
         "upstream-diff"
         "strict-code"
+        "verify-version-pins"
         "check"
         "doc"
         "deny"
