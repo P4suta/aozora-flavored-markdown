@@ -173,12 +173,12 @@ afm-markdown-test-support = { version = "0.3.0", path = "crates/afm-markdown-tes
 # afm-markdown drives the borrowed pipeline via `aozora-pipeline` and
 # renders Aozora spans with `aozora-render::{html, serialize}`, so
 # comrak still needs no Aozora-aware hooks (ADR-0001 budget = 0).
-aozora-syntax    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "40af7769b0f81802b1bf2470f2e535e78c765269" }
-aozora-pipeline  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "40af7769b0f81802b1bf2470f2e535e78c765269" }
-aozora-render    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "40af7769b0f81802b1bf2470f2e535e78c765269" }
-aozora-encoding  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "40af7769b0f81802b1bf2470f2e535e78c765269" }
-aozora-spec      = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "40af7769b0f81802b1bf2470f2e535e78c765269" }
-aozora-proptest  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "40af7769b0f81802b1bf2470f2e535e78c765269" }
+aozora-syntax    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
+aozora-pipeline  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
+aozora-render    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
+aozora-encoding  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
+aozora-spec      = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
+aozora-proptest  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
 
 # comrak vendored fork (path, not crates.io).
 # `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
