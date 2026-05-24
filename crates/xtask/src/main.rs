@@ -429,9 +429,17 @@ fn aozora_bump(new_sha: &str) -> Result<()> {
         );
     }
     if found != AOZORA_CRATES.len() {
-        eprintln!(
-            "aozora-bump: WARNING — expected {} aozora entries but matched {found}. \
-             Continuing, but inspect Cargo.toml to make sure no crate was missed.",
+        // Continuing with a partial match would rewrite some entries and
+        // leave others on the old SHA, then `cargo update -p` would re-
+        // sync Cargo.lock against the inconsistent state — every future
+        // bump would silently inherit the drift. Bail instead, and let
+        // the operator decide whether to update `AOZORA_CRATES` (if the
+        // workspace dep block grew/shrank) or fix Cargo.toml.
+        bail!(
+            "aozora-bump: expected {} aozora entries pointing at \
+             P4suta/aozora.git, found {found}. Cargo.toml may have been \
+             refactored — update `AOZORA_CRATES` in xtask/src/main.rs \
+             to match and re-run.",
             AOZORA_CRATES.len(),
         );
     }
