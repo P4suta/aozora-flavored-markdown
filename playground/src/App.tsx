@@ -118,8 +118,15 @@ const App: Component = () => {
   }
 
   onMount(() => {
-    // First paint after Solid is in control — the inline boot overlay was
-    // rendered by index.html and replaced when render() mounted <App />.
+    // Solid's `render()` APPENDS to the mount node — it does not replace
+    // existing children. The inline `<div id="boot-overlay">` from
+    // index.html therefore survives the mount and (because shell.css
+    // styles it `position: fixed; inset: 0; z-index: 10`) covers the
+    // whole viewport until we explicitly take it down. Removing it here
+    // means the user keeps seeing the "afm を読み込み中…" message until
+    // the first render lands; once we reach this callback the editor +
+    // preview are already in the DOM and the overlay's job is done.
+    document.getElementById('boot-overlay')?.remove();
     runRender(source());
   });
 
