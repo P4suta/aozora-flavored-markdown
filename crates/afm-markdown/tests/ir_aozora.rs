@@ -520,8 +520,8 @@ fn streaming_ir_builder_threads_cursor_across_blocks() {
     // the second block's ruby resolves against the second registry
     // entry, not the first.
     use afm_markdown::ir::StreamingIrBuilder;
-    use aozora_pipeline::lex_into_arena;
-    use aozora_syntax::borrowed::Arena;
+    use aozora::pipeline::lex_into_arena;
+    use aozora::syntax::borrowed::Arena;
     use comrak::parse_document;
 
     let arena = Arena::new();

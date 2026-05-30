@@ -10,7 +10,7 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use afm_markdown::html::render_to_string;
-use aozora_encoding::decode_sjis;
+use aozora::encoding::decode_sjis;
 
 fn main() -> ExitCode {
     let Some(path) = env::args().nth(1) else {

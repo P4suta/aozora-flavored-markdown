@@ -25,12 +25,12 @@
 
 use core::ops::ControlFlow;
 
-use aozora_pipeline::{
+use aozora::NormalizedOffset;
+use aozora::pipeline::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, BorrowedLexOutput,
     INLINE_SENTINEL,
 };
-use aozora_spec::NormalizedOffset;
-use aozora_syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
+use aozora::syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
 use comrak::nodes::{AstNode, NodeValue};
 
 /// Which paired sentinel a block-sentinel paragraph carries.
@@ -370,8 +370,8 @@ mod tests {
     #[test]
     fn sentinel_cursor_peeks_and_consumes_in_order() {
         // Synthesise a small slice of NodeRefs for cursor mechanics.
-        use aozora_syntax::ContainerKind;
-        use aozora_syntax::borrowed::AozoraNode;
+        use aozora::syntax::ContainerKind;
+        use aozora::syntax::borrowed::AozoraNode;
         let entries: Vec<NodeRef<'static>> = vec![
             NodeRef::Inline(AozoraNode::PageBreak),
             NodeRef::BlockOpen(ContainerKind::Keigakomi),

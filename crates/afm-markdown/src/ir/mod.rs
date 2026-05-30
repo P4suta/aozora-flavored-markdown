@@ -62,9 +62,9 @@ pub use types::{
 
 use core::mem;
 
-use aozora_pipeline::BorrowedLexOutput;
-use aozora_syntax::ContainerKind;
-use aozora_syntax::borrowed::{HeadingHint, NodeRef};
+use aozora::pipeline::BorrowedLexOutput;
+use aozora::syntax::ContainerKind;
+use aozora::syntax::borrowed::{HeadingHint, NodeRef};
 use comrak::nodes::{AstNode, ListType, NodeHeading, NodeList, NodeValue};
 
 use crate::sentinel_stream::{
@@ -160,7 +160,7 @@ impl<'src> StreamingIrBuilder<'src> {
 /// emit target (rewritten comrak AST vs. tree of `Vec<IrBlock>`).
 ///
 /// Lifetime: `'src` is the arena/source lifetime that every
-/// borrowed [`aozora_syntax::borrowed::AozoraNode`] payload references — shared with the
+/// borrowed [`aozora::syntax::borrowed::AozoraNode`] payload references — shared with the
 /// owned-cursor's `NodeRef` payloads and the `HeadingHint` borrows
 /// in [`ParagraphAction::HeadingHint`].
 ///

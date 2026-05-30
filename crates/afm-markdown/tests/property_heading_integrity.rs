@@ -30,8 +30,8 @@
 
 use afm_markdown::html::render_to_string;
 use afm_markdown_test_support::check_heading_integrity;
-use aozora_proptest::config::default_config;
-use aozora_proptest::generators::kanji_fragment;
+use aozora::proptest::config::default_config;
+use aozora::proptest::generators::kanji_fragment;
 use proptest::prelude::*;
 
 /// Generate an indent / alignment decorator as a single atom.

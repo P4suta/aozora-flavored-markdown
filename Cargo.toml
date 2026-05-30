@@ -162,24 +162,25 @@ afm-markdown = { version = "0.3.0", path = "crates/afm-markdown" }
 # a cargo-deny placeholder; the real coupling is the workspace path.
 afm-markdown-test-support = { version = "0.3.0", path = "crates/afm-markdown-test-support" }
 
-# Sibling repo aozora — pure 青空文庫記法 parser. Pinned to a single
-# upstream commit SHA so `cargo update` cannot silently advance all six
-# crates (and force a full afm-markdown rebuild) just because upstream
-# main moved. Bump cadence: one PR per intentional aozora sync.
+# Sibling repo aozora — pure 青空文庫記法 parser. afm depends on the
+# single umbrella `aozora` crate (its designated front door), NOT the
+# internal `publish = false` build-block crates (aozora-syntax /
+# -pipeline / -render / -encoding / -spec) — so afm is insulated from
+# aozora's internal crate decomposition. Pinned to one upstream commit
+# SHA so `cargo update` can't silently advance it; bump cadence is one
+# PR per intentional aozora sync.
 #
-# To bump: replace `<sha>` with the new HEAD, then run
-#   cargo update -p aozora-syntax -p aozora-pipeline -p aozora-render \
-#                -p aozora-encoding -p aozora-spec -p aozora-proptest
+# To bump: replace the rev with the new aozora `main` HEAD, then
+#   cargo update -p aozora
 #
-# afm-markdown drives the borrowed pipeline via `aozora-pipeline` and
-# renders Aozora spans with `aozora-render::{html, serialize}`, so
-# comrak still needs no Aozora-aware hooks (ADR-0001 budget = 0).
-aozora-syntax    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
-aozora-pipeline  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
-aozora-render    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
-aozora-encoding  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
-aozora-spec      = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
-aozora-proptest  = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "ec8219bbcd21a7f5f54975b919aa0356298da1d6" }
+# afm reaches the borrowed pipeline / renderer / encoding through
+# `aozora::{pipeline, syntax, render, encoding}` plus the curated
+# top-level re-exports (`aozora::{Diagnostic, render_node, Arena, ...}`),
+# so comrak still needs no Aozora-aware hooks (ADR-0001 budget = 0).
+# `default-features = false` keeps cst / query / wire / proptest / schema
+# out of the build graph; the dev-only proptest generators come in via
+# the `proptest` feature on the afm-markdown dev-dependency.
+aozora = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "c91b31d8a14f131413d3528aaf41bc1b240beca1", default-features = false }
 
 # comrak vendored fork (path, not crates.io).
 # `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
