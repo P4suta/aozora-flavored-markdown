@@ -43,11 +43,12 @@ x-common-env: &common-env
   CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
   CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: "clang"
   TERM: ${TERM:-xterm-256color}
-  # /workspace is bind-mounted from the host as a non-root UID, but the
-  # container runs as root. Git otherwise refuses operations with
-  # "dubious ownership"; whitelist via the GIT_CONFIG_* triplet rather
-  # than baking a `git config` invocation into the image (keeps the
-  # whitelist local to the compose surface and trivially removable).
+  # /workspace is bind-mounted from the host. Locally the container runs as
+  # the matching host UID (1000) so git is happy; in CI it runs as root
+  # (AFM_UID=0) over a checkout owned by the runner's UID, and git then
+  # refuses operations with "dubious ownership". Whitelist via the
+  # GIT_CONFIG_* triplet rather than baking a `git config` invocation into
+  # the image (keeps the whitelist local to the compose surface).
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: "safe.directory"
   GIT_CONFIG_VALUE_0: "/workspace"
@@ -70,6 +71,12 @@ services:
       target: dev
     image: afm-dev:local
     working_dir: /workspace
+    # Runtime UID/GID. Unset locally → 1000 (the image's baked `dev` user,
+    # matched to the conventional host UID) so bind-mount writes are
+    # host-owned. CI sets AFM_UID=0/AFM_GID=0 (setup-dev-image action) → root,
+    # since the runner's checkout is owned by a different UID and ownership
+    # is throwaway on the ephemeral runner.
+    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"
     environment: *common-env
     volumes:
       - .:/workspace:cached
@@ -91,6 +98,7 @@ services:
       target: fuzz
     image: afm-fuzz:local
     working_dir: /workspace
+    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
     environment: *common-env
     volumes:
       - .:/workspace:cached
@@ -109,6 +117,7 @@ services:
       target: ci
     image: afm-ci:local
     working_dir: /workspace
+    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
     environment:
       <<: *common-env
       CI: "true"
@@ -131,6 +140,7 @@ services:
       target: book
     image: afm-book:local
     working_dir: /workspace/crates/afm-book
+    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
     volumes:
       - .:/workspace:cached
     ports:
@@ -164,6 +174,7 @@ services:
       target: dev
     image: afm-dev:local
     working_dir: /workspace/playground
+    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
     environment: *common-env
     volumes:
       - .:/workspace:cached
