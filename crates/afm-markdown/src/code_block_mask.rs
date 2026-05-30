@@ -55,7 +55,7 @@ use std::borrow::Cow;
 
 /// Private-use code point used to stand in for an Aozora trigger
 /// character that lives inside a fenced code block. Distinct from
-/// `aozora_pipeline::INLINE_SENTINEL` (U+E001) and the three block
+/// `aozora::pipeline::INLINE_SENTINEL` (U+E001) and the three block
 /// sentinels (U+E002..U+E004), so the masking pass cannot collide
 /// with the lexer's own sentinels.
 const MASK_CHAR: char = '\u{E000}';
@@ -384,8 +384,8 @@ mod proptests {
     //!    pass unchanged.
 
     use super::*;
-    use aozora_proptest::config::default_config;
-    use aozora_proptest::generators::{aozora_fragment, commonmark_adversarial};
+    use aozora::proptest::config::default_config;
+    use aozora::proptest::generators::{aozora_fragment, commonmark_adversarial};
     use proptest::prelude::*;
 
     /// Combined input strategy — Aozora fragments mixed with CommonMark

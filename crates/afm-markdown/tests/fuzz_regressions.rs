@@ -34,7 +34,7 @@ use std::str;
 
 use afm_markdown::{Options, render_to_string, serialize};
 use afm_markdown_test_support::assert_html_invariants;
-use aozora_encoding::decode_sjis;
+use aozora::encoding::decode_sjis;
 
 #[test]
 fn parse_render_regressions_replay_cleanly() {

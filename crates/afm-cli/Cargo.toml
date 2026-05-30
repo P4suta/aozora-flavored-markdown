@@ -19,7 +19,7 @@ name = "afm"
 path = "src/main.rs"
 
 [dependencies]
-aozora-encoding = { workspace = true }
+aozora          = { workspace = true }
 afm-markdown    = { workspace = true }
 clap      = { workspace = true }
 miette    = { workspace = true }

@@ -6,7 +6,7 @@
 //!
 //! - [`render_to_string`] — render afm source straight to HTML.
 //! - [`serialize`] — afm-source round-trip (delegates to
-//!   [`aozora_render::serialize::serialize`]).
+//!   [`aozora::render::serialize::serialize`]).
 //! - [`Options`] — configuration; [`Options::afm_default`] enables
 //!   the GFM extensions afm uses on top of CommonMark.
 //!
@@ -15,7 +15,7 @@
 //! ```text
 //! source                                   ── UTF-8 input
 //!   │
-//!   ▼ aozora_pipeline::lex_into_arena      ── normalized text + Registry
+//!   ▼ aozora::lex_into_arena      ── normalized text + Registry
 //!   │
 //!   ▼ comrak::parse_document               ── vanilla CommonMark + GFM
 //!   │   (PUA sentinels U+E001..U+E004 flow through as plain text)
@@ -54,22 +54,22 @@ mod source_line_anchors;
 pub mod sentinels {
     /// Inline Aozora span (ruby / bouten / annotation / gaiji /
     /// TCY / kaeriten).
-    pub const INLINE: char = aozora_pipeline::INLINE_SENTINEL;
+    pub const INLINE: char = aozora::INLINE_SENTINEL;
     /// Block-leaf Aozora line (page break, section break, leaf
     /// indent, sashie).
-    pub const BLOCK_LEAF: char = aozora_pipeline::BLOCK_LEAF_SENTINEL;
+    pub const BLOCK_LEAF: char = aozora::BLOCK_LEAF_SENTINEL;
     /// Paired-container open line (e.g. `［＃ここから字下げ］`).
-    pub const BLOCK_OPEN: char = aozora_pipeline::BLOCK_OPEN_SENTINEL;
+    pub const BLOCK_OPEN: char = aozora::BLOCK_OPEN_SENTINEL;
     /// Paired-container close line (e.g. `［＃ここで字下げ終わり］`).
-    pub const BLOCK_CLOSE: char = aozora_pipeline::BLOCK_CLOSE_SENTINEL;
+    pub const BLOCK_CLOSE: char = aozora::BLOCK_CLOSE_SENTINEL;
 }
 
-pub use aozora_spec::{Diagnostic, DiagnosticSource, Severity};
+pub use aozora::{Diagnostic, DiagnosticSource, Severity};
 
 use core::mem;
 
-use aozora_render::serialize as aozora_serialize;
-use aozora_syntax::borrowed::Arena;
+use aozora::render::serialize as aozora_serialize;
+use aozora::syntax::borrowed::Arena;
 use comrak::nodes::AstNode;
 
 /// Parse-time configuration for [`render_to_string`] and friends.
@@ -194,7 +194,7 @@ pub struct RenderedIr {
 /// One-stop entry point for the typical caller (afm CLI, afm-epub).
 /// Internally:
 ///
-/// 1. [`aozora_pipeline::lex_into_arena`] turns the source into a normalized
+/// 1. [`aozora::lex_into_arena`] turns the source into a normalized
 ///    text (with PUA sentinels at every Aozora construct) plus a
 ///    borrowed `Registry`.
 /// 2. `comrak::parse_document` + `comrak::format_html` runs against
@@ -202,7 +202,7 @@ pub struct RenderedIr {
 ///    they are not in CommonMark's escape set (`<`/`>`/`&`/`"`).
 /// 3. The internal `post_process` module sweeps the produced HTML,
 ///    substituting each sentinel with the matching
-///    `aozora_render::render_node` output.
+///    `aozora::render::render_node` output.
 ///
 /// # Panics
 ///
@@ -255,7 +255,7 @@ pub fn render_to_ir(input: &str, options: &Options) -> RenderedIr {
 /// renderer).
 fn drive_pipeline<F, T>(input: &str, options: &Options, project: F) -> (String, Vec<Diagnostic>, T)
 where
-    F: for<'a> FnOnce(&'a AstNode<'a>, Option<&aozora_pipeline::BorrowedLexOutput<'a>>) -> T,
+    F: for<'a> FnOnce(&'a AstNode<'a>, Option<&aozora::BorrowedLexOutput<'a>>) -> T,
 {
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
@@ -272,7 +272,7 @@ where
     let (masked_source, mask_originals) = code_block_mask::mask_code_block_triggers(input);
 
     let arena = Arena::new();
-    let lex_out = aozora_pipeline::lex_into_arena(&masked_source, &arena);
+    let lex_out = aozora::lex_into_arena(&masked_source, &arena);
 
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
@@ -370,7 +370,7 @@ pub fn render_blocks_to_ir(
 
     let (masked_source, _mask_originals) = code_block_mask::mask_code_block_triggers(input);
     let arena = Arena::new();
-    let lex_out = aozora_pipeline::lex_into_arena(&masked_source, &arena);
+    let lex_out = aozora::lex_into_arena(&masked_source, &arena);
     let comrak_arena = comrak::Arena::new();
     let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &options.comrak);
     // IR projection runs before AST mutation so it walks the
@@ -430,14 +430,14 @@ fn collect_rendered_blocks<'a>(
 /// Round-trip an afm source through the lexer and back to canonical
 /// afm-source text.
 ///
-/// Delegates to [`aozora_render::serialize::serialize`] — the
+/// Delegates to [`aozora::render::serialize::serialize`] — the
 /// borrowed-AST inverse of `lex_into_arena`. Plain CommonMark portions
 /// of the input pass through verbatim because the lexer leaves them
 /// untouched.
 #[must_use]
 pub fn serialize(input: &str) -> String {
     let arena = Arena::new();
-    let lex_out = aozora_pipeline::lex_into_arena(input, &arena);
+    let lex_out = aozora::lex_into_arena(input, &arena);
     aozora_serialize::serialize(&lex_out)
 }
 

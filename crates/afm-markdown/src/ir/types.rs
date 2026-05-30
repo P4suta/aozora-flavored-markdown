@@ -98,7 +98,7 @@ pub enum IrBlock {
     },
     /// `［＃改丁／改段／改見開き］`. `subtype` is one of `"choho"`,
     /// `"dan"`, `"spread"` (camelCase tags matching upstream
-    /// `aozora_syntax::SectionKind`). `［＃改ページ］` is its own block — see
+    /// `aozora::syntax::SectionKind`). `［＃改ページ］` is its own block — see
     /// [`IrBlock::PageBreak`].
     SectionBreak {
         subtype: String,
@@ -230,7 +230,7 @@ pub enum IrInline {
     },
     /// Generic annotation. `payload` is the raw bytes between
     /// `［＃` and `］`. `resolved` carries the
-    /// `aozora_syntax::AnnotationKind` camelCase tag (`"unknown"`,
+    /// `aozora::syntax::AnnotationKind` camelCase tag (`"unknown"`,
     /// `"asIs"`, `"textualNote"`, `"invalidRubySpan"`, `"warichuOpen"`,
     /// `"warichuClose"`) when the upstream lexer classified the
     /// annotation; `None` for future non-exhaustive variants afm

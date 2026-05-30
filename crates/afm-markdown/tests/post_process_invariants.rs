@@ -27,7 +27,7 @@
 use afm_markdown::html::render_to_string;
 use afm_markdown::{Options, render_to_string as render_with_diag, sentinels};
 use afm_markdown_test_support::strip_annotation_wrappers;
-use aozora_proptest::generators::aozora_fragment;
+use aozora::proptest::generators::aozora_fragment;
 use proptest::prelude::*;
 
 // ---------------------------------------------------------------------------
