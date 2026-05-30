@@ -5,6 +5,37 @@
 # Disable:             `just hooks-uninstall`
 #
 # Reference: https://lefthook.dev/configuration/
+#
+# Status icons in the summary
+# ---------------------------
+# Lefthook prints one of three markers next to each command in its
+# summary line:
+#   ✔️  success (exit 0)
+#   🗙  failed
+#   🥊  also a failure path — typically when the command exited
+#       non-zero but lefthook fell back to its branding icon because
+#       the underlying tooling (docker compose run, `just`) buried
+#       the status. Treat 🥊 the same as 🗙 — see the actual command
+#       output above the summary to find the real error.
+#
+# `fail_text` on each command below is the explicit human hint that
+# lefthook displays on failure so it's obvious what to fix without
+# scrolling back through hundreds of lines of cargo output.
+
+# Make the summary noisier on failures — show what command was
+# executing, its stdout, the stderr, and the skip reasons (default
+# already lists most of these, this is the explicit form so it
+# survives lefthook version bumps that change the default set).
+output:
+  - meta
+  - summary
+  - success
+  - failure
+  - execution
+  - execution_info
+  - execution_out
+  - skips
+  - empty_summary
 
 pre-commit:
   parallel: true
@@ -20,14 +51,33 @@ pre-commit:
       glob: "*.rs"
       run: just fmt
       stage_fixed: true
+      fail_text: |
+        `cargo fmt` failed. Run `just fmt` manually to see the error.
+        Common cause: rustfmt edition mismatch with rust-toolchain.toml.
     clippy:
       glob: "*.{rs,toml}"
       run: just clippy
+      fail_text: |
+        clippy reported an error. Re-run `just clippy` for the full
+        diagnostic. `[workspace.lints]` in Cargo.toml controls which
+        lints fire — fix the code rather than silencing the lint.
     typos:
       run: just typos
+      fail_text: |
+        `typos` found a probable typo. Re-run `just typos` to see the
+        candidate fixes, or add an exception to `_typos.toml` if the
+        flagged token is intentional (proper noun, identifier, etc.).
+    # Guard the vendored comrak tree against any drift — ADR-0001 sets a
+    # 0-line diff budget. Runs only when files under `upstream/comrak/`
+    # actually changed.
     upstream-diff:
       glob: "upstream/comrak/**"
       run: just upstream-diff
+      fail_text: |
+        The vendored `upstream/comrak/` tree drifted from its pinned
+        upstream (ADR-0001, 0-line diff budget). Re-run
+        `just upstream-diff` to see the diff. A genuine comrak change
+        is a fork-divergence decision and needs its own ADR.
 
 commit-msg:
   commands:
@@ -41,18 +91,67 @@ commit-msg:
             || { echo 'Commit message must follow Conventional Commits (https://www.conventionalcommits.org/)'; exit 1; }"
 
 pre-push:
-  parallel: true
+  # `just ci` runs gates sequentially in cheap-to-expensive order so
+  # the early ones fail fast. Parallelising at the lefthook level
+  # would let coverage start before lint catches a typo — and would
+  # also let the heavy steps race the cheap ones for the dev image's
+  # cargo cache. `just ci` already mirrors every CI job reachable from
+  # inside the dev image, so the hook just delegates to it.
+  #
+  # Push budget: a few minutes cold cache, less when warm. The
+  # alternative this hook exists to eliminate is "ship a PR, watch
+  # GitHub fail, re-push".
+  parallel: false
   skip:
     - rebase
   commands:
-    test:
-      run: just test
-    deny:
-      run: just deny
+    # Mirror CI. `just ci` is the 18-step fail-fast pipeline (typos /
+    # fmt-check / upstream-diff / strict-code / verify-version-pins /
+    # check / doc / deny / audit / lint / build / test / prop /
+    # spec-commonmark / spec-gfm / coverage / book-build / udeps). The
+    # CI-only jobs that need extra runtime (the PR-time wasm-build /
+    # playground build) are deliberately left out — `just ci` keeps the
+    # push under a typical attention budget.
+    ci:
+      run: just ci
+      fail_text: |
+        `just ci` failed. The error is the last `error: recipe
+        \`<name>\` failed ...` line above this summary — that tells you
+        which sub-recipe (check / lint / build / test / spec-commonmark /
+        spec-gfm / coverage / book-build / udeps …) bombed.
+
+        Common causes:
+        - upstream-diff → the vendored comrak tree drifted (ADR-0001);
+          run `just upstream-diff`.
+        - typos / clippy regressed → run the individual gate
+          (`just typos`, `just clippy`) for a cleaner repro.
+        - spec-commonmark / spec-gfm → a CommonMark/GFM conformance
+          example regressed; `just spec-commonmark` prints the failing
+          example index.
+
+        Re-run `just ci` directly (not via lefthook) for the unwrapped
+        output if the lefthook summary truncates anything important.
     # Deep proptest sweep (4096 cases vs the CI baseline 128) — runs
-    # locally before push so a regression that needs many cases to
-    # surface is caught here instead of on a downstream PR. Fuzz is
-    # deliberately *not* wired in: libfuzzer's nightly + corpus + cold
-    # start budget overshoots a pre-push hook.
+    # after `just ci`'s 128-case `prop` step so a regression that needs
+    # many cases to surface is caught here instead of on a downstream
+    # PR. Fuzz is deliberately *not* wired in: libfuzzer's nightly +
+    # corpus + cold start budget overshoots a pre-push hook.
     prop-deep:
       run: just prop-deep
+      # Tag for opt-out via `SKIP_TAGS=deep git push`. A deep sweep can
+      # occasionally surface a pre-existing bug in the git-pinned aozora
+      # core (parse / serialize / round-trip) that is unrelated to the
+      # current change. `SKIP_TAGS=deep` lets that unrelated PR through
+      # without disabling the rest of the hook stack; file an issue
+      # against the failing aozora crate and bump the pin once fixed.
+      tags:
+        - deep
+      fail_text: |
+        Deep proptest regression. Re-run `just prop-deep` to reproduce.
+        The seed for the failing case is printed in nextest's PASS/FAIL
+        line; pass it via `AOZORA_PROPTEST_SEED=<n>` to shrink locally.
+
+        If the failure is in the git-pinned aozora CORE (parse / render /
+        pipeline) and is unrelated to your change, you may opt out with
+          `SKIP_TAGS=deep git push`
+        and file an issue against the failing crate.
