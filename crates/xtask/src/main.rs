@@ -73,11 +73,11 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
-    /// Bump every `aozora-*` git dep in `Cargo.toml` to a new commit SHA in one
-    /// pass, then refresh `Cargo.lock`. The six entries share a single upstream
-    /// repo (`P4suta/aozora`); pinning them all to the same SHA keeps the
-    /// borrowed-AST surface in lockstep across crates and prevents
-    /// `cargo update` from silently advancing them one at a time.
+    /// Bump the `P4suta/aozora.git` rev pin to a new commit SHA across the
+    /// workspace manifest (the umbrella `aozora` dep) and the cargo-fuzz
+    /// crate in one pass, then refresh `Cargo.lock`. Keeping both pins on
+    /// the same SHA stops a sync from silently leaving the fuzz crate
+    /// behind the workspace.
     AozoraBump {
         /// Full 40-character lowercase hex commit SHA from `P4suta/aozora`'s
         /// `main` branch (or any other branch you intend to track).
@@ -401,20 +401,15 @@ fn today_yyyy_mm_dd() -> Result<String> {
         .to_owned())
 }
 
-/// The six `aozora-*` workspace deps (Cargo.toml) all point at
-/// `P4suta/aozora.git` and share a single `rev = "<sha>"` pin (set
-/// up in PR #27). This recipe rewrites all six pins in one pass and
-/// runs `cargo update` against the same six packages so Cargo.lock
-/// agrees. Idempotent: if the SHA is already current, the file is
-/// left untouched and `cargo update` is skipped.
-const AOZORA_CRATES: [&str; 6] = [
-    "aozora-syntax",
-    "aozora-pipeline",
-    "aozora-render",
-    "aozora-encoding",
-    "aozora-spec",
-    "aozora-proptest",
-];
+/// Manifests carrying a `P4suta/aozora.git` rev pin. Post-B1 (PR #43) afm
+/// depends on the single umbrella `aozora` crate — not the old six
+/// internal crates — pinned in the workspace manifest; the
+/// workspace-external cargo-fuzz crate pins the same rev independently.
+/// `aozora-bump` rewrites both in one pass so a sync can't leave the fuzz
+/// crate behind, then refreshes Cargo.lock. Idempotent: if every pin
+/// already matches the target SHA, nothing is written and `cargo update`
+/// is skipped.
+const AOZORA_PINNED_MANIFESTS: [&str; 2] = ["Cargo.toml", "crates/afm-markdown/fuzz/Cargo.toml"];
 
 fn aozora_bump(new_sha: &str) -> Result<()> {
     // Accept only fully-spelled lowercase hex SHAs — short / mixed-case
@@ -428,74 +423,65 @@ fn aozora_bump(new_sha: &str) -> Result<()> {
         bail!("aozora-bump: SHA must be exactly 40 lowercase hex characters, got: {new_sha:?}");
     }
 
-    let cargo_toml = PathBuf::from("Cargo.toml");
-    let original = fs::read_to_string(&cargo_toml)
-        .with_context(|| format!("reading {}", cargo_toml.display()))?;
-
     let pattern = regex::Regex::new(
         r#"(git = "https://github\.com/P4suta/aozora\.git", rev = ")([0-9a-f]{40})(")"#,
     )
     .expect("aozora rev pattern compiles");
 
-    let mut found = 0_usize;
-    let mut already_current = 0_usize;
-    let updated = pattern.replace_all(&original, |caps: &regex::Captures<'_>| {
-        found += 1;
-        if &caps[2] == new_sha {
-            already_current += 1;
+    let mut total_found = 0_usize;
+    let mut rewritten = 0_usize;
+    for manifest in AOZORA_PINNED_MANIFESTS {
+        let path = PathBuf::from(manifest);
+        let original =
+            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+
+        let mut found = 0_usize;
+        let mut already = 0_usize;
+        let updated = pattern.replace_all(&original, |caps: &regex::Captures<'_>| {
+            found += 1;
+            if &caps[2] == new_sha {
+                already += 1;
+            }
+            format!("{}{new_sha}{}", &caps[1], &caps[3])
+        });
+
+        // Each manifest pins the umbrella `aozora` exactly once. A
+        // different count means the dep block was refactored — bail rather
+        // than rewrite an unexpected shape and leave Cargo.lock inconsistent.
+        if found != 1 {
+            bail!(
+                "aozora-bump: expected exactly one `P4suta/aozora.git` rev pin in {}, \
+                 found {found}. The aozora dependency may have been refactored — update \
+                 `AOZORA_PINNED_MANIFESTS` / the regex in xtask/src/main.rs and re-run.",
+                path.display(),
+            );
         }
-        format!("{}{new_sha}{}", &caps[1], &caps[3])
-    });
-
-    if found == 0 {
-        bail!(
-            "aozora-bump: no `rev = \"...\"` entries pointing at P4suta/aozora.git \
-             were found in {}. Has the workspace dep block been refactored?",
-            cargo_toml.display(),
-        );
-    }
-    if found != AOZORA_CRATES.len() {
-        // Continuing with a partial match would rewrite some entries and
-        // leave others on the old SHA, then `cargo update -p` would re-
-        // sync Cargo.lock against the inconsistent state — every future
-        // bump would silently inherit the drift. Bail instead, and let
-        // the operator decide whether to update `AOZORA_CRATES` (if the
-        // workspace dep block grew/shrank) or fix Cargo.toml.
-        bail!(
-            "aozora-bump: expected {} aozora entries pointing at \
-             P4suta/aozora.git, found {found}. Cargo.toml may have been \
-             refactored — update `AOZORA_CRATES` in xtask/src/main.rs \
-             to match and re-run.",
-            AOZORA_CRATES.len(),
-        );
+        total_found += found;
+        if already != found {
+            fs::write(&path, updated.as_ref())
+                .with_context(|| format!("writing {}", path.display()))?;
+            rewritten += 1;
+            println!("aozora-bump: rewrote {} to rev = {new_sha}", path.display());
+        }
     }
 
-    if already_current == found {
-        println!("aozora-bump: all {found} entries already pinned to {new_sha}; no change.");
+    if rewritten == 0 {
+        println!("aozora-bump: all {total_found} pins already at {new_sha}; no change.");
         return Ok(());
     }
 
-    fs::write(&cargo_toml, updated.as_ref())
-        .with_context(|| format!("writing {}", cargo_toml.display()))?;
-    println!(
-        "aozora-bump: rewrote {found} entries in {} to rev = {new_sha}",
-        cargo_toml.display(),
-    );
-
-    // Refresh Cargo.lock. `-p <name>` per crate is more surgical than a
-    // bare `cargo update` and matches the bump-comment instructions in
-    // Cargo.toml itself.
-    let mut update = ProcessCommand::new("cargo");
-    update.arg("update");
-    for crate_name in AOZORA_CRATES {
-        update.args(["-p", crate_name]);
-    }
-    let status = update.status().context("invoking `cargo update`")?;
+    // Refresh the workspace Cargo.lock. The cargo-fuzz crate's lock is
+    // git-ignored (regenerated on the next `cargo fuzz` build), so only the
+    // umbrella `aozora` in the workspace needs an explicit update here.
+    let status = ProcessCommand::new("cargo")
+        .args(["update", "-p", "aozora"])
+        .status()
+        .context("invoking `cargo update -p aozora`")?;
     if !status.success() {
         bail!(
-            "cargo update exited with {status:?}. Cargo.toml was rewritten — \
-             re-run `cargo update -p aozora-syntax …` manually after fixing \
-             the underlying fetch / network issue."
+            "cargo update exited with {status:?}. The manifests were rewritten — \
+             re-run `cargo update -p aozora` manually after fixing the fetch / \
+             network issue."
         );
     }
     println!("aozora-bump: Cargo.lock refreshed against {new_sha}");
