@@ -48,6 +48,9 @@ dependencies = [
 [[package]]
 name = "afm-markdown-test-support"
 version = "0.3.0"
+dependencies = [
+ "aozora",
+]
 
 [[package]]
 name = "afm-wasm"
