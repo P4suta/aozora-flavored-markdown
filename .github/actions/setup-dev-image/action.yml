@@ -46,6 +46,22 @@ runs:
           echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}"
         } >> "$GITHUB_ENV"
 
+    # Run the compose containers as root on CI. The image defaults to a
+    # non-root user (UID 1000) so local bind-mount writes are host-owned, but
+    # the runner's checkout is owned by a *different* UID — a non-root
+    # container can't create files (wasm pkg/, mdbook book/, dist/) inside
+    # runner-owned tree directories. Ownership is throwaway on the ephemeral
+    # runner, so root is the simplest correct choice and matches the
+    # historical (proven-green) CI behaviour. Read by `user:` in
+    # docker-compose.yml via the AFM_UID/AFM_GID defaults.
+    - name: Run compose containers as root on CI
+      shell: bash
+      run: |
+        {
+          echo "AFM_UID=0"
+          echo "AFM_GID=0"
+        } >> "$GITHUB_ENV"
+
     # docker/login-action authenticates the runner against GHCR using
     # the standard GITHUB_TOKEN. Skipped on fork PRs where the token
     # lacks `packages: read` — those runs go through the build

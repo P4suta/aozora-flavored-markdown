@@ -170,9 +170,29 @@ ENV CARGO_HOME=/cargo/home \
 # on purpose (see docker-compose.yml): nesting them under /workspace
 # made the daemon create root-owned ./target / ./.cargo / ./.sccache
 # on the host, littering the working tree and breaking host-side cargo.
-RUN mkdir -p /cargo/target /cargo/home/registry /cargo/home/git /cargo/sccache
+RUN mkdir -p /cargo/target /cargo/home/registry /cargo/home/git /cargo/sccache \
+    /workspace/playground/node_modules
+
+# Run as a non-root user so files written into the /workspace bind mount
+# (generated artefacts, wasm pkg/, mdbook output, node_modules) are owned
+# by the host developer, not root. UID/GID default to the conventional
+# first-user 1000; override with `--build-arg UID=$(id -u) --build-arg
+# GID=$(id -g)` on hosts that differ. Debian bookworm's base leaves 1000
+# free, so the create is unconditional (and fails loudly if it ever isn't).
+# The cache dirs at /cargo/* and the playground node_modules mountpoint are
+# chowned so a *fresh* named volume initialises dev-owned. CI flips the
+# runtime UID back to root via `user:` in docker-compose.yml (AFM_UID=0):
+# the ephemeral runner's checkout is owned by a different UID and ownership
+# is throwaway there, so root sidesteps cross-UID write failures.
+ARG UID=1000
+ARG GID=1000
+RUN groupadd --gid "${GID}" dev \
+    && useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash dev \
+    && chown -R "${UID}:${GID}" /cargo /workspace
+ENV HOME=/home/dev
 
 WORKDIR /workspace
+USER dev
 
 # Default shell friendly for interactive dev sessions
 CMD ["bash"]
@@ -189,6 +209,11 @@ CMD ["bash"]
 ########################################################################
 FROM dev AS fuzz
 
+# The dev stage ends as USER dev; the nightly toolchain + cargo-fuzz/udeps
+# installs below write to /usr/local (root-owned), so switch back to root
+# for the install layers and drop to dev again at the end.
+USER root
+
 # `rustup toolchain install` tries to self-update by looking for the
 # rustup binary at $CARGO_HOME/bin/rustup. The inherited
 # `CARGO_HOME=/cargo/home` (set in the dev stage for runtime
@@ -204,6 +229,8 @@ RUN cargo binstall --no-confirm --locked --root /usr/local \
         cargo-fuzz \
         cargo-udeps
 
+USER dev
+
 ########################################################################
 # Stage: ci — fuzz superset; the published GHCR image (used by CI matrix
 # jobs) carries every tool every recipe might invoke.
@@ -218,7 +245,17 @@ FROM node-base AS book
 COPY --from=cargo-tools /usr/local/bin/mdbook /usr/local/bin/mdbook
 COPY --from=cargo-tools /usr/local/bin/mdbook-linkcheck /usr/local/bin/mdbook-linkcheck
 
+# Match the dev stage's non-root user so mdbook output written into the
+# /workspace bind mount is host-owned, not root. `book` is FROM node-base
+# (not dev), so it creates its own identical `dev` user.
+ARG UID=1000
+ARG GID=1000
+RUN groupadd --gid "${GID}" dev \
+    && useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash dev
+ENV HOME=/home/dev
+
 WORKDIR /workspace/crates/afm-book
+USER dev
 EXPOSE 3000
 CMD ["mdbook", "serve", "--hostname", "0.0.0.0", "--port", "3000"]
 
