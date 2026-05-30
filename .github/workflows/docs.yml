@@ -56,6 +56,12 @@ jobs:
           mdbook-version: latest
 
       - name: Build rustdoc
+        env:
+          # Defense-in-depth: the ci.yml `doc` job is the primary rustdoc
+          # gate, but harden the deploy build too so a doc regression can't
+          # ship even if that job is ever weakened. The workspace denies all
+          # rustdoc lints; `-D warnings` turns any escapee into a hard fail.
+          RUSTDOCFLAGS: "-D warnings"
         run: cargo doc --workspace --no-deps --document-private-items
 
       - name: Build mdbook
