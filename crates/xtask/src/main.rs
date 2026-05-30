@@ -28,9 +28,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 mod spec_refresh;
+mod types;
 
 /// ADR-0001 upstream diff budget, in lines. Changing this requires
 /// a new ADR. Held at 200 from v0.1 through v0.2.3; collapsed to 0
@@ -82,6 +83,30 @@ enum Command {
         /// `main` branch (or any other branch you intend to track).
         sha: String,
     },
+    /// Generate the TypeScript `.d.ts` artefact for the IR + wasm
+    /// envelope from the live Rust types, or drift-check it. The
+    /// generated file (`crates/afm-wasm/types/afm_types.d.ts`) is the
+    /// single source of truth for downstream TS consumers (playground,
+    /// afm-obsidian); `types check` is the CI drift gate.
+    Types(TypesArgs),
+}
+
+#[derive(Args, Debug)]
+struct TypesArgs {
+    #[command(subcommand)]
+    op: TypesOp,
+}
+
+#[derive(Subcommand, Debug)]
+enum TypesOp {
+    /// Regenerate `crates/afm-wasm/types/afm_types.d.ts` from the live
+    /// IR + envelope types and write it. Overwrites the existing file;
+    /// commit the diff.
+    Ts,
+    /// Compare the committed `afm_types.d.ts` against fresh codegen and
+    /// exit non-zero on drift. Used as the CI gate so a renamed field /
+    /// added variant forces the artefact regeneration step.
+    Check,
 }
 
 fn main() -> Result<()> {
@@ -102,6 +127,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Command::AozoraBump { sha } => aozora_bump(&sha),
+        Command::Types(args) => types::dispatch(&args),
     }
 }
 

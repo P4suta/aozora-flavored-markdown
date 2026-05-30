@@ -579,6 +579,17 @@ book-linkcheck:
 adr TITLE:
     {{_dev}} cargo run --package xtask --quiet -- new-adr {{TITLE}}
 
+# Regenerate crates/afm-wasm/types/afm_types.d.ts from the live IR +
+# wasm envelope types. Commit the diff so `types-check` stays green.
+types:
+    {{_dev}} cargo run --package xtask --quiet -- types ts
+
+# Drift gate: fail if the committed afm_types.d.ts disagrees with fresh
+# codegen. Wired into `just ci` (and the `types-check` CI job); run after
+# touching the IR types.
+types-check:
+    {{_dev}} cargo run --package xtask --quiet -- types check
+
 # Regenerate CHANGELOG.md from Conventional-Commits history (see cliff.toml).
 # Uses git-cliff inside the dev container — the tool is provisioned by the
 # Dockerfile's cargo-tools stage, so `just changelog` should work on any
@@ -676,6 +687,7 @@ ci:
     #   4    grep-based source rules (fast)
     #   5    verify-version-pins — catches Dockerfile / docs.yml / package.json drift
     #   6    cargo check (typecheck only; warm-cache fast)
+    #   6b   types-check — IR→TS `.d.ts` codegen drift gate (needs xtask compiled)
     #   7    cargo doc — exercises `broken_intra_doc_links = deny`; the
     #        only place this lint actually runs (check / clippy skip it)
     #   8-9  Cargo.lock-only checks (no compile required)
@@ -692,6 +704,7 @@ ci:
         "strict-code"
         "verify-version-pins"
         "check"
+        "types-check"
         "doc"
         "deny"
         "audit"

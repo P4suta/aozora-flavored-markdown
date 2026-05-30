@@ -17,7 +17,11 @@ pub struct IrDocument {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum IrBlock {
     Paragraph {
         children: Vec<IrInline>,
@@ -133,7 +137,11 @@ pub enum IrTableAlign {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum IrInline {
     Text {
         value: String,

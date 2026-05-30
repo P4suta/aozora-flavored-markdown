@@ -6,28 +6,25 @@
 
 import * as afmWasm from 'afm-wasm';
 
-export type DiagnosticLevel = 'error' | 'warning' | 'note';
-export type DiagnosticSource = 'source' | 'internal';
+// Wire types are generated from the Rust IR + afm-wasm envelope by
+// `just types` (xtask) and drift-gated in CI, so the `ir` field below is
+// the real `IrDocument` tree rather than `unknown`. Re-exported here so
+// existing consumers (diagnostics.ts, App.tsx) keep importing them from
+// this module.
+import type {
+  RenderOptions,
+  RenderResult,
+} from '../../crates/afm-wasm/types/afm_types';
 
-export interface Diagnostic {
-  readonly level: DiagnosticLevel;
-  readonly source: DiagnosticSource;
-  readonly code: string;
-  readonly message: string;
-}
-
-export interface RenderResult {
-  readonly html: string;
-  readonly diagnostics: readonly Diagnostic[];
-  // `ir` is the structured projection. Unused by the playground UI today
-  // but typed loosely so downstream code can opt in without a recompile.
-  readonly ir: unknown;
-}
-
-export interface RenderOptions {
-  readonly aozoraEnabled?: boolean;
-  readonly sourceLineAnchors?: boolean;
-}
+export type {
+  Diagnostic,
+  DiagnosticLevel,
+  DiagnosticSource,
+  IrBlock,
+  IrDocument,
+  IrInline,
+} from '../../crates/afm-wasm/types/afm_types';
+export type { RenderOptions, RenderResult };
 
 let initialised = false;
 

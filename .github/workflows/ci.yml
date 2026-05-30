@@ -104,6 +104,19 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just doc
 
+  # Phase-2 (needs check). IR→TS codegen drift gate: re-renders
+  # crates/afm-wasm/types/afm_types.d.ts from the live Rust IR + wasm
+  # envelope types and byte-compares against the committed artefact
+  # (`xtask types check`). A forgotten regen after an IR change fails
+  # here at PR time rather than silently shipping stale TS.
+  types-check:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: ./.github/actions/setup-dev-image
+      - run: just types-check
+
   # Phase-2 (needs check). afm-wasm + the Vite playground were previously
   # built only post-merge in docs.yml, so a wasm-pack or playground break
   # stayed invisible until it blocked the Pages deploy. Build them here at
