@@ -1,7 +1,7 @@
 # Release workflow for Aozora Flavored Markdown (afm).
 #
 # Trigger on: annotated tags matching `v*`, plus manual `workflow_dispatch`
-# for dry runs. Builds the `afm` CLI on five target triples and uploads
+# for dry runs. Builds the `afm` CLI on three target triples and uploads
 # the archives + SHA256SUMS to the GitHub Release.
 #
 # ADR-0002 scope exception: release builds run on native GitHub Actions

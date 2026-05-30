@@ -31,6 +31,17 @@ x-common-env: &common-env
   CARGO_INCREMENTAL: "0"
   SCCACHE_CACHE_SIZE: "10G"
   RUST_BACKTRACE: "1"
+  # Use mold as the default linker for faster host-triple builds. The
+  # Dockerfile installs mold + clang and writes /root/.cargo/config.toml
+  # with the same intent, but CARGO_HOME=/cargo/home above means cargo
+  # never reads it — so drive the linker via target-scoped env here.
+  # CRUCIAL: scope to the host triple. A plain RUSTFLAGS=-fuse-ld=mold
+  # would leak into `wasm-pack build --target wasm32-unknown-unknown`
+  # and fail ("rust-lld: error: unknown argument: -fuse-ld=mold"); the
+  # wasm linker is rust-lld, not mold. The per-target form keeps host
+  # builds fast without breaking wasm. (Mirrors the sibling aozora repo.)
+  CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
+  CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: "clang"
   TERM: ${TERM:-xterm-256color}
   # /workspace is bind-mounted from the host as a non-root UID, but the
   # container runs as root. Git otherwise refuses operations with

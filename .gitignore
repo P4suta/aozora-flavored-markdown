@@ -47,10 +47,12 @@ yarn-error.log*
 playwright-report/
 test-results/
 
-# Fuzz
-fuzz/target/
-fuzz/corpus/
-fuzz/artifacts/
+# Fuzz (cargo-fuzz crates live at crates/<crate>/fuzz/, e.g.
+# crates/afm-markdown/fuzz/ — the bare `fuzz/*` form matched a
+# nonexistent top-level dir and never ignored anything).
+crates/*/fuzz/target/
+crates/*/fuzz/corpus/
+crates/*/fuzz/artifacts/
 
 # Criterion
 /target/criterion/
