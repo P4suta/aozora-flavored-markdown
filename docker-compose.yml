@@ -13,10 +13,17 @@
 name: afm
 
 x-common-env: &common-env
-  CARGO_HOME: /workspace/.cargo
-  CARGO_TARGET_DIR: /workspace/target
+  # Cargo caches live at /cargo/* — OUTSIDE the /workspace bind mount — on
+  # purpose. Nesting a named volume inside the bind mount (the old
+  # /workspace/target etc.) makes the Docker daemon create the host-side
+  # mountpoint (./target, ./.cargo, ./.sccache) as **root**, which litters
+  # the working tree with root-owned junk and breaks any host-side cargo.
+  # Keeping the caches at /cargo/* leaves the host's own ./target free and
+  # keeps the checkout clean. The named volumes still persist them.
+  CARGO_HOME: /cargo/home
+  CARGO_TARGET_DIR: /cargo/target
   RUSTC_WRAPPER: sccache
-  SCCACHE_DIR: /workspace/.sccache
+  SCCACHE_DIR: /cargo/sccache
   # sccache cannot cache crates compiled with cargo's incremental mode.
   # Cargo defaults incremental=true for workspace members in dev/test profiles,
   # which silently bypasses sccache for the very crates we build most often.
@@ -55,10 +62,10 @@ services:
     environment: *common-env
     volumes:
       - .:/workspace:cached
-      - cargo-registry:/workspace/.cargo/registry
-      - cargo-git:/workspace/.cargo/git
-      - cargo-target:/workspace/target
-      - sccache:/workspace/.sccache
+      - cargo-registry:/cargo/home/registry
+      - cargo-git:/cargo/home/git
+      - cargo-target:/cargo/target
+      - sccache:/cargo/sccache
     init: true
     tty: true
     stdin_open: true
@@ -76,10 +83,10 @@ services:
     environment: *common-env
     volumes:
       - .:/workspace:cached
-      - cargo-registry:/workspace/.cargo/registry
-      - cargo-git:/workspace/.cargo/git
-      - cargo-target:/workspace/target
-      - sccache:/workspace/.sccache
+      - cargo-registry:/cargo/home/registry
+      - cargo-git:/cargo/home/git
+      - cargo-target:/cargo/target
+      - sccache:/cargo/sccache
     init: true
     tty: true
     stdin_open: true
@@ -95,17 +102,16 @@ services:
       <<: *common-env
       CI: "true"
     volumes:
-      # `:cached` (not `:ro`): a `:ro` bind mount HIDES `/workspace/{target,
-      # .cargo,.sccache}` that were `mkdir -p`-ed in the image (overlayfs
-      # bind-mount semantics — the source dir replaces image contents),
-      # which then blocks the named-volume mountpoints below from
-      # attaching at runtime ("mkdirat ... read-only file system"). The
-      # runner is ephemeral; `:cached` is safe and the canonical CI mode.
+      # `:cached` (writable): CI steps emit artifacts back into the tree
+      # (wasm `pkg/`, generated docs, coverage reports), so the source
+      # mount stays writable. The cargo caches now live at /cargo/*
+      # (outside this bind mount), so the old ":ro hides the nested
+      # /workspace/{target,.cargo,.sccache} mountpoints" hazard is gone.
       - .:/workspace:cached
-      - cargo-registry:/workspace/.cargo/registry
-      - cargo-git:/workspace/.cargo/git
-      - cargo-target:/workspace/target
-      - sccache:/workspace/.sccache
+      - cargo-registry:/cargo/home/registry
+      - cargo-git:/cargo/home/git
+      - cargo-target:/cargo/target
+      - sccache:/cargo/sccache
 
   book:
     build:
@@ -131,9 +137,9 @@ services:
       CI: "true"
     volumes:
       - .:/workspace:cached
-      - cargo-registry:/workspace/.cargo/registry
-      - cargo-git:/workspace/.cargo/git
-      - cargo-target:/workspace/target
+      - cargo-registry:/cargo/home/registry
+      - cargo-git:/cargo/home/git
+      - cargo-target:/cargo/target
 
   # Vite dev / preview server for the browser playground.
   # Reuses the `dev` image (which already has Node 22 + wasm-pack) so no
@@ -150,10 +156,10 @@ services:
     environment: *common-env
     volumes:
       - .:/workspace:cached
-      - cargo-registry:/workspace/.cargo/registry
-      - cargo-git:/workspace/.cargo/git
-      - cargo-target:/workspace/target
-      - sccache:/workspace/.sccache
+      - cargo-registry:/cargo/home/registry
+      - cargo-git:/cargo/home/git
+      - cargo-target:/cargo/target
+      - sccache:/cargo/sccache
       - playground-node-modules:/workspace/playground/node_modules
     ports:
       - "5173:5173"
