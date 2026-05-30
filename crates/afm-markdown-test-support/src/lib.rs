@@ -374,8 +374,11 @@ pub fn check_no_bare_bracket(html: &str) -> Result<(), Violation> {
 /// and a snippet when any of U+E001, U+E002, U+E003, or U+E004 appears
 /// in `html`.
 pub fn check_no_sentinel_leak(html: &str) -> Result<(), Violation> {
-    const SENTINELS: &[char] = &['\u{E001}', '\u{E002}', '\u{E003}', '\u{E004}'];
-    for &c in SENTINELS {
+    // Single source of truth: the PUA sentinel set is owned by aozora
+    // (the wire contract), re-exported as `aozora::ALL_SENTINELS`. A new
+    // sentinel kind added upstream flows in here automatically instead of
+    // silently going unchecked against a hardcoded U+E001..U+E004 copy.
+    for &c in &aozora::ALL_SENTINELS {
         let mut buf = [0u8; 4];
         let needle: &str = c.encode_utf8(&mut buf);
         if let Some(offset) = html.find(needle) {

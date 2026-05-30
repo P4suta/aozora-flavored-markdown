@@ -17,7 +17,10 @@ workspace = true
 
 [dependencies]
 # The test-support library carves up afm-markdown's emitted HTML
-# without parsing the source itself, so it depends only on the
-# rendered output. afm-markdown is a dev-only consumer (via its own
-# integration tests); this crate reverses the relationship to keep
-# the production build of `afm-markdown` from pulling in test glue.
+# without parsing the source itself. Its one dependency is the umbrella
+# `aozora` crate — solely to single-source the PUA sentinel set
+# (`aozora::ALL_SENTINELS`) instead of re-hardcoding U+E001..U+E004.
+# aozora is already in afm-markdown's build graph (afm-markdown depends
+# on it), so this adds no new crate to compile; `default-features = false`
+# (via the workspace dep) keeps the surface minimal.
+aozora = { workspace = true }
