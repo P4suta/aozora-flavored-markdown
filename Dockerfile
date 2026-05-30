@@ -159,19 +159,18 @@ COPY --from=cargo-tools /usr/local/bin/ /usr/local/bin/
 # means the sync never fires.
 RUN rustup component add rustfmt clippy rust-src
 
-ENV CARGO_HOME=/workspace/.cargo \
-    CARGO_TARGET_DIR=/workspace/target \
+ENV CARGO_HOME=/cargo/home \
+    CARGO_TARGET_DIR=/cargo/target \
     RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/workspace/.sccache \
+    SCCACHE_DIR=/cargo/sccache \
     RUST_BACKTRACE=1
 
-# Pre-create cache mount targets so the runtime volume mounts at
-# /workspace/{target,.cargo,.sccache} can attach without docker
-# needing to mkdirat() into a read-only `/workspace`. Without these
-# the `:ro` bind mount of the source tree blocks volume attachment
-# and `docker compose run --rm ci ...` fails at container start with
-# "read-only file system" during mountpoint creation.
-RUN mkdir -p /workspace/target /workspace/.cargo /workspace/.sccache
+# Pre-create the cache mount targets at /cargo/* so the named volume
+# mounts attach cleanly. These live OUTSIDE the /workspace bind mount
+# on purpose (see docker-compose.yml): nesting them under /workspace
+# made the daemon create root-owned ./target / ./.cargo / ./.sccache
+# on the host, littering the working tree and breaking host-side cargo.
+RUN mkdir -p /cargo/target /cargo/home/registry /cargo/home/git /cargo/sccache
 
 WORKDIR /workspace
 
@@ -192,9 +191,9 @@ FROM dev AS fuzz
 
 # `rustup toolchain install` tries to self-update by looking for the
 # rustup binary at $CARGO_HOME/bin/rustup. The inherited
-# `CARGO_HOME=/workspace/.cargo` (set in the dev stage for runtime
+# `CARGO_HOME=/cargo/home` (set in the dev stage for runtime
 # volume mounts) is empty at image-build time, so the self-update step
-# bails with "rustup is not installed at '/workspace/.cargo'". Override
+# bails with "rustup is not installed at '/cargo/home'". Override
 # the env for this one RUN so rustup finds itself at the parent rust
 # image's `/usr/local/cargo` location; the runtime CARGO_HOME setting
 # is unaffected.
