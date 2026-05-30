@@ -17,13 +17,13 @@
 //!   `Gaiji` / `Annotation` (inline) and `Container` / `PageBreak` /
 //!   `SectionBreak` (block). Heading hints
 //!   (`［＃「X」は大見出し］`) promote their host paragraph to
-//!   `IrBlock::Heading` directly, mirroring [`crate::ast_splice`].
+//!   `IrBlock::Heading` directly, mirroring `crate::ast_splice`.
 //!
 //! # Module map
 //!
-//! - [`types`] — public IR enum/struct definitions (`IrDocument`,
+//! - `types` — public IR enum/struct definitions (`IrDocument`,
 //!   `IrBlock`, `IrInline`, `Range`, ...).
-//! - [`projection`] — pure helpers that convert `AozoraNode`
+//! - `projection` — pure helpers that convert `AozoraNode`
 //!   variants into IR values plus the enum→string mappers and the
 //!   sourcepos→range bridge. No walker state.
 //! - This file (`mod.rs`) — the stateful walker (`IrWalker`,
@@ -35,17 +35,17 @@
 //!
 //! The walker is built from three small primitives:
 //!
-//! 1. [`crate::sentinel_stream::SentinelCursor`] — the shared registry-stream
-//!    cursor. The HTML splicer ([`crate::ast_splice`]) and this
+//! 1. `crate::sentinel_stream::SentinelCursor` — the shared registry-stream
+//!    cursor. The HTML splicer (`crate::ast_splice`) and this
 //!    builder both consume the same source-order sequence of
 //!    `NodeRef` entries; the cursor abstraction keeps them in
 //!    lockstep.
-//! 2. [`ParaScan`] — single-descent paragraph profile. One walk per
+//! 2. `ParaScan` — single-descent paragraph profile. One walk per
 //!    paragraph computes both the sole-block-sentinel test and the
 //!    heading-hint lookahead at once, eliminating the two-scan
 //!    redundancy that a naive translation of the HTML splicer would
 //!    have.
-//! 3. [`OpenContainer`] — the per-walker container stack. Where the
+//! 3. `OpenContainer` — the per-walker container stack. Where the
 //!    HTML splicer can stream open/close tags into a string buffer,
 //!    the IR demands a tree, so each open container collects
 //!    `IrBlock`s into its own `Vec` until the matching close arrives.
@@ -131,7 +131,7 @@ impl<'src> StreamingIrBuilder<'src> {
 
     /// Walk a single comrak block, advancing the shared cursor.
     /// Streaming-mode containers fragment per-block; for whole-doc
-    /// nesting use [`build_ir`].
+    /// nesting use `build_ir`.
     pub fn walk_block<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<IrBlock> {
         // Move the cursor into a freshly-constructed walker for the
         // duration of this call, then take it back. The walker's
@@ -154,7 +154,7 @@ impl<'src> StreamingIrBuilder<'src> {
 /// Tree builder that consumes comrak nodes plus a sentinel cursor and
 /// emits `IrBlock`s into a stack-balanced container hierarchy.
 ///
-/// The state mirrors [`crate::ast_splice`]'s splicer for the HTML
+/// The state mirrors `crate::ast_splice`'s splicer for the HTML
 /// side: same cursor, same balanced-container model, same
 /// orphan-close drain at end-of-document. They differ only in the
 /// emit target (rewritten comrak AST vs. tree of `Vec<IrBlock>`).
@@ -195,7 +195,7 @@ impl<'src> IrWalker<'src> {
 
     /// Drain any unclosed containers (mirror of the HTML splicer's
     /// end-of-document orphan-close pass) and return the document
-    /// blocks. Used by [`build_ir`].
+    /// blocks. Used by `build_ir`.
     fn finish(self) -> Vec<IrBlock> {
         self.finish_keeping_cursor().0
     }

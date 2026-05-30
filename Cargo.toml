@@ -69,18 +69,19 @@ dead_code = "deny"
 rust_2024_compatibility = { level = "warn", priority = -1 }
 
 [workspace.lints.rustdoc]
-# Docs are a shipped surface: broken intra-doc links are a defect, not a
-# smell. Keep this one `deny`.
+# Docs are a shipped surface. All rustdoc lints are `deny` (matching the
+# sibling aozora repo): broken / private links, bad codeblocks, invalid
+# HTML, bare URLs, redundant links, and unescaped backticks are defects,
+# not smells. A genuinely work-in-progress doc surface takes a scoped
+# `#[allow(rustdoc::…, reason = "…")]`, never a blanket warn.
 broken_intra_doc_links       = "deny"
-# Everything else warns so drift shows up in CI without breaking the build
-# while docs get fleshed out.
-private_intra_doc_links      = "warn"
-invalid_codeblock_attributes = "warn"
-invalid_html_tags            = "warn"
-invalid_rust_codeblocks      = "warn"
-bare_urls                    = "warn"
-redundant_explicit_links     = "warn"
-unescaped_backticks          = "warn"
+private_intra_doc_links      = "deny"
+invalid_codeblock_attributes = "deny"
+invalid_html_tags            = "deny"
+invalid_rust_codeblocks      = "deny"
+bare_urls                    = "deny"
+redundant_explicit_links     = "deny"
+unescaped_backticks          = "deny"
 
 [workspace.lints.clippy]
 # Opt-in to all three lint groups that mainstream Rust libraries ship with.
@@ -219,9 +220,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 clap = { version = "4.6.1", features = ["derive", "wrap_help", "env", "color", "cargo"] }
 
 # Testing
-insta             = { version = "1.47", features = ["yaml", "json", "filters"] }
 proptest          = "1.11"
-criterion         = { version = "0.8", features = ["html_reports"] }
 pretty_assertions = "1.4.1"
 
 [profile.release]
