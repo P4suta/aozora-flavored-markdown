@@ -1,4 +1,4 @@
-//! Fuzz target — `aozora_encoding::decode_sjis` + full render pipeline.
+//! Fuzz target — `aozora::encoding::decode_sjis` + full render pipeline.
 //!
 //! Arbitrary bytes are fed into `decode_sjis`. Failures (non-SJIS
 //! input) skip this iteration. Successful decodes are pushed through
@@ -13,7 +13,7 @@
 
 #![no_main]
 
-use aozora_encoding::decode_sjis;
+use aozora::encoding::decode_sjis;
 use afm_markdown::html::render_to_string;
 use afm_markdown_test_support::assert_html_invariants;
 use libfuzzer_sys::fuzz_target;
