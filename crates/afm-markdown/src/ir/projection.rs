@@ -21,12 +21,12 @@
 //! don't have to silence the lint because our values are genuinely
 //! distinct everywhere.
 
-use aozora_encoding::gaiji::Resolved;
-use aozora_syntax::borrowed::{
+use aozora::encoding::gaiji::Resolved;
+use aozora::syntax::borrowed::{
     Annotation as AozoraAnnotation, AozoraNode, Bouten as AozoraBouten, Content,
     DoubleRuby as AozoraDoubleRuby, Gaiji as AozoraGaiji, Ruby as AozoraRuby, Segment, TateChuYoko,
 };
-use aozora_syntax::{AnnotationKind, BoutenKind, BoutenPosition, ContainerKind, SectionKind};
+use aozora::syntax::{AnnotationKind, BoutenKind, BoutenPosition, ContainerKind, SectionKind};
 use comrak::nodes::{Sourcepos, TableAlignment};
 
 use crate::sentinel_stream::saturating_u32;
@@ -280,7 +280,7 @@ mod tests {
     //! call site rather than silently in the IR.
 
     use super::*;
-    use aozora_syntax::AlignEnd;
+    use aozora::syntax::AlignEnd;
     use comrak::nodes::{LineColumn, Sourcepos};
 
     #[test]

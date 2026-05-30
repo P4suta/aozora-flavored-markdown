@@ -15,11 +15,11 @@ categories.workspace   = true
 workspace = true
 
 [dependencies]
-aozora-syntax   = { workspace = true }
-aozora-pipeline = { workspace = true }
-aozora-render   = { workspace = true }
-aozora-spec     = { workspace = true }
-aozora-encoding = { workspace = true }
+# The single umbrella front door for the aozora parser (its designated
+# public surface). Reached via `aozora::{pipeline, syntax, render,
+# encoding}` + the top-level re-exports — never the internal
+# `publish = false` build-block crates. See the workspace manifest.
+aozora    = { workspace = true }
 comrak    = { workspace = true }
 miette    = { workspace = true }
 thiserror = { workspace = true }
@@ -31,7 +31,10 @@ serde     = { workspace = true }
 
 [dev-dependencies]
 afm-markdown-test-support = { workspace = true }
-aozora-proptest   = { workspace = true }
+# Aozora-shaped proptest generators come through the umbrella's
+# `proptest` feature (a dev-only feature so the normal build graph stays
+# free of proptest). Used as `aozora::proptest::{config, generators}`.
+aozora            = { workspace = true, features = ["proptest"] }
 proptest          = { workspace = true }
 pretty_assertions = { workspace = true }
 serde             = { workspace = true }

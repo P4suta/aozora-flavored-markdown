@@ -1,7 +1,7 @@
 //! Differential test — `afm_markdown` vs `aozora-render`.
 //!
-//! Both pipelines consume the same lexer output (`aozora_pipeline::lex_into_arena`)
-//! and the same per-node renderer (`aozora_render::render_node`), so on
+//! Both pipelines consume the same lexer output (`aozora::pipeline::lex_into_arena`)
+//! and the same per-node renderer (`aozora::render::render_node`), so on
 //! pure-青空文庫 input the *count and presence* of every `afm-*` class
 //! token must match. Block structure differs (afm-markdown wraps paragraphs
 //! through comrak; aozora-render emits its own `<p>` tags), so the
@@ -20,17 +20,17 @@
 //! - **Tier-A / Tier-B consistency.** Both renderers must satisfy the
 //!   no-bare-bracket and no-PUA-leak contracts on lexer-clean input.
 //! - **Serializer equivalence.** `afm_markdown::serialize` is a thin
-//!   delegate to `aozora_render::serialize::serialize`; on the same
+//!   delegate to `aozora::render::serialize::serialize`; on the same
 //!   source they must produce identical bytes.
 
 use std::collections::{HashMap, HashSet};
 
 use afm_markdown::html as afm_html;
 use afm_markdown_test_support::AFM_CLASSES;
-use aozora_pipeline::lex_into_arena;
-use aozora_render::html as aozora_html;
-use aozora_render::serialize as aozora_serialize;
-use aozora_syntax::borrowed::Arena;
+use aozora::pipeline::lex_into_arena;
+use aozora::render::html as aozora_html;
+use aozora::render::serialize as aozora_serialize;
+use aozora::syntax::borrowed::Arena;
 
 /// A handful of pure-aozora source fragments — no CommonMark
 /// emphasis, no headings, no lists, no code spans. Each fragment
@@ -196,7 +196,7 @@ fn both_renderers_satisfy_tier_b_no_pua_leak() {
 #[test]
 fn afm_markdown_serialize_matches_aozora_render_serialize() {
     // afm_markdown::serialize is a thin delegate to
-    // aozora_render::serialize::serialize, so the two must produce
+    // aozora::render::serialize::serialize, so the two must produce
     // identical bytes for the same source.
     for (label, src) in pure_aozora_fixtures() {
         let arena = Arena::new();

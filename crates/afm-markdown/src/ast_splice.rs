@@ -62,11 +62,11 @@ use core::fmt;
 use core::mem;
 use std::borrow::Cow;
 
-use aozora_pipeline::{BorrowedLexOutput, INLINE_SENTINEL};
-use aozora_render::render_node;
-use aozora_syntax::Container;
-use aozora_syntax::ContainerKind;
-use aozora_syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
+use aozora::pipeline::{BorrowedLexOutput, INLINE_SENTINEL};
+use aozora::render::render_node;
+use aozora::syntax::Container;
+use aozora::syntax::ContainerKind;
+use aozora::syntax::borrowed::{AozoraNode, HeadingHint, NodeRef};
 use comrak::Arena;
 use comrak::nodes::{AstNode, NodeHeading, NodeValue};
 
@@ -409,7 +409,7 @@ fn push_html_escaped(out: &mut String, s: &str) {
 }
 
 /// `fmt::Write` adapter over `&mut String` so
-/// `aozora_render::render_node::render` can write straight into the
+/// `aozora::render::render_node::render` can write straight into the
 /// buffer that becomes a `Raw` node payload.
 struct StringSink<'s>(&'s mut String);
 
@@ -422,8 +422,8 @@ impl fmt::Write for StringSink<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aozora_pipeline::{BLOCK_LEAF_SENTINEL, lex_into_arena};
-    use aozora_syntax::borrowed::Arena as AozoraArena;
+    use aozora::pipeline::{BLOCK_LEAF_SENTINEL, lex_into_arena};
+    use aozora::syntax::borrowed::Arena as AozoraArena;
 
     use crate::code_block_mask;
 

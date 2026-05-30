@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::{fs, process::ExitCode};
 
 use afm_markdown::{Options, render_to_string};
+use aozora::encoding::decode_sjis;
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -87,7 +88,7 @@ fn read_input(path: &Path, encoding: InputEncoding) -> Result<String> {
         InputEncoding::Utf8 => String::from_utf8(bytes)
             .into_diagnostic()
             .wrap_err("UTF-8 としてデコードできません — --encoding sjis を試してください"),
-        InputEncoding::Sjis => aozora_encoding::decode_sjis(&bytes).map_err(Into::into),
+        InputEncoding::Sjis => decode_sjis(&bytes).map_err(Into::into),
     }
 }
 
