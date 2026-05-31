@@ -125,9 +125,17 @@ where
             let data = child.data.borrow();
             match &data.value {
                 NodeValue::Text(s) => {
-                    let s = s.clone();
+                    // Hold the `child.data` borrow across `visit` rather
+                    // than cloning the string out. The visitor only ever
+                    // sees `&str` — it cannot reach `child.data` — and
+                    // every visitor on this path is read-only (the
+                    // splice's tree mutation runs in a separate, later
+                    // walk), so the immutable borrow is sound and the
+                    // per-leaf `Cow::clone` — an owned-string deep copy
+                    // on consolidated comrak text — is pure waste.
+                    let flow = visit(s);
                     drop(data);
-                    if visit(&s) == ControlFlow::Break(()) {
+                    if flow == ControlFlow::Break(()) {
                         return Err(());
                     }
                     // A `Text` node can in principle have children
