@@ -22,6 +22,7 @@ import {
 } from '@codemirror/view';
 
 import { aozoraHighlighting } from './aozora-syntax';
+import { afmEditorTheme } from './cm-theme';
 
 export interface EditorHandle {
   readonly view: EditorView;
@@ -52,6 +53,7 @@ export function createEditor(
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...foldKeymap]),
         markdown(),
         aozoraHighlighting,
+        afmEditorTheme,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());

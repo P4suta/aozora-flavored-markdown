@@ -1,15 +1,24 @@
 import { For, type Accessor, type Component } from 'solid-js';
 
+import type { ColorSchemePref } from '../color-scheme';
 import type { Example } from '../examples';
 import type { ThemeMode } from '../styles/theme-urls';
 
 interface ToolbarProps {
   themeMode: Accessor<ThemeMode>;
   onThemeChange(mode: ThemeMode): void;
+  colorSchemePref: Accessor<ColorSchemePref>;
+  onCycleColorScheme(): void;
   examples: readonly Example[];
   onLoadExample(slug: string): void;
   onShare(): void;
 }
+
+const COLOR_SCHEME_LABEL: Record<ColorSchemePref, string> = {
+  auto: '🌗 自動',
+  light: '☀ ライト',
+  dark: '🌙 ダーク',
+};
 
 const Toolbar: Component<ToolbarProps> = (props) => {
   return (
@@ -64,6 +73,15 @@ const Toolbar: Component<ToolbarProps> = (props) => {
         </select>
       </div>
       <div class="afm-pg-toolbar-spacer" />
+      <button
+        type="button"
+        class="afm-pg-toggle"
+        title="配色を切り替え（自動 / ライト / ダーク）"
+        aria-label={`配色: ${COLOR_SCHEME_LABEL[props.colorSchemePref()]}`}
+        onClick={() => props.onCycleColorScheme()}
+      >
+        {COLOR_SCHEME_LABEL[props.colorSchemePref()]}
+      </button>
       <button type="button" class="afm-pg-share" onClick={() => props.onShare()}>
         共有リンクをコピー
       </button>

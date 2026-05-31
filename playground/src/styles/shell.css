@@ -9,13 +9,24 @@
  */
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
+
+  /*
+   * Colour roles. Role names are shared with the sibling aozora
+   * playground (which uses an unprefixed `--bg` / `--fg` / `--accent`
+   * vocabulary); afm keeps the `--afm-pg-` brand prefix per ADR-0011.
+   * Values stay brand-specific (afm = washi cream + violet). Light is
+   * the default below; the dark palette lives under
+   * `[data-color-scheme='dark']`, switched by `color-scheme.ts`.
+   */
   --afm-pg-bg: #fdfaf2;
   --afm-pg-bg-elevated: #ffffff;
+  --afm-pg-bg-code: #f3efe3;
   --afm-pg-border: #d8d2c2;
   --afm-pg-text: #1f1f24;
   --afm-pg-text-soft: #6b6657;
   --afm-pg-accent: #7a5cad;
+  --afm-pg-accent-soft: rgba(122, 92, 173, 0.12);
   --afm-pg-error: #b5302a;
   --afm-pg-warning: #c47a18;
   --afm-pg-note: #4a6b8c;
@@ -31,6 +42,26 @@
     'Noto Sans JP', sans-serif;
   --afm-pg-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code',
     'SFMono-Regular', Menlo, Consolas, monospace;
+}
+
+/*
+ * Dark palette. `color-scheme.ts` sets `<html data-color-scheme="dark">`
+ * (from the saved preference or, in 'auto', the OS). Only colour roles
+ * flip — the content preview (`.afm-root`) carries no colours of its own
+ * and inherits these, so it darkens with the chrome for free.
+ */
+:root[data-color-scheme='dark'] {
+  --afm-pg-bg: #1c1a16;
+  --afm-pg-bg-elevated: #26231d;
+  --afm-pg-bg-code: #2e2a22;
+  --afm-pg-border: #3a352b;
+  --afm-pg-text: #ece7da;
+  --afm-pg-text-soft: #a8a08c;
+  --afm-pg-accent: #b9a0e0;
+  --afm-pg-accent-soft: rgba(185, 160, 224, 0.18);
+  --afm-pg-error: #e88c84;
+  --afm-pg-warning: #e0a85a;
+  --afm-pg-note: #8aa9cc;
 }
 
 * {
