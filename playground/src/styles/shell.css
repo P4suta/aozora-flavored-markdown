@@ -198,7 +198,7 @@ body {
 
 .afm-pg-panes {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: var(--afm-pg-outline-w, 200px) minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -207,6 +207,16 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Always-on heading outline, left of the editor (IDE-style nav). */
+.afm-pg-outline {
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
+  background: var(--afm-pg-bg-elevated);
+  border-right: 1px solid var(--afm-pg-border);
 }
 
 .afm-pg-pane-editor {
@@ -256,9 +266,112 @@ body {
  * that block sits within the preview pane. `data-afm-theme` is set on
  * <html> by `theme-toggle.ts`. Horizontal (the default) is unaffected.
  */
-:root[data-afm-theme='vertical'] .afm-pg-preview-content {
+:root[data-afm-theme='vertical'] .afm-pg-preview-content[data-tab='html'] {
   display: flex;
   justify-content: flex-end;
+}
+
+/* --- preview tabs -------------------------------------------------------- */
+
+.afm-pg-preview {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.afm-pg-tab-bar {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--afm-pg-space-1);
+  padding: 0 var(--afm-pg-space-2);
+  background: var(--afm-pg-bg-elevated);
+  border-bottom: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-tab {
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--afm-pg-text-soft);
+  cursor: pointer;
+}
+
+.afm-pg-tab:hover {
+  color: var(--afm-pg-text);
+}
+
+.afm-pg-tab[aria-selected='true'] {
+  color: var(--afm-pg-accent);
+  border-bottom-color: var(--afm-pg-accent);
+}
+
+/* --- outline ------------------------------------------------------------- */
+
+.afm-pg-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.afm-pg-outline-link {
+  display: block;
+  width: 100%;
+  padding: var(--afm-pg-space-1) 0;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--afm-pg-text);
+  cursor: pointer;
+}
+
+.afm-pg-outline-link:hover {
+  color: var(--afm-pg-accent);
+}
+
+.afm-pg-outline-link:disabled {
+  color: var(--afm-pg-text-soft);
+  cursor: default;
+}
+
+.afm-pg-outline-l2 .afm-pg-outline-link {
+  padding-inline-start: var(--afm-pg-space-4);
+}
+
+.afm-pg-outline-l3 .afm-pg-outline-link {
+  padding-inline-start: var(--afm-pg-space-6);
+  font-size: 0.85rem;
+}
+
+.afm-pg-outline-l4 .afm-pg-outline-link,
+.afm-pg-outline-l5 .afm-pg-outline-link,
+.afm-pg-outline-l6 .afm-pg-outline-link {
+  padding-inline-start: calc(var(--afm-pg-space-6) + var(--afm-pg-space-3));
+  font-size: 0.8rem;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-outline-empty {
+  padding: var(--afm-pg-space-3) 0;
+  font-size: 0.9rem;
+  color: var(--afm-pg-text-soft);
+}
+
+/* --- IR JSON view -------------------------------------------------------- */
+
+.afm-pg-code-view {
+  margin: 0;
+  font-family: var(--afm-pg-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--afm-pg-text);
+  white-space: pre;
+  tab-size: 2;
 }
 
 /* --- diagnostics drawer ------------------------------------------------- */
@@ -642,6 +755,12 @@ body {
   .afm-pg-panes {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr;
+  }
+  /* The outline is a desktop nav aid; on phones it would crowd the
+   * stacked editor/preview, so hide it (headings stay reachable by
+   * scrolling). */
+  .afm-pg-outline {
+    display: none;
   }
   .afm-pg-pane-editor {
     border-right: 0;
