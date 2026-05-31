@@ -271,6 +271,21 @@ dhat:
 latency:
     {{_dev}} cargo run --release --example latency_hist -p afm-markdown
 
+# Host-only CPU flamegraph of a render hot loop. `samply` opens
+# perf_event_open(2), which Docker's seccomp blocks, so this builds and
+# records on the host — the ADR-0002 profiling exception (aozora's
+# `samply-*` recipes take the same one). Built with `--profile bench`
+# (NOT `--release`): [profile.bench]'s `strip = "none"` + `debug = 1`
+# keep the symbols samply needs to symbolicate, and the binary still
+# lands in target/release/ (the bench profile shares that directory).
+# Needs `samply` on PATH and /proc/sys/kernel/perf_event_paranoid <= 1
+# (samply prints the fix-up command otherwise). Saves
+# /tmp/afm-render.json.gz; open at https://profiler.firefox.com or via
+# `samply load /tmp/afm-render.json.gz`.
+samply-render REPEAT="200":
+    cargo build --profile bench --example samply_render -p afm-markdown
+    samply record --save-only --no-open -o /tmp/afm-render.json.gz -r 4000 -- target/release/examples/samply_render {{REPEAT}}
+
 # --- coverage -----------------------------------------------------------------
 
 # Coverage gate. Fails when region coverage drops below `_COV_FLOOR`.
