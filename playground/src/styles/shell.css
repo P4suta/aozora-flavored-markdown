@@ -189,6 +189,11 @@ body {
   min-width: 220px;
 }
 
+/* The wrap-notation picker holds short labels — it needs no wide box. */
+.afm-pg-select-wrap {
+  min-width: 0;
+}
+
 /* --- panes --------------------------------------------------------------- */
 
 .afm-pg-panes {
