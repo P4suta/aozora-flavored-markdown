@@ -1,16 +1,21 @@
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
-import topLevelAwait from 'vite-plugin-top-level-await';
 import wasm from 'vite-plugin-wasm';
 
 // Served at https://p4suta.github.io/afm/playground/ in production.
 // During `vite dev` we mount at root so assets resolve cleanly without
 // the path prefix the GitHub Pages deploy demands.
 //
-// wasm + topLevelAwait are required to consume wasm-pack `--target
-// bundler` output (ESM-integrated .wasm with top-level `await init()`).
+// vite-plugin-wasm consumes wasm-pack `--target bundler` output
+// (ESM-integrated .wasm with a top-level `await init()`). The companion
+// vite-plugin-top-level-await is intentionally absent: per vite-plugin-wasm's
+// docs the TLA plugin is only needed for non-`esnext` build targets, and
+// `build.target` below is `esnext`, so the top-level await flows through
+// natively — the only browsers that run this wasm support it. (vite 8
+// dropped the bundled esbuild that the TLA plugin's transform relied on,
+// so keeping it would have meant re-adding esbuild for no benefit.)
 export default defineConfig(({ command }) => ({
-  plugins: [wasm(), topLevelAwait(), solid()],
+  plugins: [wasm(), solid()],
   base: command === 'build' ? '/afm/playground/' : '/',
   server: {
     host: '0.0.0.0',
@@ -30,7 +35,7 @@ export default defineConfig(({ command }) => ({
     strictPort: true,
   },
   build: {
-    target: 'es2022',
+    target: 'esnext',
     sourcemap: true,
     assetsInlineLimit: 0,
     rollupOptions: {
