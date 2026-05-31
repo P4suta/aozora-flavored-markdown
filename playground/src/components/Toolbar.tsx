@@ -5,6 +5,7 @@ import type { ColorSchemePref } from '../color-scheme';
 import { WRAP_SHAPES, wrapCommand } from '../editor/wrapCommands';
 import type { Example } from '../examples';
 import type { ThemeMode } from '../styles/theme-urls';
+import SettingsPanel from './SettingsPanel';
 
 interface ToolbarProps {
   themeMode: Accessor<ThemeMode>;
@@ -120,6 +121,7 @@ const Toolbar: Component<ToolbarProps> = (props) => {
       >
         {COLOR_SCHEME_LABEL[props.colorSchemePref()]}
       </button>
+      <SettingsPanel view={props.editorView} />
       <button type="button" class="afm-pg-share" onClick={() => props.onShare()}>
         共有リンクをコピー
       </button>

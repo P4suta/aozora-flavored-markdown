@@ -198,7 +198,7 @@ body {
 
 .afm-pg-panes {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: var(--afm-pg-outline-w, 200px) minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -207,6 +207,16 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Always-on heading outline, left of the editor (IDE-style nav). */
+.afm-pg-outline {
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
+  background: var(--afm-pg-bg-elevated);
+  border-right: 1px solid var(--afm-pg-border);
 }
 
 .afm-pg-pane-editor {
@@ -256,9 +266,112 @@ body {
  * that block sits within the preview pane. `data-afm-theme` is set on
  * <html> by `theme-toggle.ts`. Horizontal (the default) is unaffected.
  */
-:root[data-afm-theme='vertical'] .afm-pg-preview-content {
+:root[data-afm-theme='vertical'] .afm-pg-preview-content[data-tab='html'] {
   display: flex;
   justify-content: flex-end;
+}
+
+/* --- preview tabs -------------------------------------------------------- */
+
+.afm-pg-preview {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.afm-pg-tab-bar {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--afm-pg-space-1);
+  padding: 0 var(--afm-pg-space-2);
+  background: var(--afm-pg-bg-elevated);
+  border-bottom: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-tab {
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--afm-pg-text-soft);
+  cursor: pointer;
+}
+
+.afm-pg-tab:hover {
+  color: var(--afm-pg-text);
+}
+
+.afm-pg-tab[aria-selected='true'] {
+  color: var(--afm-pg-accent);
+  border-bottom-color: var(--afm-pg-accent);
+}
+
+/* --- outline ------------------------------------------------------------- */
+
+.afm-pg-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.afm-pg-outline-link {
+  display: block;
+  width: 100%;
+  padding: var(--afm-pg-space-1) 0;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--afm-pg-text);
+  cursor: pointer;
+}
+
+.afm-pg-outline-link:hover {
+  color: var(--afm-pg-accent);
+}
+
+.afm-pg-outline-link:disabled {
+  color: var(--afm-pg-text-soft);
+  cursor: default;
+}
+
+.afm-pg-outline-l2 .afm-pg-outline-link {
+  padding-inline-start: var(--afm-pg-space-4);
+}
+
+.afm-pg-outline-l3 .afm-pg-outline-link {
+  padding-inline-start: var(--afm-pg-space-6);
+  font-size: 0.85rem;
+}
+
+.afm-pg-outline-l4 .afm-pg-outline-link,
+.afm-pg-outline-l5 .afm-pg-outline-link,
+.afm-pg-outline-l6 .afm-pg-outline-link {
+  padding-inline-start: calc(var(--afm-pg-space-6) + var(--afm-pg-space-3));
+  font-size: 0.8rem;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-outline-empty {
+  padding: var(--afm-pg-space-3) 0;
+  font-size: 0.9rem;
+  color: var(--afm-pg-text-soft);
+}
+
+/* --- IR JSON view -------------------------------------------------------- */
+
+.afm-pg-code-view {
+  margin: 0;
+  font-family: var(--afm-pg-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--afm-pg-text);
+  white-space: pre;
+  tab-size: 2;
 }
 
 /* --- diagnostics drawer ------------------------------------------------- */
@@ -643,6 +756,12 @@ body {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr;
   }
+  /* The outline is a desktop nav aid; on phones it would crowd the
+   * stacked editor/preview, so hide it (headings stay reachable by
+   * scrolling). */
+  .afm-pg-outline {
+    display: none;
+  }
   .afm-pg-pane-editor {
     border-right: 0;
     border-bottom: 1px solid var(--afm-pg-border);
@@ -654,4 +773,125 @@ body {
   .afm-pg-select {
     min-width: 140px;
   }
+}
+
+/* --- editor assists (青空文庫) ------------------------------------------- */
+/*
+ * Decorations / inlay / hover / completion styling for the editor assists
+ * ported from the sibling aozora playground. The `cm-aozora-*` token
+ * classes are an editor-decoration detail (emitted by editor/decorations.ts
+ * + inlayHints.ts), not a brand surface, so the names carry over verbatim.
+ * afm has no per-token palette, so colours fall back to the chrome tokens;
+ * the non-colour attributes (weight / italic / dotted) keep each notation
+ * kind visually distinct.
+ */
+
+.cm-aozora-ruby,
+.cm-aozora-double-ruby {
+  color: var(--afm-pg-accent);
+  font-weight: 500;
+}
+
+.cm-aozora-bouten {
+  color: var(--afm-pg-accent);
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+}
+
+.cm-aozora-gaiji {
+  color: var(--afm-pg-accent);
+  font-style: italic;
+}
+
+.cm-aozora-tcy,
+.cm-aozora-sashie,
+.cm-aozora-kaeriten {
+  color: var(--afm-pg-accent);
+}
+
+.cm-aozora-warichu,
+.cm-aozora-annotation {
+  color: var(--afm-pg-text-soft);
+  font-style: italic;
+}
+
+.cm-aozora-aozora-heading {
+  color: var(--afm-pg-text);
+  font-weight: 700;
+}
+
+.cm-aozora-heading-hint {
+  color: var(--afm-pg-text-soft);
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.cm-aozora-section-break,
+.cm-aozora-page-break {
+  color: var(--afm-pg-accent);
+  font-weight: 600;
+}
+
+.cm-aozora-container-marker {
+  color: var(--afm-pg-text-soft);
+  font-weight: 600;
+}
+
+/* Gaiji inlay hint: faint "→glyph" after a ※［＃...］ span. */
+.cm-aozora-inlay {
+  color: var(--afm-pg-accent);
+  font-size: 0.85em;
+  opacity: 0.75;
+  padding: 0 0.15em;
+  user-select: none;
+}
+
+/* Gaiji hover tooltip (DOM built in editor/hover.ts). */
+.cm-aozora-gaiji-tooltip {
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
+  max-width: 320px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--afm-pg-text);
+}
+
+.cm-aozora-gaiji-tooltip-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--afm-pg-space-2);
+}
+
+.cm-aozora-gaiji-glyph {
+  color: var(--afm-pg-accent);
+  font-size: 1.3em;
+  font-weight: 700;
+}
+
+.cm-aozora-gaiji-tooltip-cp,
+.cm-aozora-gaiji-tooltip-mencode {
+  margin-top: var(--afm-pg-space-1);
+  font-size: 0.85em;
+  color: var(--afm-pg-text-soft);
+  font-family: var(--afm-pg-font-mono);
+}
+
+/* Completion popup retint (CodeMirror's own classes). */
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--afm-pg-accent-soft);
+  color: var(--afm-pg-text);
+}
+
+.cm-completionLabel {
+  color: var(--afm-pg-text);
+}
+
+.cm-completionDetail {
+  color: var(--afm-pg-text-soft);
+  font-style: italic;
+}
+
+.cm-completionMatchedText {
+  color: var(--afm-pg-accent);
+  text-decoration: none;
+  font-weight: 600;
 }

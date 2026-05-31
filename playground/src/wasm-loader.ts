@@ -6,6 +6,22 @@
 
 import * as afmWasm from 'afm-wasm';
 
+// The raw 青空文庫 Document handle + slug catalogue, re-exported for the
+// editor-assist layer (completion / hover / inlay / outline / fold /
+// linter / structural highlight). These talk to the Aozora parser
+// directly — a separate path from `renderAfm` (which goes through comrak
+// and loses source offsets). See `crates/afm-wasm/src/lib.rs`.
+//
+// `Document` is re-exported as both a value (the constructor) and a type
+// via this single named re-export — the bundler-target pkg exports it as
+// a class. `slugsJson` is wrapped so the panic hook is installed first.
+export { Document } from 'afm-wasm';
+
+export function slugsJson(): string {
+  ensureInit();
+  return afmWasm.slugsJson();
+}
+
 // Wire types are generated from the Rust IR + afm-wasm envelope by
 // `just types` (xtask) and drift-gated in CI, so the `ir` field below is
 // the real `IrDocument` tree rather than `unknown`. Re-exported here so

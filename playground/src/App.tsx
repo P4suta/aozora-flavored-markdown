@@ -5,18 +5,20 @@
 // and wires the toolbar / editor / preview / diagnostics together.
 
 import { createMemo, createSignal, onMount, type Component } from 'solid-js';
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 
 import DiagnosticsDrawer from './components/DiagnosticsDrawer';
 import EditorPane from './components/EditorPane';
 import NotationGuide from './components/NotationGuide';
+import OutlinePanel from './components/OutlinePanel';
 import PreviewPane from './components/PreviewPane';
 import Toolbar from './components/Toolbar';
+import { outlineFromIr } from './outline';
 import { loadExamples } from './examples';
 import { createColorScheme } from './color-scheme';
 import { copyShareLink, decodeSourceFromHash } from './share';
 import { createTheme } from './theme-toggle';
-import { hashSource, renderAfm, type Diagnostic } from './wasm-loader';
+import { hashSource, renderAfm, type Diagnostic, type IrDocument } from './wasm-loader';
 
 const FALLBACK_SOURCE =
   '# afm playground\n\nここに ｜文章《ぶんしょう》 を書いてみてください。\n';
@@ -24,9 +26,10 @@ const FALLBACK_SOURCE =
 interface Rendered {
   readonly html: string;
   readonly diagnostics: readonly Diagnostic[];
+  readonly ir: IrDocument | null;
 }
 
-const EMPTY_RENDER: Rendered = { html: '', diagnostics: [] };
+const EMPTY_RENDER: Rendered = { html: '', diagnostics: [], ir: null };
 
 function pickInitial(examples: ReturnType<typeof loadExamples>): string {
   const fromHash = decodeSourceFromHash(globalThis.location.hash);
@@ -59,6 +62,7 @@ const App: Component = () => {
     } catch (err) {
       setRendered({
         html: '',
+        ir: null,
         diagnostics: [
           {
             level: 'error',
@@ -75,11 +79,12 @@ const App: Component = () => {
 
     try {
       const result = renderAfm(text);
-      setRendered({ html: result.html, diagnostics: result.diagnostics });
+      setRendered({ html: result.html, diagnostics: result.diagnostics, ir: result.ir });
       if (result.diagnostics.length > 0) setDrawerOpen(true);
     } catch (err) {
       setRendered({
         html: '',
+        ir: null,
         diagnostics: [
           {
             level: 'error',
@@ -138,6 +143,26 @@ const App: Component = () => {
 
   const html = createMemo(() => rendered().html);
   const diagnostics = createMemo(() => rendered().diagnostics);
+  const ir = createMemo(() => rendered().ir);
+  const outline = createMemo(() => {
+    const doc = ir();
+    return doc ? outlineFromIr(doc) : [];
+  });
+
+  // Scroll the editor to a 1-based source line and put the cursor there
+  // (outline click target).
+  function jumpToLine(sourceLine: number): void {
+    const view = editorView();
+    if (!view) return;
+    const lineCount = view.state.doc.lines;
+    const n = Math.min(Math.max(sourceLine, 1), lineCount);
+    const line = view.state.doc.line(n);
+    view.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: 'start' }),
+    });
+    view.focus();
+  }
 
   return (
     <>
@@ -153,6 +178,9 @@ const App: Component = () => {
         onShowGuide={() => setGuideOpen(true)}
       />
       <main class="afm-pg-panes">
+        <aside class="afm-pg-outline" aria-label="アウトライン">
+          <OutlinePanel entries={outline()} onJump={jumpToLine} />
+        </aside>
         <section class="afm-pg-pane afm-pg-pane-editor" aria-label="エディタ">
           <EditorPane
             value={source()}
@@ -164,7 +192,7 @@ const App: Component = () => {
           />
         </section>
         <section class="afm-pg-pane afm-pg-pane-preview" aria-label="プレビュー">
-          <PreviewPane html={html} />
+          <PreviewPane html={html} ir={ir} />
           <DiagnosticsDrawer
             diagnostics={diagnostics}
             open={drawerOpen}

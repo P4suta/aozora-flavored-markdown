@@ -59,11 +59,14 @@ name = "afm-wasm"
 version = "0.3.0"
 dependencies = [
  "afm-markdown",
+ "aozora",
  "console_error_panic_hook",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "twox-hash",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -158,6 +161,8 @@ dependencies = [
  "aozora-spec",
  "aozora-syntax",
  "proptest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
