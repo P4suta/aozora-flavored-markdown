@@ -89,8 +89,17 @@ RUN cargo binstall --no-confirm --locked --root /usr/local \
         cargo-edit \
         cargo-release
 
-# bacon — kept in its own layer (separate churn axis from the test/lint tiers).
-RUN cargo binstall --no-confirm --locked --root /usr/local bacon
+# bacon (the background compiler behind `just watch`) ships NO prebuilt
+# binaries on its GitHub releases — it is crates.io-source-only. Every
+# binstall line above resolves a tool that *does* publish prebuilts; bacon
+# would only ever land via binstall's implicit `compile` fallback (the last
+# link in its default strategy chain). Install it explicitly from source
+# instead, so the source build is a deliberate, visible choice rather than a
+# silent fallback a future binstall default-strategy change could drop. Kept
+# in its own layer (separate churn axis from the test/lint tiers). Mirrors
+# aozora #55, which made the same crate explicit after its binstall batch
+# dropped `compile` from `--strategies`.
+RUN cargo install --locked bacon
 
 # git-cliff for CHANGELOG generation — kept separate for the same reason.
 RUN cargo binstall --no-confirm --locked --root /usr/local git-cliff
