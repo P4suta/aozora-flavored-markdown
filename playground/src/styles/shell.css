@@ -30,7 +30,25 @@
   --afm-pg-error: #b5302a;
   --afm-pg-warning: #c47a18;
   --afm-pg-note: #4a6b8c;
+
+  /*
+   * Scale. A single 4px-grid spacing ramp plus radius / shadow /
+   * transition tokens — the SSOT for every chrome measurement, so no
+   * raw px literals scatter through the rules below. Role names match
+   * the sibling aozora playground; values stay brand-specific.
+   */
+  --afm-pg-space-1: 4px;
+  --afm-pg-space-2: 6px;
+  --afm-pg-space-3: 8px;
+  --afm-pg-space-4: 12px;
+  --afm-pg-space-5: 16px;
+  --afm-pg-space-6: 24px;
+  --afm-pg-radius: 4px;
+  --afm-pg-radius-pill: 999px;
+  --afm-pg-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  --afm-pg-transition: 0.12s ease;
   --afm-pg-toolbar-h: 44px;
+
   /*
    * Font roles. Shared *role names* (ui / mono) with the sibling aozora
    * playground; values stay brand-specific (see aozora's styles.css).
@@ -101,8 +119,8 @@ body {
 .afm-pg-toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 16px;
+  gap: var(--afm-pg-space-5);
+  padding: 0 var(--afm-pg-space-5);
   background: var(--afm-pg-bg-elevated);
   border-bottom: 1px solid var(--afm-pg-border);
 }
@@ -110,7 +128,7 @@ body {
 .afm-pg-brand {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--afm-pg-space-2);
   text-decoration: none;
   color: var(--afm-pg-text);
 }
@@ -131,7 +149,7 @@ body {
 .afm-pg-toolbar-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--afm-pg-space-2);
 }
 
 .afm-pg-toolbar-spacer {
@@ -151,8 +169,8 @@ body {
   color: var(--afm-pg-text);
   background: var(--afm-pg-bg);
   border: 1px solid var(--afm-pg-border);
-  border-radius: 4px;
-  padding: 4px 10px;
+  border-radius: var(--afm-pg-radius);
+  padding: var(--afm-pg-space-1) var(--afm-pg-space-4);
   cursor: pointer;
 }
 
@@ -216,13 +234,26 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 24px 28px;
+  padding: var(--afm-pg-space-6);
 }
 
 /* The host wraps the wasm output in `.afm-root`. Give it some breathing
  * room and let the book theme own all typographic decisions inside. */
 .afm-pg-preview-content .afm-root {
   max-width: 100%;
+}
+
+/*
+ * Vertical writing (tategaki) reads from the right edge of the page
+ * leftward, so anchor the content block to the right of the scroll area
+ * instead of letting a short document sit at the left. The writing-mode
+ * itself lives in the content theme (`.afm-root`); this only fixes where
+ * that block sits within the preview pane. `data-afm-theme` is set on
+ * <html> by `theme-toggle.ts`. Horizontal (the default) is unaffected.
+ */
+:root[data-afm-theme='vertical'] .afm-pg-preview-content {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* --- diagnostics drawer ------------------------------------------------- */
@@ -240,7 +271,7 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 16px;
+  padding: var(--afm-pg-space-3) var(--afm-pg-space-5);
   border: 0;
   background: transparent;
   font-family: inherit;
@@ -256,15 +287,15 @@ body {
 
 .afm-pg-drawer-arrow {
   display: inline-block;
-  transition: transform 0.12s ease;
+  transition: transform var(--afm-pg-transition);
 }
 
 .afm-pg-drawer-count {
   display: inline-block;
   min-width: 1.4em;
-  padding: 0 6px;
-  margin-left: 4px;
-  border-radius: 999px;
+  padding: 0 var(--afm-pg-space-2);
+  margin-left: var(--afm-pg-space-1);
+  border-radius: var(--afm-pg-radius-pill);
   background: var(--afm-pg-error);
   color: white;
   font-size: 12px;
@@ -280,7 +311,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 16px 12px;
+  padding: 0 var(--afm-pg-space-5) var(--afm-pg-space-4);
 }
 
 .afm-pg-diagnostics-list {
@@ -289,11 +320,11 @@ body {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--afm-pg-space-1);
 }
 
 .afm-pg-diagnostics-empty {
-  padding: 8px 0;
+  padding: var(--afm-pg-space-3) 0;
   font-size: 13px;
   color: var(--afm-pg-text-soft);
 }
@@ -301,11 +332,11 @@ body {
 .afm-pg-diagnostics-item {
   display: grid;
   grid-template-columns: 72px 220px 1fr;
-  gap: 8px;
+  gap: var(--afm-pg-space-3);
   align-items: baseline;
-  padding: 6px 8px;
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
   border-left: 3px solid var(--afm-pg-border);
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 var(--afm-pg-radius) var(--afm-pg-radius) 0;
   background: var(--afm-pg-bg);
 }
 
@@ -356,15 +387,15 @@ body {
 .afm-pg-toast {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: var(--afm-pg-space-6);
   transform: translateX(-50%);
   background: var(--afm-pg-text);
   color: var(--afm-pg-bg);
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: var(--afm-pg-space-3) var(--afm-pg-space-5);
+  border-radius: var(--afm-pg-radius);
   font-size: 13px;
   z-index: 20;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--afm-pg-shadow);
 }
 
 .afm-pg-toast[data-ok='0'] {
