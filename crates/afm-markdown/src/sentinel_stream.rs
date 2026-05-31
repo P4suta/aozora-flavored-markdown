@@ -13,11 +13,12 @@
 //!   on the codepoint (`ch as u32 - 0xE001 < 4`). Hotter than the
 //!   `matches!` chain it replaces because every paragraph-text walk
 //!   touches this predicate per char.
-//! - `flatten_registry_in_source_order` materialises the registry
-//!   into a `Vec<NodeRef>` keyed by source-order traversal, since
-//!   both walkers consume entries linearly. The `EytzingerMap`
-//!   upstream is binary-search-friendly but we never look up by
-//!   position at HTML rewrite time — the order alone is sufficient.
+//! - `flatten_registry_in_source_order` materialises the registry into
+//!   a `Vec<NodeRef>` in source order via the registry's own
+//!   ascending-key iterator (`iter_sorted`), since both walkers consume
+//!   entries linearly and never look up by position at HTML rewrite
+//!   time — the order alone is sufficient. That makes it `O(n_registry)`
+//!   with no re-scan of the normalized text.
 //! - `paragraph_sole_block_sentinel` walks a comrak paragraph node
 //!   directly with allocation-free semantics, returning the kind of
 //!   block sentinel iff the paragraph carries exactly one and no
@@ -25,7 +26,6 @@
 
 use core::ops::ControlFlow;
 
-use aozora::NormalizedOffset;
 use aozora::pipeline::{
     BLOCK_CLOSE_SENTINEL, BLOCK_LEAF_SENTINEL, BLOCK_OPEN_SENTINEL, BorrowedLexOutput,
     INLINE_SENTINEL,
@@ -209,19 +209,20 @@ where
 pub(crate) fn flatten_registry_in_source_order<'a>(
     lex_out: &BorrowedLexOutput<'a>,
 ) -> Vec<NodeRef<'a>> {
-    if lex_out.registry.is_empty() {
-        return Vec::new();
-    }
+    // The registry is already keyed by normalized position, so its
+    // ascending-key iterator yields exactly the sentinel nodes in source
+    // order — O(n_registry). The previous implementation re-scanned the
+    // whole `normalized` text (`char_indices`) and did a binary-search
+    // `node_at` per sentinel — O(n_norm × log n_registry) — even though
+    // the registry already knew every sentinel position. Equivalence with
+    // that scan is pinned by `flatten_matches_normalized_scan`.
     let mut out = Vec::with_capacity(lex_out.registry.len());
-    for (idx, ch) in lex_out.normalized.char_indices() {
-        if !is_sentinel_char(ch) {
-            continue;
-        }
-        let pos = u32::try_from(idx).expect("normalized text fits u32 (Phase 0 cap)");
-        if let Some(node_ref) = lex_out.registry.node_at(NormalizedOffset(pos)) {
-            out.push(node_ref);
-        }
-    }
+    out.extend(
+        lex_out
+            .registry
+            .iter_sorted()
+            .map(|(_pos, node_ref)| node_ref),
+    );
     out
 }
 
@@ -394,5 +395,54 @@ mod tests {
         ));
         cursor.advance(99); // saturating
         assert!(cursor.next().is_none());
+    }
+
+    /// `flatten_registry_in_source_order` now reads the registry's
+    /// `iter_sorted` instead of re-scanning the normalized text. Pin that
+    /// the two produce the *same* source-ordered sequence — the invariant
+    /// the `SentinelCursor` lockstep with `split_text_node` / `ParaScan`
+    /// depends on. Checked on a sentinel-sparse (representative) and a
+    /// sentinel-dense (pathological) document, since a divergence would
+    /// surface in the dense case.
+    #[test]
+    fn flatten_matches_normalized_scan() {
+        use aozora::NormalizedOffset;
+        use aozora::pipeline::lex_into_arena;
+        use aozora::syntax::borrowed::Arena;
+
+        const REPRESENTATIVE: &str = "見出し\n\n本文に｜青空《あおぞら》のルビと\
+            ［＃「強調」に傍点］を混ぜた段落。\n\n次の段落も｜漢字《かんじ》。";
+        const PATHOLOGICAL: &str = "｜A《a》｜B《b》｜C《c》［＃「D」に傍点］｜E《e》";
+
+        for src in [REPRESENTATIVE, PATHOLOGICAL] {
+            let arena = Arena::new();
+            let lex_out = lex_into_arena(src, &arena);
+
+            // The positions the new `iter_sorted` path yields, in order.
+            let via_iter_sorted: Vec<u32> =
+                lex_out.registry.iter_sorted().map(|(pos, _)| pos).collect();
+
+            // The positions the old full-normalized-scan path would yield.
+            let mut via_scan: Vec<u32> = Vec::new();
+            for (idx, ch) in lex_out.normalized.char_indices() {
+                if !is_sentinel_char(ch) {
+                    continue;
+                }
+                let pos = u32::try_from(idx).expect("normalized fits u32");
+                if lex_out.registry.node_at(NormalizedOffset(pos)).is_some() {
+                    via_scan.push(pos);
+                }
+            }
+
+            assert_eq!(
+                via_iter_sorted, via_scan,
+                "iter_sorted order must match the normalized-scan order for {src:?}"
+            );
+            assert_eq!(
+                flatten_registry_in_source_order(&lex_out).len(),
+                lex_out.registry.len(),
+                "one node per registry entry for {src:?}"
+            );
+        }
     }
 }
