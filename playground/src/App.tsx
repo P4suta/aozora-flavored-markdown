@@ -165,6 +165,15 @@ const App: Component = () => {
           />
         </section>
       </main>
+      <footer class="afm-pg-footer">
+        <span>
+          Powered by{' '}
+          <a href="https://github.com/P4suta/afm" target="_blank" rel="noopener">
+            afm
+          </a>{' '}
+          — Aozora Flavored Markdown
+        </span>
+      </footer>
       {toast() !== null && (
         <div class="afm-pg-toast" data-ok={toast()!.ok ? '1' : '0'}>
           {toast()!.message}

@@ -99,7 +99,7 @@ body {
 
 #app {
   display: grid;
-  grid-template-rows: var(--afm-pg-toolbar-h) 1fr;
+  grid-template-rows: var(--afm-pg-toolbar-h) 1fr auto;
   height: 100vh;
 }
 
@@ -402,9 +402,33 @@ body {
   background: var(--afm-pg-error);
 }
 
+/* --- footer -------------------------------------------------------------- */
+
+/* Sibling-aligned footer: the aozora playground carries the same
+ * centered "Powered by …" strip. Lives in the third `#app` grid row. */
+.afm-pg-footer {
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-5);
+  background: var(--afm-pg-bg-elevated);
+  border-top: 1px solid var(--afm-pg-border);
+  font-size: 12px;
+  color: var(--afm-pg-text-soft);
+  text-align: center;
+}
+
+.afm-pg-footer a {
+  color: var(--afm-pg-text-soft);
+  text-decoration: none;
+}
+
+.afm-pg-footer a:hover {
+  color: var(--afm-pg-accent);
+  text-decoration: underline;
+}
+
 /* --- responsive ---------------------------------------------------------- */
 
-@media (max-width: 720px) {
+/* Breakpoint shared with the sibling aozora playground (760px). */
+@media (max-width: 760px) {
   .afm-pg-panes {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr;
