@@ -1,6 +1,8 @@
 import { For, type Accessor, type Component } from 'solid-js';
+import type { EditorView } from '@codemirror/view';
 
 import type { ColorSchemePref } from '../color-scheme';
+import { WRAP_SHAPES, wrapCommand } from '../editor/wrapCommands';
 import type { Example } from '../examples';
 import type { ThemeMode } from '../styles/theme-urls';
 
@@ -12,6 +14,7 @@ interface ToolbarProps {
   examples: readonly Example[];
   onLoadExample(slug: string): void;
   onShare(): void;
+  editorView: Accessor<EditorView | null>;
 }
 
 const COLOR_SCHEME_LABEL: Record<ColorSchemePref, string> = {
@@ -69,6 +72,32 @@ const Toolbar: Component<ToolbarProps> = (props) => {
           <option value="">例文を読み込む…</option>
           <For each={props.examples}>
             {(ex) => <option value={ex.slug}>{ex.label}</option>}
+          </For>
+        </select>
+      </div>
+      <div class="afm-pg-toolbar-group">
+        <label class="afm-pg-label" for="afm-pg-wrap">
+          囲む
+        </label>
+        <select
+          id="afm-pg-wrap"
+          class="afm-pg-select afm-pg-select-wrap"
+          title="選択範囲を青空文庫記法で囲む"
+          onChange={(event) => {
+            const target = event.currentTarget;
+            const id = target.value;
+            target.value = '';
+            const view = props.editorView();
+            if (id === '' || !view) return;
+            const shape = WRAP_SHAPES.find((s) => s.id === id);
+            if (!shape) return;
+            wrapCommand(shape)(view);
+            view.focus();
+          }}
+        >
+          <option value="">記法で囲む…</option>
+          <For each={WRAP_SHAPES}>
+            {(shape) => <option value={shape.id}>{shape.description}</option>}
           </For>
         </select>
       </div>

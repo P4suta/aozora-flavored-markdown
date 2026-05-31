@@ -23,6 +23,7 @@ import {
 
 import { aozoraHighlighting } from './aozora-syntax';
 import { afmEditorTheme } from './cm-theme';
+import { afmWrapKeymap } from './editor/wrapCommands';
 
 export interface EditorHandle {
   readonly view: EditorView;
@@ -50,7 +51,13 @@ export function createEditor(
         bracketMatching(),
         foldGutter(),
         EditorView.lineWrapping,
-        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...foldKeymap]),
+        keymap.of([
+          ...afmWrapKeymap,
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...searchKeymap,
+          ...foldKeymap,
+        ]),
         markdown(),
         aozoraHighlighting,
         afmEditorTheme,

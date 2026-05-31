@@ -4,12 +4,16 @@
 // the change back through onChange).
 
 import { createEffect, onCleanup, onMount, type Component } from 'solid-js';
+import type { EditorView } from '@codemirror/view';
 
 import { createEditor, type EditorHandle } from '../editor';
 
 interface EditorPaneProps {
   value: string;
   onChange(value: string): void;
+  /** Fires once the CodeMirror view exists, so the toolbar can target it
+   *  (e.g. the wrap-notation buttons run commands against this view). */
+  onReady?(view: EditorView): void;
 }
 
 const EditorPane: Component<EditorPaneProps> = (props) => {
@@ -21,6 +25,7 @@ const EditorPane: Component<EditorPaneProps> = (props) => {
     handle = createEditor(mount, props.value, (next) => {
       props.onChange(next);
     });
+    props.onReady?.(handle.view);
   });
 
   createEffect(() => {

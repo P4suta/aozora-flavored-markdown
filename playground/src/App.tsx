@@ -5,6 +5,7 @@
 // and wires the toolbar / editor / preview / diagnostics together.
 
 import { createMemo, createSignal, onMount, type Component } from 'solid-js';
+import type { EditorView } from '@codemirror/view';
 
 import DiagnosticsDrawer from './components/DiagnosticsDrawer';
 import EditorPane from './components/EditorPane';
@@ -38,6 +39,7 @@ const App: Component = () => {
   const [rendered, setRendered] = createSignal<Rendered>(EMPTY_RENDER);
   const [drawerOpen, setDrawerOpen] = createSignal(true);
   const [toast, setToast] = createSignal<{ message: string; ok: boolean } | null>(null);
+  const [editorView, setEditorView] = createSignal<EditorView | null>(null);
 
   const theme = createTheme();
   const colorScheme = createColorScheme();
@@ -145,6 +147,7 @@ const App: Component = () => {
         examples={examples}
         onLoadExample={loadExample}
         onShare={share}
+        editorView={editorView}
       />
       <main class="afm-pg-panes">
         <section class="afm-pg-pane afm-pg-pane-editor" aria-label="エディタ">
@@ -154,6 +157,7 @@ const App: Component = () => {
               setSource(value);
               scheduleRender(value);
             }}
+            onReady={setEditorView}
           />
         </section>
         <section class="afm-pg-pane afm-pg-pane-preview" aria-label="プレビュー">
