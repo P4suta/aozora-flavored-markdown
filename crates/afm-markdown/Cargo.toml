@@ -39,9 +39,15 @@ proptest          = { workspace = true }
 pretty_assertions = { workspace = true }
 serde             = { workspace = true }
 serde_json        = { workspace = true }
+criterion         = { workspace = true }
+dhat              = { workspace = true }
 
 [features]
 default = ["html"]
 # HTML renderer. Enabled by default but kept behind a feature so
 # downstream tools can parse without pulling in the renderer.
 html = []
+
+[[bench]]
+name    = "render_to_string"
+harness = false

@@ -252,6 +252,25 @@ fuzz-status:
 bench *ARGS:
     {{_dev}} cargo bench --workspace {{ARGS}}
 
+# Save the current criterion numbers as a named baseline (default
+# `pre-opt`). Run before a structural change; `bench-compare` diffs
+# against it. criterion stores baselines under target/criterion/.
+bench-baseline NAME="pre-opt":
+    {{_dev}} cargo bench --workspace -- --save-baseline {{NAME}}
+
+# Re-run the benches and report the % change vs a saved baseline.
+bench-compare NAME="pre-opt":
+    {{_dev}} cargo bench --workspace -- --baseline {{NAME}}
+
+# Heap-allocation profile (dhat) of one large render: total allocations
+# + peak resident bytes, and a dhat-heap.json for the dh_view viewer.
+dhat:
+    {{_dev}} cargo run --release --example dhat_render -p afm-markdown
+
+# Small-document render latency percentiles (p50/p90/p99/max).
+latency:
+    {{_dev}} cargo run --release --example latency_hist -p afm-markdown
+
 # --- coverage -----------------------------------------------------------------
 
 # Coverage gate. Fails when region coverage drops below `_COV_FLOOR`.
