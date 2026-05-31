@@ -51,7 +51,7 @@ FROM toolchain AS cargo-tools
 # subsequent tool, avoiding the 30-min source compile that the previous
 # monolithic `cargo install --locked` layer cost. Only binstall itself
 # is built from source (~30 s, one bin).
-ARG BINSTALL_VERSION=1.15.6
+ARG BINSTALL_VERSION=1.19.1
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/tmp/cargo-build \
     CARGO_TARGET_DIR=/tmp/cargo-build \
@@ -97,10 +97,10 @@ RUN cargo binstall --no-confirm --locked --root /usr/local git-cliff
 
 # just (task runner) installed separately; upstream provides an install script
 RUN curl -fsSL https://just.systems/install.sh \
-    | bash -s -- --to /usr/local/bin --tag 1.36.0
+    | bash -s -- --to /usr/local/bin --tag 1.51.0
 
 # lefthook (pre-commit manager). As of 2.x the release asset is a gzipped raw binary.
-ARG LEFTHOOK_VERSION=2.1.6
+ARG LEFTHOOK_VERSION=2.1.9
 RUN curl -fsSL \
     "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_x86_64.gz" \
     | gunzip > /usr/local/bin/lefthook \
@@ -109,7 +109,7 @@ RUN curl -fsSL \
 # wasm-pack — builds the afm-wasm crate consumed by `playground/` and any
 # browser host. Pinned alongside the workflow pin in .github/workflows/docs.yml
 # so dev and CI agree on the wasm-bindgen-cli that gets auto-fetched.
-ARG WASM_PACK_VERSION=0.13.1
+ARG WASM_PACK_VERSION=0.15.0
 RUN curl -fsSL \
     "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
     | tar -xz -C /usr/local/bin --strip-components=1 \
