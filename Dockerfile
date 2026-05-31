@@ -262,7 +262,7 @@ CMD ["mdbook", "serve", "--hostname", "0.0.0.0", "--port", "3000"]
 ########################################################################
 # Stage: browser — Playwright with Chromium + WebKit for M3 onward
 ########################################################################
-FROM mcr.microsoft.com/playwright:v1.59.1-jammy AS browser
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy AS browser
 
 WORKDIR /workspace
 CMD ["bash"]
