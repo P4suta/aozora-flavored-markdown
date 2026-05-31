@@ -9,6 +9,7 @@ import type { EditorView } from '@codemirror/view';
 
 import DiagnosticsDrawer from './components/DiagnosticsDrawer';
 import EditorPane from './components/EditorPane';
+import NotationGuide from './components/NotationGuide';
 import PreviewPane from './components/PreviewPane';
 import Toolbar from './components/Toolbar';
 import { loadExamples } from './examples';
@@ -40,6 +41,7 @@ const App: Component = () => {
   const [drawerOpen, setDrawerOpen] = createSignal(true);
   const [toast, setToast] = createSignal<{ message: string; ok: boolean } | null>(null);
   const [editorView, setEditorView] = createSignal<EditorView | null>(null);
+  const [guideOpen, setGuideOpen] = createSignal(false);
 
   const theme = createTheme();
   const colorScheme = createColorScheme();
@@ -148,6 +150,7 @@ const App: Component = () => {
         onLoadExample={loadExample}
         onShare={share}
         editorView={editorView}
+        onShowGuide={() => setGuideOpen(true)}
       />
       <main class="afm-pg-panes">
         <section class="afm-pg-pane afm-pg-pane-editor" aria-label="エディタ">
@@ -183,6 +186,7 @@ const App: Component = () => {
           {toast()!.message}
         </div>
       )}
+      <NotationGuide open={guideOpen()} onClose={() => setGuideOpen(false)} />
     </>
   );
 };

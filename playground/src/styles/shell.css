@@ -407,6 +407,211 @@ body {
   background: var(--afm-pg-error);
 }
 
+/* --- notation guide modal ----------------------------------------------- */
+
+.afm-pg-guide-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--afm-pg-space-6);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.afm-pg-guide-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 880px;
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--afm-pg-bg-elevated);
+  color: var(--afm-pg-text);
+  border: 1px solid var(--afm-pg-border);
+  border-radius: var(--afm-pg-radius-lg, 8px);
+  box-shadow: var(--afm-pg-shadow);
+}
+
+.afm-pg-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--afm-pg-space-3) var(--afm-pg-space-5);
+  background: var(--afm-pg-bg);
+  border-bottom: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-guide-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.afm-pg-guide-close {
+  padding: 0 var(--afm-pg-space-1);
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--afm-pg-text-soft);
+  cursor: pointer;
+}
+
+.afm-pg-guide-close:hover {
+  color: var(--afm-pg-accent);
+}
+
+.afm-pg-guide-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.afm-pg-guide-toc {
+  flex: 0 0 220px;
+  overflow-y: auto;
+  padding: var(--afm-pg-space-2) 0;
+  background: var(--afm-pg-bg);
+  border-right: 1px solid var(--afm-pg-border);
+  font-size: 0.85rem;
+}
+
+.afm-pg-guide-toc ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.afm-pg-toc-link {
+  display: block;
+  width: 100%;
+  padding: var(--afm-pg-space-1) var(--afm-pg-space-4);
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--afm-pg-text);
+  cursor: pointer;
+}
+
+.afm-pg-toc-link:hover {
+  background: var(--afm-pg-accent-soft);
+  color: var(--afm-pg-accent);
+}
+
+.afm-pg-toc-link.active {
+  background: var(--afm-pg-accent);
+  color: var(--afm-pg-bg-elevated);
+}
+
+.afm-pg-toc-l3 .afm-pg-toc-link {
+  padding-left: var(--afm-pg-space-6);
+  font-size: 0.8rem;
+  color: var(--afm-pg-text-soft);
+}
+
+.afm-pg-toc-l3 .afm-pg-toc-link:hover {
+  color: var(--afm-pg-accent);
+}
+
+.afm-pg-toc-l3 .afm-pg-toc-link.active {
+  color: var(--afm-pg-bg-elevated);
+}
+
+.afm-pg-guide-body {
+  flex: 1 1 auto;
+  padding: var(--afm-pg-space-5) var(--afm-pg-space-5) var(--afm-pg-space-6);
+  overflow: auto;
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.afm-pg-guide-body h1,
+.afm-pg-guide-body h2,
+.afm-pg-guide-body h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.4em;
+  color: var(--afm-pg-accent);
+}
+
+.afm-pg-guide-body h1 {
+  font-size: 1.45rem;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-guide-body h2 {
+  font-size: 1.2rem;
+}
+
+.afm-pg-guide-body h3 {
+  font-size: 1rem;
+}
+
+.afm-pg-guide-body p {
+  margin: 0.75em 0;
+}
+
+.afm-pg-guide-body ul,
+.afm-pg-guide-body ol {
+  padding-inline-start: 1.5em;
+}
+
+.afm-pg-guide-body code {
+  padding: 0.1em 0.3em;
+  background: var(--afm-pg-bg-code);
+  border-radius: var(--afm-pg-radius);
+  font-family: var(--afm-pg-font-mono);
+  font-size: 0.92em;
+}
+
+.afm-pg-guide-body pre {
+  margin: 0.85em 0;
+  padding: var(--afm-pg-space-3) var(--afm-pg-space-4);
+  overflow-x: auto;
+  background: var(--afm-pg-bg-code);
+  border-radius: var(--afm-pg-radius);
+  font-size: 0.88em;
+}
+
+.afm-pg-guide-body pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.afm-pg-guide-body table {
+  margin: 1em 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.afm-pg-guide-body th,
+.afm-pg-guide-body td {
+  padding: 0.35em 0.7em;
+  border: 1px solid var(--afm-pg-border);
+  text-align: left;
+}
+
+.afm-pg-guide-body th {
+  background: var(--afm-pg-bg);
+  font-weight: 600;
+}
+
+.afm-pg-guide-body hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--afm-pg-border);
+}
+
+.afm-pg-guide-body a {
+  color: var(--afm-pg-accent);
+}
+
 /* --- footer -------------------------------------------------------------- */
 
 /* Sibling-aligned footer: the aozora playground carries the same
