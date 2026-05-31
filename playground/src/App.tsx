@@ -11,6 +11,7 @@ import EditorPane from './components/EditorPane';
 import PreviewPane from './components/PreviewPane';
 import Toolbar from './components/Toolbar';
 import { loadExamples } from './examples';
+import { createColorScheme } from './color-scheme';
 import { copyShareLink, decodeSourceFromHash } from './share';
 import { createTheme } from './theme-toggle';
 import { hashSource, renderAfm, type Diagnostic } from './wasm-loader';
@@ -39,6 +40,7 @@ const App: Component = () => {
   const [toast, setToast] = createSignal<{ message: string; ok: boolean } | null>(null);
 
   const theme = createTheme();
+  const colorScheme = createColorScheme();
 
   // Render gate: hashSource short-circuits identical source runs through
   // the cache instead of re-invoking the wasm pipeline. Cheap to call
@@ -138,6 +140,8 @@ const App: Component = () => {
       <Toolbar
         themeMode={theme.mode}
         onThemeChange={(m) => theme.setMode(m)}
+        colorSchemePref={colorScheme.pref}
+        onCycleColorScheme={() => colorScheme.cyclePref()}
         examples={examples}
         onLoadExample={loadExample}
         onShare={share}

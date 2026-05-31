@@ -5,7 +5,12 @@
 import { render } from 'solid-js/web';
 
 import App from './App';
+import { bootstrapColorScheme } from './color-scheme';
 import './styles/shell.css';
+
+// Paint the saved light/dark preference before the first render so there
+// is no flash of the wrong scheme.
+bootstrapColorScheme();
 
 const root = document.getElementById('app');
 if (root === null) {
