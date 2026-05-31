@@ -2,9 +2,9 @@
 //
 // The HTML is trusted output from afm's own renderer, mounted via
 // innerHTML; the `.afm-root` wrapper scopes the book theme. The JSON tab
-// reads the same IR the renderer already produced, so no extra wasm call
-// is needed. The heading outline is a separate always-on left column
-// (OutlinePanel), not a tab here. The active tab persists to localStorage.
+// renders the same IR the renderer already produced. The heading outline
+// is a separate always-on left column (OutlinePanel), not a tab here.
+// The active tab persists to localStorage.
 
 import { createSignal, For, Show, type Accessor, type Component } from 'solid-js';
 

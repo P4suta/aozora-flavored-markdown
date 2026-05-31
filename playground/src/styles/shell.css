@@ -774,3 +774,124 @@ body {
     min-width: 140px;
   }
 }
+
+/* --- editor assists (青空文庫) ------------------------------------------- */
+/*
+ * Decorations / inlay / hover / completion styling for the editor assists
+ * ported from the sibling aozora playground. The `cm-aozora-*` token
+ * classes are an editor-decoration detail (emitted by editor/decorations.ts
+ * + inlayHints.ts), not a brand surface, so the names carry over verbatim.
+ * afm has no per-token palette, so colours fall back to the chrome tokens;
+ * the non-colour attributes (weight / italic / dotted) keep each notation
+ * kind visually distinct.
+ */
+
+.cm-aozora-ruby,
+.cm-aozora-double-ruby {
+  color: var(--afm-pg-accent);
+  font-weight: 500;
+}
+
+.cm-aozora-bouten {
+  color: var(--afm-pg-accent);
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+}
+
+.cm-aozora-gaiji {
+  color: var(--afm-pg-accent);
+  font-style: italic;
+}
+
+.cm-aozora-tcy,
+.cm-aozora-sashie,
+.cm-aozora-kaeriten {
+  color: var(--afm-pg-accent);
+}
+
+.cm-aozora-warichu,
+.cm-aozora-annotation {
+  color: var(--afm-pg-text-soft);
+  font-style: italic;
+}
+
+.cm-aozora-aozora-heading {
+  color: var(--afm-pg-text);
+  font-weight: 700;
+}
+
+.cm-aozora-heading-hint {
+  color: var(--afm-pg-text-soft);
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.cm-aozora-section-break,
+.cm-aozora-page-break {
+  color: var(--afm-pg-accent);
+  font-weight: 600;
+}
+
+.cm-aozora-container-marker {
+  color: var(--afm-pg-text-soft);
+  font-weight: 600;
+}
+
+/* Gaiji inlay hint: faint "→glyph" after a ※［＃...］ span. */
+.cm-aozora-inlay {
+  color: var(--afm-pg-accent);
+  font-size: 0.85em;
+  opacity: 0.75;
+  padding: 0 0.15em;
+  user-select: none;
+}
+
+/* Gaiji hover tooltip (DOM built in editor/hover.ts). */
+.cm-aozora-gaiji-tooltip {
+  padding: var(--afm-pg-space-2) var(--afm-pg-space-3);
+  max-width: 320px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--afm-pg-text);
+}
+
+.cm-aozora-gaiji-tooltip-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--afm-pg-space-2);
+}
+
+.cm-aozora-gaiji-glyph {
+  color: var(--afm-pg-accent);
+  font-size: 1.3em;
+  font-weight: 700;
+}
+
+.cm-aozora-gaiji-tooltip-cp,
+.cm-aozora-gaiji-tooltip-mencode {
+  margin-top: var(--afm-pg-space-1);
+  font-size: 0.85em;
+  color: var(--afm-pg-text-soft);
+  font-family: var(--afm-pg-font-mono);
+}
+
+/* Completion popup retint (CodeMirror's own classes). */
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--afm-pg-accent-soft);
+  color: var(--afm-pg-text);
+}
+
+.cm-completionLabel {
+  color: var(--afm-pg-text);
+}
+
+.cm-completionDetail {
+  color: var(--afm-pg-text-soft);
+  font-style: italic;
+}
+
+.cm-completionMatchedText {
+  color: var(--afm-pg-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
