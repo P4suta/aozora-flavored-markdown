@@ -15,6 +15,7 @@ interface ToolbarProps {
   onLoadExample(slug: string): void;
   onShare(): void;
   editorView: Accessor<EditorView | null>;
+  onShowGuide(): void;
 }
 
 const COLOR_SCHEME_LABEL: Record<ColorSchemePref, string> = {
@@ -102,6 +103,14 @@ const Toolbar: Component<ToolbarProps> = (props) => {
         </select>
       </div>
       <div class="afm-pg-toolbar-spacer" />
+      <button
+        type="button"
+        class="afm-pg-toggle"
+        title="記法リファレンスを開く"
+        onClick={() => props.onShowGuide()}
+      >
+        📖 記法
+      </button>
       <button
         type="button"
         class="afm-pg-toggle"
