@@ -77,7 +77,7 @@ jobs:
         uses: jetli/wasm-pack-action@v0.4.0
         with:
           # Pinned alongside the Dockerfile WASM_PACK_VERSION arg.
-          version: 'v0.13.1'
+          version: 'v0.15.0'
 
       - name: Build afm-wasm package
         run: wasm-pack build crates/afm-wasm --target bundler --release --out-dir pkg --out-name afm_wasm
