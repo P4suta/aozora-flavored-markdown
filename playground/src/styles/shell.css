@@ -20,7 +20,13 @@
   --afm-pg-warning: #c47a18;
   --afm-pg-note: #4a6b8c;
   --afm-pg-toolbar-h: 44px;
-  --afm-pg-font-ja: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif;
+  /*
+   * Font roles. Shared *role names* (ui / mono) with the sibling aozora
+   * playground; values stay brand-specific (see aozora's styles.css).
+   * No serif role here: the preview's serif face lives in the content theme
+   * (`crates/afm-book/theme/afm-{horizontal,vertical}.css`, `.afm-root`),
+   * which is a self-contained drop-in and must not depend on this `:root`.
+   */
   --afm-pg-font-ui: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic',
     'Noto Sans JP', sans-serif;
   --afm-pg-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code',
