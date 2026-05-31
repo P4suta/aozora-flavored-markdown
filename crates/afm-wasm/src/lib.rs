@@ -402,7 +402,7 @@ impl Document {
 
     /// Per-method timing snapshot (`{ name, duration_ms }[]`) plus
     /// `byte_len`, for the editor's perf badge. Wall-clock via
-    /// `performance.now()` (host builds read 0.0 — see [`now_ms`]).
+    /// `performance.now()` (host builds read 0.0 — see `now_ms`).
     #[must_use]
     #[wasm_bindgen(js_name = profileJson)]
     pub fn profile_json(&self) -> String {
