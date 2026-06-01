@@ -223,6 +223,8 @@ clap = { version = "4.6.1", features = ["derive", "wrap_help", "env", "color", "
 # Testing
 proptest          = "1.11"
 pretty_assertions = "1.4.1"
+# Snapshot testing — verified against crates.io 2026-06-02.
+insta             = "1.47"
 
 # Benchmarking / profiling — versions verified against crates.io 2026-05-31
 criterion = { version = "0.8", features = ["html_reports"] }

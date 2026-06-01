@@ -1,0 +1,7 @@
+---
+source: crates/afm-markdown/tests/snapshot_splice.rs
+expression: "render(\"前［＃改ページ］後\")"
+---
+<p>前</p>
+<div class="afm-page-break"></div>
+<p>後</p>
