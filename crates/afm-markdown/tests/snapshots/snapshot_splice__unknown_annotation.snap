@@ -1,0 +1,5 @@
+---
+source: crates/afm-markdown/tests/snapshot_splice.rs
+expression: "render(\"前［＃ほげふが］後\")"
+---
+<p>前<span class="afm-annotation" hidden>［＃ほげふが］</span>後</p>
