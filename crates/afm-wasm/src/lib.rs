@@ -105,6 +105,44 @@ fn build_options(opts: &RenderOptions) -> Options {
     base
 }
 
+/// Largest input the aozora parser core accepts, in bytes. Its span
+/// offsets are `u32`, so a longer source trips a `u32::MAX` assert
+/// inside the lexer (`afm` feeds the source through
+/// `aozora::lex_into_arena`). Under `panic = "abort"` that assert would
+/// abort the whole Wasm instance.
+const MAX_SOURCE_BYTES: usize = u32::MAX as usize;
+
+/// `Ok(())` iff a source of `byte_len` UTF-8 bytes is within the parser
+/// core's `u32` span-offset limit. Pure (takes the length, not the
+/// string) so the boundary is unit-testable without allocating a 4 GiB
+/// buffer.
+///
+/// # Errors
+///
+/// `Err(&'static str)` when `byte_len > u32::MAX`.
+const fn source_len_within_span_limit(byte_len: usize) -> Result<(), &'static str> {
+    if byte_len > MAX_SOURCE_BYTES {
+        return Err("source exceeds 4 GiB (u32::MAX) span limit");
+    }
+    Ok(())
+}
+
+/// Reject sources larger than the parser core's `u32` span limit before
+/// any parsing starts, returning a catchable `Err(JsValue)`.
+///
+/// `afm` masks code-block triggers before lexing, but masking is a 1:1
+/// character substitution (`｜`/`《`/… → U+E000, both 3-byte UTF-8), so
+/// the masked source is byte-for-byte the same length as `source` —
+/// checking `source.len()` here is exact.
+///
+/// # Errors
+///
+/// `Err(JsValue)` when `source.len()` (UTF-8 bytes) exceeds
+/// [`u32::MAX`].
+fn guard_source_len(source: &str) -> Result<(), JsValue> {
+    source_len_within_span_limit(source.len()).map_err(JsValue::from_str)
+}
+
 /// Render afm source to IR + HTML + diagnostics.
 ///
 /// `options` is decoded as `{ aozoraEnabled?: boolean,
@@ -113,11 +151,13 @@ fn build_options(opts: &RenderOptions) -> Options {
 ///
 /// # Errors
 ///
-/// Returns `Err(JsValue::String)` when `options` cannot be deserialized
-/// from JS or when the resulting `RenderResult` cannot be serialized
-/// back to JS.
+/// Returns `Err(JsValue::String)` when `source` exceeds the parser
+/// core's `u32` span limit (~4 GiB), when `options` cannot be
+/// deserialized from JS, or when the resulting `RenderResult` cannot be
+/// serialized back to JS.
 #[wasm_bindgen(js_name = renderAfm)]
 pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+    guard_source_len(source)?;
     let opts: RenderOptions = if options.is_undefined() || options.is_null() {
         RenderOptions::default()
     } else {
@@ -148,8 +188,9 @@ pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
 ///
 /// # Errors
 ///
-/// Returns `Err(JsValue::String)` when the resulting `RenderResult`
-/// cannot be serialized back to JS.
+/// Returns `Err(JsValue::String)` when `text` exceeds the parser core's
+/// `u32` span limit (~4 GiB; delegated to [`render_afm`]) or when the
+/// resulting `RenderResult` cannot be serialized back to JS.
 #[wasm_bindgen(js_name = renderAozoraOnly)]
 pub fn render_aozora_only(text: &str) -> Result<JsValue, JsValue> {
     render_afm(text, JsValue::UNDEFINED)
@@ -189,11 +230,13 @@ struct BlocksResult {
 ///
 /// # Errors
 ///
-/// Returns `Err(JsValue::String)` when `options` cannot be deserialized
-/// from JS or when the resulting `BlocksResult` cannot be serialized
-/// back to JS.
+/// Returns `Err(JsValue::String)` when `source` exceeds the parser
+/// core's `u32` span limit (~4 GiB), when `options` cannot be
+/// deserialized from JS, or when the resulting `BlocksResult` cannot be
+/// serialized back to JS.
 #[wasm_bindgen(js_name = renderBlocks)]
 pub fn render_blocks(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+    guard_source_len(source)?;
     let opts: RenderOptions = if options.is_undefined() || options.is_null() {
         RenderOptions::default()
     } else {
@@ -539,4 +582,38 @@ fn build_resolution_value(source: &str, start: usize, end: usize) -> Option<serd
         "codepoint": codepoint,
         "resolved": resolved_str,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{guard_source_len, source_len_within_span_limit};
+
+    /// The boundary guard accepts in-range lengths (including the
+    /// inclusive `u32::MAX` upper bound) and rejects anything larger,
+    /// matching the `u32::MAX` assert the aozora parser core enforces in
+    /// `tokenize_in`. The Wasm render entry points (`renderAfm`,
+    /// `renderBlocks`, and `renderAozoraOnly` via `renderAfm`) call the
+    /// guard so an oversize source surfaces as `Err(JsValue)` instead of
+    /// a `panic = "abort"` teardown of the Wasm instance.
+    #[test]
+    fn source_len_guard_matches_u32_span_boundary() {
+        source_len_within_span_limit(0).expect("empty source is in range");
+        source_len_within_span_limit(4096).expect("4 KiB source is in range");
+        source_len_within_span_limit(u32::MAX as usize)
+            .expect("u32::MAX bytes is the inclusive upper bound");
+        let err = source_len_within_span_limit(u32::MAX as usize + 1)
+            .expect_err("u32::MAX + 1 bytes must be rejected");
+        assert!(err.contains("u32::MAX"), "error mentions the limit: {err}");
+    }
+
+    /// Typical inputs pass the `&str` wrapper unharmed. Uses `.expect()`
+    /// (not `assert!(… .is_ok())`) to satisfy clippy's
+    /// `assertions_on_result_states`; `JsValue` implements `Debug` on
+    /// all targets, so this compiles on the host test build.
+    #[test]
+    fn guard_accepts_typical_source() {
+        guard_source_len("").expect("empty source must be accepted");
+        guard_source_len("｜漢字《かんじ》 and **markdown**")
+            .expect("typical mixed source must be accepted");
+    }
 }

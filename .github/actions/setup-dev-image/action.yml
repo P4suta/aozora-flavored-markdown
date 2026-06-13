@@ -21,7 +21,7 @@ description: Pull (or build) the afm dev image, install `just`, and enable sccac
 runs:
   using: composite
   steps:
-    - uses: taiki-e/install-action@v2
+    - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2
       with:
         tool: just
 
@@ -30,7 +30,7 @@ runs:
     # inside the dev image. Setting the three env vars below routes
     # container-side `sccache` calls through the GHA cache via the
     # runner's ACTIONS_CACHE_URL + ACTIONS_RUNTIME_TOKEN.
-    - uses: mozilla-actions/sccache-action@v0.0.9
+    - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
     # Forward the GHA cache env into the compose services. Without these
     # the container sccache silently falls back to the disk volume at
@@ -68,7 +68,7 @@ runs:
     # fallback below. Same-repo runs always log in.
     - name: Log in to GHCR (same-repo runs only)
       if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-      uses: docker/login-action@v3
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}

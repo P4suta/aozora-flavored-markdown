@@ -176,6 +176,10 @@ struct IrWalker<'src> {
     /// Stack of currently-open paired containers. Each frame owns the
     /// blocks gathered between its open and (eventual) close marker.
     open: Vec<OpenContainer>,
+    /// Current block/inline nesting depth, bounded by [`MAX_AST_DEPTH`]
+    /// so pathologically deep input cannot overflow the recursive
+    /// `collect_blocks` / `collect_inlines` descent.
+    depth: usize,
 }
 
 struct OpenContainer {
@@ -184,12 +188,28 @@ struct OpenContainer {
     children: Vec<IrBlock>,
 }
 
+/// Maximum IR block/inline nesting depth.
+///
+/// comrak can emit arbitrarily deep trees from a small input (nested
+/// blockquotes — `handle_blockquote` carries no cap — nested list items,
+/// nested inline emphasis), and the IR builder's `collect_blocks` /
+/// `collect_inlines` recurse over them. Without a bound a crafted input
+/// would overflow the call stack and abort the process under the release
+/// profile's `panic = "abort"` — a crash on untrusted input that
+/// `SECURITY.md` scopes IN as a vulnerability. 256 is far beyond any real
+/// document (comrak itself caps list nesting at 100) while leaving the OS
+/// stack comfortable; beyond it the IR truncates the over-deep subtree.
+/// The HTML splice path is iterative ([`crate::ast_splice`]) and stays
+/// complete regardless.
+const MAX_AST_DEPTH: usize = 256;
+
 impl<'src> IrWalker<'src> {
     fn new(cursor: SentinelCursor<'src>) -> Self {
         Self {
             cursor,
             top: Vec::new(),
             open: Vec::new(),
+            depth: 0,
         }
     }
 
@@ -408,12 +428,21 @@ impl<'src> IrWalker<'src> {
     }
 
     fn collect_blocks<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<IrBlock> {
+        // Depth-bound the block recursion (`collect_blocks` → `walk_block`
+        // → `collect_blocks` for nested blockquotes / list items). Past
+        // the bound the over-deep subtree is dropped from the IR rather
+        // than overflowing the stack; see [`MAX_AST_DEPTH`].
+        if self.depth >= MAX_AST_DEPTH {
+            return Vec::new();
+        }
+        self.depth += 1;
         let mut out = Vec::new();
         for child in node.children() {
             if let Some(block) = self.walk_block(child, false) {
                 out.push(block);
             }
         }
+        self.depth -= 1;
         out
     }
 
@@ -447,10 +476,19 @@ impl<'src> IrWalker<'src> {
     }
 
     fn collect_inlines<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<IrInline> {
+        // Depth-bound the inline recursion (`collect_inlines` →
+        // `emit_inline` → `collect_inlines` for nested emphasis / links /
+        // images). Past the bound the over-deep inline subtree is dropped
+        // rather than overflowing the stack; see [`MAX_AST_DEPTH`].
+        if self.depth >= MAX_AST_DEPTH {
+            return Vec::new();
+        }
+        self.depth += 1;
         let mut out = Vec::new();
         for child in node.children() {
             self.emit_inline(child, &mut out);
         }
+        self.depth -= 1;
         out
     }
 

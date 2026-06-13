@@ -114,40 +114,70 @@ struct AstSplicer<'a, 'src> {
 }
 
 impl<'a, 'src> AstSplicer<'a, 'src> {
-    /// Depth-first traversal. Children are snapshotted before
-    /// iterating because we may detach / reorder them during dispatch.
-    fn walk(&mut self, node: &'a AstNode<'a>) {
-        let children: Vec<&'a AstNode<'a>> = node.children().collect();
-        for child in children {
-            self.dispatch(child);
-        }
-    }
-
-    fn dispatch(&mut self, node: &'a AstNode<'a>) {
-        let (action, is_heading) = {
-            let data = node.data.borrow();
-            (
-                classify(&data.value),
-                matches!(&data.value, NodeValue::Heading(_)),
-            )
-        };
-        match action {
-            DispatchAction::Paragraph => self.dispatch_paragraph(node),
-            DispatchAction::TextWith(text) => self.split_text_node(node, &text),
-            DispatchAction::Recurse => {
-                if is_heading {
-                    self.in_heading_depth += 1;
-                    self.walk(node);
+    /// Depth-first traversal over an explicit work stack rather than
+    /// recursion.
+    ///
+    /// comrak can build an arbitrarily deep AST from a small input
+    /// (deeply nested blockquotes `> > > …`, nested list items, or
+    /// nested inline emphasis), and `handle_blockquote` carries no
+    /// nesting cap. A recursive descent would exhaust the call stack —
+    /// under the release profile's `panic = "abort"` that is a hard
+    /// process abort, i.e. a crash on untrusted input, which both repos'
+    /// `SECURITY.md` scope IN as a vulnerability. The explicit stack
+    /// moves the unbounded growth to the heap, where it is bounded by
+    /// the input size rather than the OS stack. comrak's own
+    /// `format_html` / AST post-processing are iterative for the same
+    /// reason; this brings the splice walk in line with them.
+    ///
+    /// Children are pushed in reverse so the `Vec`-as-stack pops them in
+    /// document order, and a `Heading`'s subtree is bracketed by a
+    /// [`Work::ExitHeading`] marker so `in_heading_depth` is incremented
+    /// for exactly the heading's descendants — preserving, node for
+    /// node, the recursive `in_heading_depth += 1; walk; -= 1` behaviour
+    /// the Tier-A / Tier-C splice contract depends on. Each leaf
+    /// dispatch (`split_text_node` / `handle_block_sentinel` /
+    /// `handle_heading_hint`) only ever inserts fresh siblings or
+    /// detaches the current node, never the already-stacked siblings, so
+    /// the snapshot-on-push discipline stays sound.
+    fn walk(&mut self, root: &'a AstNode<'a>) {
+        let mut stack: Vec<Work<'a>> = Vec::new();
+        push_children_rev(&mut stack, root);
+        while let Some(work) = stack.pop() {
+            let node = match work {
+                Work::ExitHeading => {
                     self.in_heading_depth -= 1;
-                } else {
-                    self.walk(node);
+                    continue;
+                }
+                Work::Visit(node) => node,
+            };
+            let (action, is_heading) = {
+                let data = node.data.borrow();
+                (
+                    classify(&data.value),
+                    matches!(&data.value, NodeValue::Heading(_)),
+                )
+            };
+            match action {
+                DispatchAction::Skip => {}
+                DispatchAction::TextWith(text) => self.split_text_node(node, &text),
+                DispatchAction::Paragraph => self.dispatch_paragraph(node, &mut stack),
+                DispatchAction::Recurse => {
+                    if is_heading {
+                        self.in_heading_depth += 1;
+                        stack.push(Work::ExitHeading);
+                    }
+                    push_children_rev(&mut stack, node);
                 }
             }
-            DispatchAction::Skip => {}
         }
     }
 
-    fn dispatch_paragraph(&mut self, paragraph: &'a AstNode<'a>) {
+    /// Dispatch a paragraph (Cases 1/2/3 in module-doc order). The
+    /// ordinary-paragraph case descends by pushing the paragraph's
+    /// children onto the shared work `stack` (a paragraph is never a
+    /// `Heading`, so no depth marker is needed); the block-sentinel and
+    /// heading-hint cases mutate in place and do not descend.
+    fn dispatch_paragraph(&mut self, paragraph: &'a AstNode<'a>, stack: &mut Vec<Work<'a>>) {
         if let Some(kind) = paragraph_sole_block_sentinel(paragraph) {
             self.handle_block_sentinel(paragraph, kind);
             return;
@@ -159,7 +189,7 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
         }
         // Case 3: ordinary paragraph — descend to children for inline
         // sentinel splitting.
-        self.walk(paragraph);
+        push_children_rev(stack, paragraph);
     }
 
     fn handle_block_sentinel(&mut self, paragraph: &'a AstNode<'a>, kind: BlockSentinelKind) {
@@ -340,6 +370,27 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
     fn new_raw_node(&self, html: String) -> &'a AstNode<'a> {
         self.arena.alloc(AstNode::from(NodeValue::Raw(html)))
     }
+}
+
+/// One entry on [`AstSplicer::walk`]'s explicit traversal stack.
+enum Work<'a> {
+    /// Classify and dispatch this node.
+    Visit(&'a AstNode<'a>),
+    /// Sentinel popped after a `Heading`'s entire subtree has been
+    /// processed, to restore `in_heading_depth` — the iterative
+    /// analogue of the recursive `in_heading_depth -= 1` on unwind.
+    ExitHeading,
+}
+
+/// Push `parent`'s children onto `stack` as [`Work::Visit`] items in
+/// reverse document order, so the `Vec`-as-stack pops them
+/// left-to-right. Children are snapshotted here (by being moved onto
+/// the stack) before any dispatch mutates the tree, mirroring the
+/// previous recursive walk's `children().collect()`.
+fn push_children_rev<'a>(stack: &mut Vec<Work<'a>>, parent: &'a AstNode<'a>) {
+    let start = stack.len();
+    stack.extend(parent.children().map(Work::Visit));
+    stack[start..].reverse();
 }
 
 /// Per-node dispatch verdict. Snapshotted from a borrowed `NodeValue`
