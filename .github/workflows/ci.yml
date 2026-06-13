@@ -57,7 +57,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.95.0
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           key: msrv
       - run: cargo check --workspace --all-targets
@@ -159,7 +159,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912  # v2.81.10
         with:
           tool: just
       - run: just verify-version-pins
@@ -207,15 +207,23 @@ jobs:
   # Phase-1 partial (deny, audit gate cheaply on Cargo.lock alone), but
   # `udeps` is nightly-bound and needs the dep graph compiled — so the
   # job gates on check to skip wasted work when typecheck has already
-  # failed. `fail-fast: false` keeps `deny` failures from masking an
-  # `audit` failure and vice-versa.
+  # failed. `fail-fast: false` keeps one leg's failure from masking the
+  # others.
+  #
+  # `audit-comrak` (C1/F4) is its own matrix leg so a RUSTSEC advisory
+  # against the vendored path-dep comrak (which `cargo audit`/`cargo deny`
+  # can't see — it's absent from the registry dep graph) surfaces as a
+  # distinctly-named failing check. It also runs transitively as a
+  # dependency of the `audit` leg, so local `just ci` is covered too; the
+  # standalone leg just sharpens the CI signal. No scheduled workflow is
+  # used (user preference: no cron) — this runs per-PR.
   audit:
     runs-on: ubuntu-latest
     needs: check
     strategy:
       fail-fast: false
       matrix:
-        target: [deny, audit, udeps]
+        target: [deny, audit, audit-comrak, udeps]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: ./.github/actions/setup-dev-image

@@ -3,14 +3,26 @@
 # Every developer and CI job runs inside this image. Host toolchain is never invoked.
 #
 # Layered so upstream-sync / dependency bumps rebuild minimal surface.
-
-ARG RUST_VERSION=1.95.0
+#
+# External base images (rust, playwright) are pinned by immutable
+# manifest-list digest (supply-chain hardening, C2/F9): a floating tag
+# like `rust:1.95.0-bookworm` can be re-pushed, so we pin the sha256 and
+# keep the human-readable tag inline. Dependabot's `docker` ecosystem
+# (.github/dependabot.yml) bumps the tag AND the digest together on its
+# weekly sweep, so the pin stays current without a human resolving the
+# sha by hand. Resolve a fresh digest with
+# `docker buildx imagetools inspect rust:1.95.0-bookworm`.
+#
+# NODE_VERSION stays an ARG: it parameterises an apt source URL in the
+# node-base stage (deb.nodesource.com/setup_<N>.x), not a FROM line, so
+# there is no base-image digest to pin for it.
 ARG NODE_VERSION=22
 
 ########################################################################
 # Stage: toolchain — Rust stable + system deps for builds and CJK work
 ########################################################################
-FROM rust:${RUST_VERSION}-bookworm AS toolchain
+# rust:1.95.0-bookworm (digest pinned; tag kept for humans / Dependabot)
+FROM rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1 AS toolchain
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -270,8 +282,13 @@ CMD ["mdbook", "serve", "--hostname", "0.0.0.0", "--port", "3000"]
 
 ########################################################################
 # Stage: browser — Playwright with Chromium + WebKit for M3 onward
+#
+# Pinned by digest (see the toolchain-stage note at the top); Dependabot
+# bumps the tag + sha together. Refresh via
+# `docker buildx imagetools inspect mcr.microsoft.com/playwright:v1.60.0-jammy`.
 ########################################################################
-FROM mcr.microsoft.com/playwright:v1.60.0-jammy AS browser
+# mcr.microsoft.com/playwright:v1.60.0-jammy (digest pinned; tag kept for humans / Dependabot)
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy@sha256:e1529a04087193966ea15d4a1617345bdaa0791690a24ab2c42b65f9ce5b2cdc AS browser
 
 WORKDIR /workspace
 CMD ["bash"]

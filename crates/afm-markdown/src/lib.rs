@@ -119,9 +119,27 @@ impl Options {
         }
     }
 
-    /// Plain CommonMark (no GFM, no Aozora, raw HTML enabled). Used by
-    /// the CommonMark 0.31.2 spec-conformance test to verify the
-    /// wrapper does not perturb comrak's CommonMark behaviour.
+    /// Plain CommonMark (no GFM, no Aozora) with comrak's raw-HTML
+    /// passthrough **enabled** (`render.unsafe = true`). Spec-conformance
+    /// scaffolding only — it exists so the CommonMark 0.31.2 runner can
+    /// verify the wrapper does not perturb comrak's CommonMark behaviour
+    /// against a spec whose expected output includes raw HTML.
+    ///
+    /// Hidden from the published API surface (`#[doc(hidden)]`): this is
+    /// not a production configuration. Use [`Options::afm_default`] (which
+    /// keeps `render.unsafe = false`) or a hand-built [`Options`] for any
+    /// real workload.
+    ///
+    /// # Security
+    ///
+    /// **Raw-HTML passthrough — never use on untrusted input.** This adds
+    /// no Rust `unsafe`, but it is a security footgun: it turns on
+    /// comrak's raw-HTML passthrough (`render.unsafe = true`), so comrak
+    /// emits raw HTML verbatim and passes through unsanitized URLs
+    /// (`javascript:` schemes included). Feeding attacker-controlled
+    /// source through these `Options` is an XSS sink. Reach for
+    /// [`Options::afm_default`] instead, which leaves raw HTML escaped.
+    #[doc(hidden)]
     #[must_use]
     pub fn commonmark_only() -> Self {
         let mut comrak = comrak::Options::default();
@@ -133,8 +151,25 @@ impl Options {
         }
     }
 
-    /// Pure-GFM extension set (no Aozora, raw HTML enabled). Used by
-    /// the GFM 0.29 spec-conformance test.
+    /// Pure-GFM extension set (no Aozora) with comrak's raw-HTML
+    /// passthrough **enabled** (`render.unsafe = true`). Spec-conformance
+    /// scaffolding only — it backs the GFM 0.29 conformance runner.
+    ///
+    /// Hidden from the published API surface (`#[doc(hidden)]`): this is
+    /// not a production configuration. Use [`Options::afm_default`] (which
+    /// keeps `render.unsafe = false`) or a hand-built [`Options`] for any
+    /// real workload.
+    ///
+    /// # Security
+    ///
+    /// **Raw-HTML passthrough — never use on untrusted input.** This adds
+    /// no Rust `unsafe`, but it is a security footgun: it turns on
+    /// comrak's raw-HTML passthrough (`render.unsafe = true`), so comrak
+    /// emits raw HTML verbatim and passes through unsanitized URLs
+    /// (`javascript:` schemes included). Feeding attacker-controlled
+    /// source through these `Options` is an XSS sink. Reach for
+    /// [`Options::afm_default`] instead, which leaves raw HTML escaped.
+    #[doc(hidden)]
     #[must_use]
     pub fn gfm_only() -> Self {
         let mut comrak = comrak::Options::default();
@@ -189,6 +224,35 @@ pub struct RenderedIr {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Largest source afm will hand to the aozora lexer.
+///
+/// The core lexer keys every span on a `u32` byte offset and asserts
+/// `source.len() <= u32::MAX` at entry (`aozora_pipeline`'s Phase 0 /
+/// `tokenize_in`). Under this workspace's `panic = "abort"` release
+/// profile that assert is a hard process abort, not a catchable panic —
+/// an in-scope crash per `SECURITY.md` for a >4 GiB hostile input. afm's
+/// public entry points guard on this boundary *before* reaching the core
+/// so an oversized input degrades to a graceful empty render instead of
+/// aborting the host process. Mirrors `aozora-py`'s `PyValueError` guard
+/// (`source exceeds 4 GiB (u32::MAX) span limit`).
+const MAX_SOURCE_BYTES: usize = u32::MAX as usize;
+
+/// `true` when a source of `len` bytes is within the lexer's
+/// addressable `u32` span budget.
+///
+/// Split out from [`source_within_span_budget`] so the boundary
+/// arithmetic is unit-testable at `u32::MAX` / `u32::MAX + 1` without
+/// allocating a multi-gigabyte `String`.
+const fn len_within_span_budget(len: usize) -> bool {
+    len <= MAX_SOURCE_BYTES
+}
+
+/// `true` when `input` is within the lexer's addressable `u32` span
+/// budget. `false` inputs must not be handed to the core.
+const fn source_within_span_budget(input: &str) -> bool {
+    len_within_span_budget(input.len())
+}
+
 /// Render afm source text to HTML.
 ///
 /// One-stop entry point for the typical caller (afm CLI, afm-epub).
@@ -204,6 +268,14 @@ pub struct RenderedIr {
 ///    substituting each sentinel with the matching
 ///    `aozora::render::render_node` output.
 ///
+/// # Oversized input
+///
+/// If `input` exceeds `MAX_SOURCE_BYTES` (4 GiB − 1, the lexer's `u32`
+/// span budget) this returns an empty [`Rendered`] (`html: ""`, no
+/// diagnostics) **without** invoking the core lexer — the core would
+/// otherwise `assert!` and abort the process under `panic = "abort"`.
+/// See `MAX_SOURCE_BYTES` for the rationale.
+///
 /// # Panics
 ///
 /// Panics if `comrak::format_html` fails to write into the internal
@@ -211,6 +283,12 @@ pub struct RenderedIr {
 /// branch is unreachable in normal use.
 #[must_use]
 pub fn render_to_string(input: &str, options: &Options) -> Rendered {
+    if !source_within_span_budget(input) {
+        return Rendered {
+            html: String::new(),
+            diagnostics: Vec::new(),
+        };
+    }
     let (html, diagnostics, ()) = drive_pipeline(input, options, |_root, _lex_out| ());
     Rendered { html, diagnostics }
 }
@@ -229,6 +307,12 @@ pub fn render_to_string(input: &str, options: &Options) -> Rendered {
 /// their host paragraph to `IrBlock::Heading` so the IR shape
 /// matches the rendered HTML one-for-one.
 ///
+/// # Oversized input
+///
+/// If `input` exceeds `MAX_SOURCE_BYTES` this returns an empty
+/// [`RenderedIr`] (empty IR document, `html: ""`, no diagnostics)
+/// without invoking the core lexer. See `MAX_SOURCE_BYTES`.
+///
 /// # Panics
 ///
 /// Panics if `comrak::format_html` fails to write into the internal
@@ -236,6 +320,13 @@ pub fn render_to_string(input: &str, options: &Options) -> Rendered {
 /// branch is unreachable in normal use.
 #[must_use]
 pub fn render_to_ir(input: &str, options: &Options) -> RenderedIr {
+    if !source_within_span_budget(input) {
+        return RenderedIr {
+            ir: ir::IrDocument::default(),
+            html: String::new(),
+            diagnostics: Vec::new(),
+        };
+    }
     let (html, diagnostics, ir) = drive_pipeline(input, options, ir::build_ir);
     RenderedIr {
         ir,
@@ -356,11 +447,20 @@ pub struct RenderedBlock {
 /// are emitted as separate blocks; the consumer is responsible for
 /// re-assembling them. The whole-document `render_to_ir` path
 /// preserves cross-block structure if you need it.
+///
+/// # Oversized input
+///
+/// If `input` exceeds `MAX_SOURCE_BYTES` this returns
+/// `(Vec::new(), Vec::new())` — no blocks, no diagnostics — without
+/// invoking the core lexer. See `MAX_SOURCE_BYTES`.
 #[must_use]
 pub fn render_blocks_to_ir(
     input: &str,
     options: &Options,
 ) -> (Vec<RenderedBlock>, Vec<Diagnostic>) {
+    if !source_within_span_budget(input) {
+        return (Vec::new(), Vec::new());
+    }
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
         let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
@@ -434,8 +534,20 @@ fn collect_rendered_blocks<'a>(
 /// borrowed-AST inverse of `lex_into_arena`. Plain CommonMark portions
 /// of the input pass through verbatim because the lexer leaves them
 /// untouched.
+///
+/// # Oversized input
+///
+/// If `input` exceeds `MAX_SOURCE_BYTES` this returns an empty
+/// `String` without invoking the core lexer (which would otherwise
+/// `assert!` and abort under `panic = "abort"`). See
+/// `MAX_SOURCE_BYTES`. The round-trip is therefore *not* identity on
+/// inputs larger than 4 GiB — but such input cannot be lexed at all, so
+/// an empty serialization is the only graceful option.
 #[must_use]
 pub fn serialize(input: &str) -> String {
+    if !source_within_span_budget(input) {
+        return String::new();
+    }
     let arena = Arena::new();
     let lex_out = aozora::lex_into_arena(input, &arena);
     aozora_serialize::serialize(&lex_out)
@@ -534,6 +646,82 @@ mod tests {
             "<span class=\"afm-annotation\" hidden>［＃</span>"
         ));
         assert!(!contains_bare_bracket("no marker at all"));
+    }
+
+    // -------------------------------------------------------------------
+    // (a) Spec-conformance constructors are #[doc(hidden)] but still
+    // wire raw-HTML passthrough on for the spec runners. These tests pin
+    // that the hidden constructors keep their unsafe spec config so a
+    // future refactor that breaks the spec wiring is caught here.
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn commonmark_only_enables_raw_html_and_disables_aozora() {
+        let opts = Options::commonmark_only();
+        assert!(
+            opts.comrak.render.r#unsafe,
+            "commonmark_only must enable raw-HTML passthrough for the spec runner"
+        );
+        assert!(
+            !opts.aozora_enabled,
+            "commonmark_only must skip the aozora pass"
+        );
+    }
+
+    #[test]
+    fn afm_default_does_not_enable_raw_html() {
+        // The production constructor must NOT inherit the spec runners'
+        // raw-HTML passthrough — that is the XSS-safety contract that
+        // motivated hiding commonmark_only / gfm_only.
+        let opts = Options::afm_default();
+        assert!(
+            !opts.comrak.render.r#unsafe,
+            "afm_default must leave raw HTML escaped (no render.unsafe)"
+        );
+        assert!(opts.aozora_enabled, "afm_default must run the aozora pass");
+    }
+
+    // -------------------------------------------------------------------
+    // (b) Oversized-input boundary guard. The lexer asserts
+    // `source.len() <= u32::MAX` and aborts under panic=abort; the afm
+    // entry points must degrade to an empty render instead. We cannot
+    // allocate a >4 GiB string in a test, so the threshold arithmetic is
+    // pinned on the pure `len_within_span_budget` helper, and the entry
+    // points are exercised on realistic (in-budget) input.
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn len_budget_boundary_is_exactly_u32_max() {
+        assert!(len_within_span_budget(0));
+        assert!(len_within_span_budget(1024));
+        assert!(
+            len_within_span_budget(MAX_SOURCE_BYTES),
+            "exactly u32::MAX bytes is still addressable"
+        );
+        // `checked_add` keeps the test sound on a hypothetical 32-bit
+        // target where `MAX_SOURCE_BYTES == usize::MAX` and `+ 1` would
+        // overflow; there, "one past the budget" is unrepresentable, so
+        // the over-budget assertion is vacuously satisfied. On the
+        // workspace's 64-bit targets `over` is `u32::MAX + 1`, the exact
+        // value the core lexer's assert rejects.
+        if let Some(over) = MAX_SOURCE_BYTES.checked_add(1) {
+            assert!(
+                !len_within_span_budget(over),
+                "one byte past u32::MAX must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn in_budget_input_still_renders_normally() {
+        // Guard must be transparent for ordinary input.
+        let r = render_to_string("# hi\n\nbody", &Options::afm_default());
+        assert!(r.html.contains("<h1>hi</h1>"), "html: {}", r.html);
+        let ir = render_to_ir("para", &Options::afm_default());
+        assert!(!ir.ir.blocks.is_empty());
+        let (blocks, _) = render_blocks_to_ir("a\n\nb", &Options::afm_default());
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(serialize("plain"), "plain");
     }
 
     /// Tier-A canary: every occurrence of `［＃` must be inside an

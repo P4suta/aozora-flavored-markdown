@@ -34,6 +34,30 @@ registry into an ordered `Vec<NodeRef<'_>>` and dispatch sequentially.
 The upstream `Cargo.lock` is intentionally not vendored. Our workspace owns
 the single authoritative `Cargo.lock` at the repo root.
 
+## Security advisory tracking (C1/F4)
+
+Because comrak is vendored here as a **path dependency**, it is absent from
+the registry dependency graph that `cargo audit` and `cargo deny` walk.
+Neither tool would therefore flag a [RustSec](https://rustsec.org/)
+advisory filed against the `comrak` crate at our pinned version — a real
+supply-chain blind spot for a vendored fork.
+
+`just audit-comrak` closes it. The recipe reads the version from
+`Cargo.toml` in this directory, synthesises a one-crate `Cargo.lock`
+pinning `comrak` at that version as a crates.io package, and runs the
+authoritative `cargo audit` engine against it, so advisory version-range
+matching applies to the vendored tree exactly as for a registry crate. It
+runs **per pull request** — wired into `just audit` → `just ci` and as its
+own leg in the `audit` matrix of `.github/workflows/ci.yml` — with **no
+scheduled / cron workflow** (maintainer preference). See `afm/SECURITY.md`
+("Vendored comrak advisory tracking") for the policy and the remediation
+path on a hit (normally `just upstream-sync <tag>` past the patched
+version).
+
+Whenever this tree is re-synced to a new tag, the gate automatically
+re-targets the new version because the version is sourced from
+`Cargo.toml`, not duplicated in the recipe.
+
 ## History
 
 The pre-v0.2.4 tree carried these patches (~22 lines on a 200-line budget):

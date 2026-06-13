@@ -117,49 +117,65 @@ pub(crate) fn visit_text_leaves<'a, F>(
 where
     F: FnMut(&str) -> ControlFlow<()>,
 {
-    fn recurse<'a, F>(node: &'a AstNode<'a>, mode: InlineDescend, visit: &mut F) -> Result<(), ()>
-    where
-        F: FnMut(&str) -> ControlFlow<()>,
-    {
-        for child in node.children() {
-            let data = child.data.borrow();
-            match &data.value {
-                NodeValue::Text(s) => {
-                    // Hold the `child.data` borrow across `visit` rather
-                    // than cloning the string out. The visitor only ever
-                    // sees `&str` — it cannot reach `child.data` — and
-                    // every visitor on this path is read-only (the
-                    // splice's tree mutation runs in a separate, later
-                    // walk), so the immutable borrow is sound and the
-                    // per-leaf `Cow::clone` — an owned-string deep copy
-                    // on consolidated comrak text — is pure waste.
-                    let flow = visit(s);
-                    drop(data);
-                    if flow == ControlFlow::Break(()) {
-                        return Err(());
-                    }
-                    // A `Text` node can in principle have children
-                    // under non-pathological comrak inputs (emphasis
-                    // splits etc.). Recurse through them too.
-                    if child.first_child().is_some() {
-                        recurse(child, mode, visit)?;
-                    }
+    // Iterative depth-first traversal over an explicit stack rather than
+    // recursion. comrak can build arbitrarily deep *inline* nesting from
+    // a small input (e.g. deeply nested emphasis / links), and a
+    // recursive descent would exhaust the call stack — under the release
+    // profile's `panic = "abort"` that is a hard process abort, which
+    // both repos' SECURITY.md scope IN as a vulnerability (a crash on
+    // untrusted input). The explicit stack moves the unbounded growth to
+    // the heap, where it is bounded by the input size, not the OS stack.
+    //
+    // Ordering: `extend_children_rev` pushes a node's children in reverse
+    // so they pop left-to-right, and a `Text` leaf is visited *before* its
+    // own descendants are pushed. That reproduces the previous recursion's
+    // exact left-to-right pre-order (visit a leaf, then its subtree, then
+    // its siblings), which `paragraph_sole_block_sentinel` and `ParaScan`
+    // both depend on for their sentinel-count / first-hit semantics.
+    let mut stack: Vec<&'a AstNode<'a>> = Vec::new();
+    extend_children_rev(&mut stack, node);
+    while let Some(child) = stack.pop() {
+        let data = child.data.borrow();
+        match &data.value {
+            NodeValue::Text(s) => {
+                // Hold the `child.data` borrow across `visit` rather than
+                // cloning the string out. The visitor only ever sees
+                // `&str` — it cannot reach `child.data` — and every
+                // visitor on this path is read-only (the splice's tree
+                // mutation runs in a separate, later walk), so the
+                // immutable borrow is sound and the per-leaf `Cow::clone`
+                // — an owned-string deep copy on consolidated comrak text
+                // — is pure waste.
+                let flow = visit(s);
+                drop(data);
+                if flow == ControlFlow::Break(()) {
+                    return Err(());
                 }
-                _ => match mode {
-                    InlineDescend::StopAtNonText => return Err(()),
-                    InlineDescend::DescendThrough => {
-                        let has_descendants = child.first_child().is_some();
-                        drop(data);
-                        if has_descendants {
-                            recurse(child, mode, visit)?;
-                        }
-                    }
-                },
+                // A `Text` node can in principle have children under
+                // non-pathological comrak inputs (emphasis splits etc.).
+                // Visit them after the leaf itself (pre-order), before any
+                // of the leaf's siblings.
+                extend_children_rev(&mut stack, child);
             }
+            _ => match mode {
+                InlineDescend::StopAtNonText => return Err(()),
+                InlineDescend::DescendThrough => {
+                    drop(data);
+                    extend_children_rev(&mut stack, child);
+                }
+            },
         }
-        Ok(())
     }
-    recurse(node, mode, &mut visit)
+    Ok(())
+}
+
+/// Push `parent`'s children onto `stack` in reverse document order, so a
+/// `Vec`-as-stack pops them left-to-right. Shared by the iterative
+/// [`visit_text_leaves`] traversal.
+fn extend_children_rev<'a>(stack: &mut Vec<&'a AstNode<'a>>, parent: &'a AstNode<'a>) {
+    let start = stack.len();
+    stack.extend(parent.children());
+    stack[start..].reverse();
 }
 
 /// Walk a comrak paragraph node and return `Some(kind)` iff its
