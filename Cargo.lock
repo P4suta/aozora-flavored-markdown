@@ -153,7 +153,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 [[package]]
 name = "aozora"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "aozora-encoding",
  "aozora-pipeline",
@@ -169,7 +169,7 @@ dependencies = [
 [[package]]
 name = "aozora-encoding"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "encoding_rs",
  "miette",
@@ -181,7 +181,7 @@ dependencies = [
 [[package]]
 name = "aozora-pipeline"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "aho-corasick",
  "aozora-encoding",
@@ -200,7 +200,7 @@ dependencies = [
 [[package]]
 name = "aozora-proptest"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "proptest",
 ]
@@ -208,7 +208,7 @@ dependencies = [
 [[package]]
 name = "aozora-render"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "aozora-pipeline",
  "aozora-spec",
@@ -219,27 +219,26 @@ dependencies = [
 [[package]]
 name = "aozora-scan"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
+ "aho-corasick",
  "aozora-spec",
  "bumpalo",
- "memchr",
 ]
 
 [[package]]
 name = "aozora-spec"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "miette",
- "phf",
  "thiserror",
 ]
 
 [[package]]
 name = "aozora-syntax"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 dependencies = [
  "aozora-encoding",
  "aozora-spec",
@@ -253,7 +252,7 @@ dependencies = [
 [[package]]
 name = "aozora-veb"
 version = "0.3.0"
-source = "git+https://github.com/P4suta/aozora.git?rev=c91b31d8a14f131413d3528aaf41bc1b240beca1#c91b31d8a14f131413d3528aaf41bc1b240beca1"
+source = "git+https://github.com/P4suta/aozora.git?rev=27ad4a79e93786a3b0364b6ed9ed941b8554721e#27ad4a79e93786a3b0364b6ed9ed941b8554721e"
 
 [[package]]
 name = "autocfg"

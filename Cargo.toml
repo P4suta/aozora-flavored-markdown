@@ -180,7 +180,7 @@ afm-markdown-test-support = { version = "0.3.0", path = "crates/afm-markdown-tes
 # `default-features = false` keeps cst / query / wire / proptest / schema
 # out of the build graph; the dev-only proptest generators come in via
 # the `proptest` feature on the afm-markdown dev-dependency.
-aozora = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "c91b31d8a14f131413d3528aaf41bc1b240beca1", default-features = false }
+aozora = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "27ad4a79e93786a3b0364b6ed9ed941b8554721e", default-features = false }
 
 # comrak vendored fork (path, not crates.io).
 # `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
