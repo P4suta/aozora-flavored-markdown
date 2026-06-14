@@ -11,6 +11,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Playground polish (round 2):** light/dark colour-scheme toggle
+  (#57); unified layout skeleton (breakpoint + footer), scaled tokens,
+  and a right-anchored vertical preview (#58, #59); selection-wrap
+  commands that wrap the selection in aozora notation (#60); a notation
+  reference modal (#61); and a source-coordinate WASM API exposing lexer
+  offsets to the editor (#62).
+- **Build provenance attestation** on release artefacts via
+  `actions/attest-build-provenance`: every archive is verifiable with
+  `gh attestation verify <archive> --repo P4suta/afm`, no certificates.
+  (#64, #66)
+- **aozora pin advanced to the tagged v0.4.0 release** (`df0f64b`) — afm
+  v0.4.0 builds against the provenance-attested aozora v0.4.0.
 - **Browser playground at `/afm/playground/`** — Solid + Vite frontend
   over `crates/afm-wasm`, deployed to
   <https://p4suta.github.io/afm/playground/>. CodeMirror 6 editor with
@@ -97,6 +109,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Prevented a deep-nesting stack overflow** and hardened the public
+  API surface + CI for release (#65).
 - Repaired 4 broken intra-doc links in `afm-markdown` that turned
   `cargo doc --workspace` into a hard failure under the
   `broken_intra_doc_links = "deny"` workspace lint, blocking the
