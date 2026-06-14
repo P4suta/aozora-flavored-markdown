@@ -16,7 +16,7 @@ afm-markdown-test-support = { path = "../../afm-markdown-test-support" }
 # parent workspace's `aozora` (a loose `branch = "main"` could drift from
 # the rev afm builds against). `aozora::encoding::decode_sjis` is the
 # umbrella path for the SJIS decoder the sjis_decode target fuzzes.
-aozora                    = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "c91b31d8a14f131413d3528aaf41bc1b240beca1", default-features = false }
+aozora                    = { version = "0.4.0", git = "https://github.com/P4suta/aozora.git", rev = "df0f64b1a42897030d4b7d0129fb7564e070ab73", default-features = false }
 
 # Prevent this crate from joining the afm workspace.
 # Each fuzz target needs libfuzzer-sys (nightly-gated), which the
