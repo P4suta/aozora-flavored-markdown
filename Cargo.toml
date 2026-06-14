@@ -14,7 +14,7 @@ members = [
 exclude = ["upstream/comrak", "crates/afm-book"]
 
 [workspace.package]
-version       = "0.3.0"
+version       = "0.4.0"
 edition       = "2024"
 rust-version  = "1.95.0"
 license       = "Apache-2.0 OR MIT"
@@ -157,10 +157,10 @@ redundant_pub_crate     = "allow"
 
 [workspace.dependencies]
 # Internal crate (the Markdown-integration layer that lives in this repo)
-afm-markdown = { version = "0.3.0", path = "crates/afm-markdown" }
+afm-markdown = { version = "0.4.0", path = "crates/afm-markdown" }
 # Internal test-only crate. `publish = false` so the version is purely
 # a cargo-deny placeholder; the real coupling is the workspace path.
-afm-markdown-test-support = { version = "0.3.0", path = "crates/afm-markdown-test-support" }
+afm-markdown-test-support = { version = "0.4.0", path = "crates/afm-markdown-test-support" }
 
 # Sibling repo aozora — pure 青空文庫記法 parser. afm depends on the
 # single umbrella `aozora` crate (its designated front door), NOT the
@@ -180,7 +180,7 @@ afm-markdown-test-support = { version = "0.3.0", path = "crates/afm-markdown-tes
 # `default-features = false` keeps cst / query / wire / proptest / schema
 # out of the build graph; the dev-only proptest generators come in via
 # the `proptest` feature on the afm-markdown dev-dependency.
-aozora = { version = "0.3.0", git = "https://github.com/P4suta/aozora.git", rev = "27ad4a79e93786a3b0364b6ed9ed941b8554721e", default-features = false }
+aozora = { version = "0.4.0", git = "https://github.com/P4suta/aozora.git", rev = "df0f64b1a42897030d4b7d0129fb7564e070ab73", default-features = false }
 
 # comrak vendored fork (path, not crates.io).
 # `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
