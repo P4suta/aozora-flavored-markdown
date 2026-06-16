@@ -40,5 +40,5 @@ highlight = "all"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# Sibling-repo aozora-* crates pinned at the v0.1.0 tag (ADR-0010 split).
+# Sibling-repo aozora-* crates pinned by immutable commit SHA = v0.4.1 (ADR-0010 split).
 allow-git = ["https://github.com/P4suta/aozora.git"]
