@@ -70,9 +70,15 @@ jobs:
         with:
           fetch-depth: 0
       - uses: taiki-e/install-action@v2
+        if: github.actor != 'dependabot[bot]'
         with:
           tool: committed
+      # Dependabot's auto-generated commit subjects/bodies exceed committed's
+      # 50/72 limits; its PRs are squash-merged with a maintainer-set subject,
+      # so skip the lint for the bot. The job still runs and succeeds, keeping
+      # the required "commitlint" check green (a skipped required check blocks).
       - name: Check Conventional Commits (committed)
+        if: github.actor != 'dependabot[bot]'
         run: committed "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
 
   # Phase-1 fast gate. `just check` runs `cargo check` workspace-wide
