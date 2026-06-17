@@ -74,3 +74,5 @@ dhat-heap.json
 # Personal Claude Code settings (do not check in)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+CLAUDE.md
+CLAUDE.local.md
