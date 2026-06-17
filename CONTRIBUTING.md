@@ -146,7 +146,8 @@ as an **Architecture Decision Record** (MADR format) under
 cargo xtask new-adr 'my new decision'
 ```
 
-Reference the ADR in the commit body. Look at
+Add a row to the index ([`docs/ADR_INDEX.md`](docs/ADR_INDEX.md)) and
+reference the ADR in the commit body. Look at
 `docs/adr/0008-MOVED.md` (and the canonical text in the sibling
 repo) for an example of a decision that fundamentally reshaped the
 pipeline; look at `docs/adr/0011-brand-boundary-css-class-rewrite.md`
