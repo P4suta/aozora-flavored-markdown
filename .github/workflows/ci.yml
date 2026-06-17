@@ -69,15 +69,17 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 0
-      - name: Check Conventional Commits
-        run: |
-          range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-          while read -r sha subject; do
-            if ! echo "$subject" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .{1,}'; then
-              echo "::error::Commit $sha has non-conventional subject: $subject"
-              exit 1
-            fi
-          done < <(git log --format='%H %s' "$range")
+      - uses: taiki-e/install-action@v2
+        if: github.actor != 'dependabot[bot]'
+        with:
+          tool: committed
+      # Dependabot's auto-generated commit subjects/bodies exceed committed's
+      # 50/72 limits; its PRs are squash-merged with a maintainer-set subject,
+      # so skip the lint for the bot. The job still runs and succeeds, keeping
+      # the required "commitlint" check green (a skipped required check blocks).
+      - name: Check Conventional Commits (committed)
+        if: github.actor != 'dependabot[bot]'
+        run: committed "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
 
   # Phase-1 fast gate. `just check` runs `cargo check` workspace-wide
   # (no codegen, no link) — with the GHA-backed sccache wired in via
