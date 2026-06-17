@@ -249,3 +249,8 @@ split-debuginfo = "unpacked"
 # Optimise proc-macros/build scripts/most upstream in dev to speed the test cycle
 [profile.dev.package."*"]
 opt-level = 1
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
