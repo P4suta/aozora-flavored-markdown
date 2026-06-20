@@ -18,9 +18,10 @@ _fuzz := "docker compose run --rm fuzz"
 
 # --- metadata -----------------------------------------------------------------
 
-# Default: show this help
+# Default: show this help, recipes grouped by area
+[group('meta')]
 default:
-    @just --list --unsorted
+    @just --list
 
 # --- build/shell --------------------------------------------------------------
 
@@ -29,61 +30,91 @@ default:
 # run after editing source — every other build/test recipe depends on
 # this being green, so failing here surfaces the problem 10× sooner than
 # waiting for `just test` to error out at the same site.
+[group('build')]
 check:
     {{_dev}} cargo check --workspace --all-targets
 
 # Build all workspace crates
+[group('build')]
 build:
     {{_dev}} cargo build --workspace --all-targets
 
 # Build rustdoc for every crate — the only gate that runs the
 # `broken_intra_doc_links = "deny"` rustdoc lint (check / clippy skip it).
+[group('build')]
 doc:
     {{_dev}} cargo doc --workspace --no-deps --document-private-items
 
 # Build release binaries
+[group('build')]
 build-release:
     {{_dev}} cargo build --release --workspace
 
 # Drop into an interactive dev shell
+[group('build')]
 shell:
     {{_dev}} bash
 
 # Run the afm CLI with arbitrary args (same as ./bin/afm ARGS)
+[group('build')]
 run *ARGS:
     {{_dev}} cargo run --package afm-cli --quiet -- {{ARGS}}
 
 # --- tests --------------------------------------------------------------------
 
 # Run the full test suite (unit + integration + snapshot)
+[group('test')]
 test *ARGS:
     {{_dev}} cargo nextest run --workspace --all-targets {{ARGS}}
 
 # Run doctests (nextest skips these by design)
+[group('test')]
 test-doc:
     {{_dev}} cargo test --workspace --doc
+
+# `just test` (nextest) leaves `.snap.new` files but does not apply them.
+# Review pending insta snapshot changes interactively (accept/reject each).
+[group('test')]
+snapshot-review:
+    {{_dev}} cargo insta review
+
+# Accept ALL pending insta snapshots without review (eyeball the diff first).
+[group('test')]
+snapshot-accept:
+    {{_dev}} cargo insta accept
 
 # Property-based tests only. Default 128 cases per proptest block
 # (AOZORA_PROPTEST_CASES override via aozora-test-utils::config). Fast
 # enough to live in `just ci` — see `just prop-deep` for a stress run.
+[group('test')]
 prop:
     {{_dev}} cargo nextest run --workspace --all-features --test 'property_*' --run-ignored default
 
 # Deep property sweep — 4096 cases per block, used before cutting a
 # release to exercise invariants beyond the default CI budget.
+[group('test')]
 prop-deep:
     {{_dev}} bash -c 'AOZORA_PROPTEST_CASES=4096 cargo nextest run --workspace --all-features --test "property_*" --run-ignored default'
 
+# Replay one proptest failure from its seed (printed on nextest's FAIL line).
+# Optional TARGET narrows to one `property_*` test binary; default is all.
+[group('test')]
+prop-seed SEED TARGET="property_*":
+    {{_dev}} bash -c 'AOZORA_PROPTEST_SEED={{SEED}} cargo nextest run --workspace --all-features --test "{{TARGET}}" --run-ignored default'
+
 # Run every `invariant_unit_` predicate test — narrow regression target
 # that skips the full proptest sweep.
+[group('test')]
 invariants:
     {{_dev}} cargo nextest run --package afm-markdown --lib -E 'test(invariant_unit_)'
 
 # CommonMark 0.31.2 spec compliance (652 cases, pass = 652/652)
+[group('test')]
 spec-commonmark:
     {{_dev}} cargo nextest run --package afm-markdown --test commonmark_spec
 
 # GitHub Flavored Markdown spec compliance
+[group('test')]
 spec-gfm:
     {{_dev}} cargo nextest run --package afm-markdown --test gfm_spec
 
@@ -99,18 +130,22 @@ spec-gfm:
 # `just test` replays them with no nightly required.
 
 # Run the named fuzz target with arbitrary args (escape hatch for advanced use).
+[group('fuzz')]
 fuzz *ARGS:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
 
 # 60-second smoke fuzz. `timeout` is a hard backstop if libFuzzer ever hangs.
+[group('fuzz')]
 fuzz-quick TARGET:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 90s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
 
 # 5-minute deep fuzz — the gate to clear before tagging a release.
+[group('fuzz')]
 fuzz-deep TARGET:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 360s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
 
 # 15-minute marathon fuzz — strongest single-target soak; exits cleanly at 15 min.
+[group('fuzz')]
 fuzz-marathon TARGET:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 1000s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
 
@@ -118,6 +153,7 @@ fuzz-marathon TARGET:
 # (bytes, panic-message) for each. Exit status is the count of artifacts
 # that still crash, so this can drive a CI gate. Order is alphabetical
 # by hash so output stays stable across machines.
+[group('fuzz')]
 fuzz-triage TARGET:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -169,6 +205,7 @@ fuzz-triage TARGET:
 # `tests/fuzz_regressions.rs` integration test asserts it forever.
 # Drop the matching entry from `fuzz/artifacts/` once promoted (a
 # regression case lives in tests/, not in libFuzzer's working set).
+[group('fuzz')]
 fuzz-promote TARGET ARTIFACT:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -187,6 +224,7 @@ fuzz-promote TARGET ARTIFACT:
 # Run every registered fuzz target in turn for 60 s each. Smoke pass:
 # typically used after touching anything in `crates/afm-markdown/src/`
 # or `crates/afm-markdown-test-support/src/`.
+[group('fuzz')]
 fuzz-all-quick:
     just fuzz-quick parse_render
     just fuzz-quick serialize_round_trip
@@ -194,6 +232,7 @@ fuzz-all-quick:
 
 # Run every registered fuzz target in turn for 5 min each. Release
 # pre-flight pass: a clean run is the gate before tagging a release.
+[group('fuzz')]
 fuzz-all-deep:
     just fuzz-deep parse_render
     just fuzz-deep serialize_round_trip
@@ -202,6 +241,7 @@ fuzz-all-deep:
 # At-a-glance health check: how many crash artifacts are pending
 # triage, how many regression cases are pinned per target. Nothing
 # here invokes nightly, so it stays cheap and shell-friendly.
+[group('fuzz')]
 fuzz-status:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -221,25 +261,30 @@ fuzz-status:
     done
 
 # Benchmarks (criterion)
+[group('bench')]
 bench *ARGS:
     {{_dev}} cargo bench --workspace {{ARGS}}
 
 # Save the current criterion numbers as a named baseline (default
 # `pre-opt`). Run before a structural change; `bench-compare` diffs
 # against it. criterion stores baselines under target/criterion/.
+[group('bench')]
 bench-baseline NAME="pre-opt":
     {{_dev}} cargo bench --workspace -- --save-baseline {{NAME}}
 
 # Re-run the benches and report the % change vs a saved baseline.
+[group('bench')]
 bench-compare NAME="pre-opt":
     {{_dev}} cargo bench --workspace -- --baseline {{NAME}}
 
 # Heap-allocation profile (dhat) of one large render: total allocations
 # + peak resident bytes, and a dhat-heap.json for the dh_view viewer.
+[group('bench')]
 dhat:
     {{_dev}} cargo run --release --example dhat_render -p afm-markdown
 
 # Small-document render latency percentiles (p50/p90/p99/max).
+[group('bench')]
 latency:
     {{_dev}} cargo run --release --example latency_hist -p afm-markdown
 
@@ -248,6 +293,7 @@ latency:
 # (the ADR-0002 profiling exception). Built `--profile bench` to keep symbols.
 # Needs `samply` on PATH and perf_event_paranoid <= 1; writes
 # /tmp/afm-render.json.gz (open at https://profiler.firefox.com).
+[group('bench')]
 samply-render REPEAT="200":
     cargo build --profile bench --example samply_render -p afm-markdown
     samply record --save-only --no-open -o /tmp/afm-render.json.gz -r 4000 -- target/release/examples/samply_render {{REPEAT}}
@@ -266,6 +312,7 @@ samply-render REPEAT="200":
 _COV_FLOOR := "96"
 _COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|afm-markdown-test-support/|afm-wasm/)"
 
+[group('coverage')]
 coverage:
     {{_dev}} cargo llvm-cov nextest \
         --workspace \
@@ -274,6 +321,7 @@ coverage:
 
 # HTML coverage report for local inspection. No threshold — intended
 # for opening `coverage/html/index.html` in a browser.
+[group('coverage')]
 coverage-html:
     {{_dev}} cargo llvm-cov nextest \
         --workspace \
@@ -283,6 +331,7 @@ coverage-html:
 # Branch-level coverage report (requires nightly for `--branch` support).
 # Informational only — no threshold. Use to surface uncovered conditionals
 # when working a specific file toward C1 100%.
+[group('coverage')]
 coverage-branch:
     {{_fuzz}} cargo +nightly llvm-cov nextest \
         --branch \
@@ -292,6 +341,7 @@ coverage-branch:
 # --- lint / static analysis ---------------------------------------------------
 
 # Run all lints (fmt + clippy + typos + strict-code)
+[group('lint')]
 lint: fmt-check clippy typos strict-code
 
 # Forbid patterns that hide bugs or introduce unstable/unsafe surface in our
@@ -299,6 +349,7 @@ lint: fmt-check clippy typos strict-code
 # untouched). Every check is defensive — each represents a pattern we have
 # decided IS a bug-source and want rejected at the gate rather than fought
 # later in code review.
+[group('lint')]
 strict-code:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -398,26 +449,31 @@ strict-code:
     echo "strict-code: clean"
 
 # Format check (no-write)
+[group('lint')]
 fmt-check:
     {{_dev}} cargo fmt --all -- --check
 
 # Auto-format (writes)
+[group('lint')]
 fmt:
     {{_dev}} cargo fmt --all
 
 # Clippy. Lint groups and carve-outs live entirely in `[workspace.lints]`;
 # passing `-W clippy::<group>` here would override the per-lint allow carve-outs,
 # so keep the CLI surface to `-D warnings` only.
+[group('lint')]
 clippy:
     {{_dev}} cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Typo check
+[group('lint')]
 typos:
     {{_dev}} typos
 
 # Assert tool-version pins agree across files: bun (Dockerfile /
 # playground/package.json / docs.yml) and wasm-pack (Dockerfile / docs.yml).
 # Fails if any pair disagrees.
+[group('lint')]
 verify-version-pins:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -460,11 +516,13 @@ verify-version-pins:
     fi
 
 # Dependency linting (licenses, advisories, bans)
+[group('lint')]
 deny:
     {{_dev}} cargo deny check
 
 # RustSec advisory scan. Depends on `audit-comrak` because comrak is a PATH
 # dep (ADR-0001) absent from Cargo.lock, so plain `cargo audit` can't see it.
+[group('lint')]
 audit: audit-comrak
     {{_dev}} cargo audit
 
@@ -474,6 +532,7 @@ audit: audit-comrak
 # registry package and audits that, so any advisory keyed to comrak fails the
 # gate. On a hit: bump the vendored tree past the patched version, or record a
 # documented ignore (see SECURITY.md "Vendored comrak").
+[group('lint')]
 audit-comrak:
     {{_dev}} bash -c '\
         set -euo pipefail; \
@@ -495,20 +554,24 @@ audit-comrak:
         cargo audit --file "$lock" --deny warnings'
 
 # Unused dependency scan (requires nightly)
+[group('lint')]
 udeps:
     {{_fuzz}} cargo +nightly udeps --workspace --all-targets
 
 # Semver break detection (runs against published baseline once crates are on crates.io)
+[group('lint')]
 semver:
     {{_dev}} cargo semver-checks check-release --workspace
 
 # --- upstream / fork management ----------------------------------------------
 
 # Report diff-line count against upstream comrak (hard fail > 200 lines)
+[group('upstream')]
 upstream-diff:
     {{_dev}} cargo run --package xtask --quiet -- upstream-diff
 
 # Sync upstream comrak to TAG and re-apply hook patches
+[group('upstream')]
 upstream-sync TAG:
     {{_dev}} cargo run --package xtask --quiet -- upstream-sync {{TAG}}
 
@@ -516,6 +579,7 @@ upstream-sync TAG:
 # pass, then refresh Cargo.lock. Idempotent (no-op when the SHA already
 # matches). Use the full 40-char hex SHA from `git ls-remote
 # https://github.com/P4suta/aozora.git refs/heads/main`.
+[group('upstream')]
 aozora-bump SHA:
     {{_dev}} cargo run --package xtask --quiet -- aozora-bump {{SHA}}
 
@@ -523,6 +587,7 @@ aozora-bump SHA:
 # `spec/sources/*.txt`. Offline-pure: both the sources and the generated
 # fixtures are committed to the repo. Add new `spec/sources/<name>.txt`
 # files and extend the conversion block below to cover them.
+[group('upstream')]
 spec-refresh:
     {{_dev}} bash -c '\
         set -euo pipefail && \
@@ -536,39 +601,47 @@ spec-refresh:
 # --- docs ---------------------------------------------------------------------
 
 # Build the mdbook documentation site
+[group('docs')]
 book-build:
     docker compose run --rm book mdbook build
 
 # Serve the mdbook site at http://localhost:3000
+[group('docs')]
 book-serve:
     docker compose up book
 
 # Check documentation links
+[group('docs')]
 book-linkcheck:
     docker compose run --rm book mdbook-linkcheck
 
 # New Architecture Decision Record (MADR template)
+[group('docs')]
 adr TITLE:
     {{_dev}} cargo run --package xtask --quiet -- new-adr {{TITLE}}
 
 # Regenerate crates/afm-wasm/types/afm_types.d.ts from the live IR +
 # wasm envelope types. Commit the diff so `types-check` stays green.
+[group('docs')]
 types:
     {{_dev}} cargo run --package xtask --quiet -- types ts
 
 # Drift gate: fail if the committed afm_types.d.ts disagrees with fresh
 # codegen. Wired into `just ci` (and the `types-check` CI job); run after
 # touching the IR types.
+[group('docs')]
 types-check:
     {{_dev}} cargo run --package xtask --quiet -- types check
 
 # Regenerate CHANGELOG.md from Conventional-Commits history (see cliff.toml).
+[group('docs')]
 changelog:
     {{_dev}} git-cliff -o CHANGELOG.md
 
 # --- end-to-end (M3 onward) --------------------------------------------------
 
 # Playwright browser tests (Chromium + WebKit)
+[group('e2e')]
 e2e *ARGS:
     docker compose run --rm browser \
         bash -c 'cd crates/afm-book && npm ci && npx playwright test {{ARGS}}'
@@ -589,6 +662,7 @@ _pg_install := "docker compose run --rm playground"
 # (referenced by `playground/package.json` as `file:../crates/afm-wasm/pkg`).
 # `RUSTC_WRAPPER=` bypasses sccache, which wasm-pack's `rustup target add`
 # subprocess corrupts (SCCACHE_GHA_ENABLED); the wasm cache benefit is marginal.
+[group('playground')]
 wasm-build:
     {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
         --target bundler --release \
@@ -599,6 +673,7 @@ wasm-build:
 # completes in ~10-20 s vs the 60-90 s `wasm-build` release path. Do NOT
 # ship the output to GitHub Pages — `just playground-build` and the docs
 # workflow both use the release `wasm-build` recipe instead.
+[group('playground')]
 wasm-build-dev:
     {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
         --target bundler --dev \
@@ -610,92 +685,145 @@ wasm-build-dev:
 # so `node_modules` lands in the named volume (`playground-node-modules`)
 # instead of the host bind mount — important on Docker Desktop / WSL
 # where cross-fs writes are slow.
+[group('playground')]
 playground-install: wasm-build
     {{_pg_install}} bash -c 'bun install'
 
 # Vite dev server with HMR at http://localhost:5173/
+[group('playground')]
 playground-dev: playground-install
     {{_pg}} bash -c 'bun run dev -- --host 0.0.0.0'
 
 # Same as `playground-dev` but uses the fast dev-profile wasm build for
 # inner-loop iteration (TS edits get HMR; wasm changes still need a
 # reload after `just wasm-build-dev`).
+[group('playground')]
 playground-dev-fast: wasm-build-dev
     {{_pg_install}} bash -c 'bun install' && \
     {{_pg}} bash -c 'bun run dev -- --host 0.0.0.0'
 
 # Production build → playground/dist/ (consumed by .github/workflows/docs.yml)
 # Also runs inside `playground` service to share the `node_modules` volume.
+[group('playground')]
 playground-build: playground-install
     {{_pg_install}} bash -c 'bun run build'
 
 # Preview the production build locally at http://localhost:5173/
+[group('playground')]
 playground-serve: playground-build
     {{_pg}} bash -c 'bun run preview -- --host 0.0.0.0 --port 5173'
 
 # --- aggregate ----------------------------------------------------------------
 
-# Local replica of the full CI pipeline. Fail-fast, ordered cheap-to-expensive;
-# each step prints a start banner and pass/fail trailer with timing.
+# Local CI replica — every gate the workflow runs, slow non-compile gates overlapped to cut wall-clock.
+[group('gates')]
 ci:
     #!/usr/bin/env bash
     set -uo pipefail
 
-    # Ordered cheap-to-expensive: static checks → check/doc → lockfile gates →
-    # clippy/build → test pyramid → coverage → book → udeps (nightly, last).
-    steps=(
-        "typos"
-        "fmt-check"
-        "upstream-diff"
-        "strict-code"
-        "verify-version-pins"
-        "check"
-        "types-check"
-        "doc"
-        "deny"
-        "audit"
-        "lint"
-        "build"
-        "test"
-        "prop"
-        "spec-commonmark"
-        "spec-gfm"
-        "coverage"
-        "book-build"
-        "udeps"
-    )
+    # Why this shape (no gate is weakened vs. the old sequential loop):
+    #   * The compile gates (clippy/build/test/prop/spec/doc/coverage/udeps) all
+    #     share ONE cargo target dir, so they contend on its build lock and
+    #     CANNOT truly run in parallel — they stay sequential, ordered
+    #     cheap-to-expensive so a failure surfaces fast.
+    #   * deny / audit / book-build invoke NO rustc and take no build lock (and
+    #     spawn no sccache server, so no multi-server churn on the shared cache),
+    #     so a BACKGROUND lane overlaps them onto the compile lane for free.
+    #   * `check` is dropped: clippy + build both compile --all-targets, so the
+    #     bare `cargo check` pass was redundant. The text gates `lint` bundles
+    #     (fmt-check/typos/strict-code) run once on their own instead of a second
+    #     time inside `lint`; only `clippy` is left to run from `lint`.
 
-    total=${#steps[@]}
-    i=0
     pipeline_start=$(date +%s)
-    for step in "${steps[@]}"; do
-        i=$((i + 1))
-        printf '\n\033[1;36m[%s] →→→ STEP %d/%d: %s\033[0m\n' \
-            "$(date +%T)" "$i" "$total" "$step"
+    rc=0
+    bg_dir=$(mktemp -d)
+
+    banner() { printf '\n\033[1;36m[%s] →→→ %s\033[0m\n' "$(date +%T)" "$1"; }
+    passln() { printf '\033[1;32m[%s] ✓ %s (%ds)\033[0m\n'     "$(date +%T)" "$1" "$2"; }
+    failln() { printf '\n\033[1;31m[%s] ✗ %s FAILED (%ds, exit %d)\033[0m\n' \
+                   "$(date +%T)" "$1" "$2" "$3"; }
+
+    # --- background lane: slow gates that take no cargo build lock ----------
+    # deny / audit / book-build overlap the compile lane. Output is buffered to
+    # a log and only replayed on failure so the terminal stays readable.
+    bg_steps=(deny audit book-build)
+    declare -A bg_pid
+    for step in "${bg_steps[@]}"; do
+        # Each job records its own (exit-code, duration) so the reap below can
+        # report the gate's real time, not the whole pipeline's elapsed window.
+        ( s=$(date +%s)
+          just "$step" >"$bg_dir/$step.log" 2>&1
+          printf '%d %d' "$?" "$(( $(date +%s) - s ))" >"$bg_dir/$step.meta" ) &
+        bg_pid[$step]=$!
+    done
+    printf '\033[1;36m[%s] ⟳ background (concurrent): %s\033[0m\n' \
+        "$(date +%T)" "${bg_steps[*]}"
+
+    # --- foreground lane: instant text gates first (fail-fast in seconds),
+    # --- then the compile pipeline (sequential — shared target dir). ---------
+    fg_steps=(typos fmt-check strict-code verify-version-pins \
+              upstream-diff types-check clippy build test prop \
+              spec-commonmark spec-gfm doc coverage udeps)
+    halted=""
+    for step in "${fg_steps[@]}"; do
         start=$(date +%s)
+        banner "$step"
         if just "$step"; then
-            end=$(date +%s)
-            printf '\033[1;32m[%s] ✓ %s (took %ds)\033[0m\n' \
-                "$(date +%T)" "$step" $((end - start))
+            passln "$step" $(( $(date +%s) - start ))
         else
-            rc=$?
-            end=$(date +%s)
-            printf '\n\033[1;31m[%s] ✗ %s FAILED (after %ds, exit %d)\033[0m\n' \
-                "$(date +%T)" "$step" $((end - start)) "$rc"
-            printf '\033[1;31mPipeline halted at step %d/%d. %d step(s) remained.\033[0m\n' \
-                "$i" "$total" $((total - i))
-            exit "$rc"
+            grc=$?
+            failln "$step" $(( $(date +%s) - start )) "$grc"
+            rc=$grc
+            halted="$step"
+            break
         fi
     done
-    pipeline_end=$(date +%s)
-    printf '\n\033[1;32m[%s] ✓✓✓ all %d steps passed (total %ds)\033[0m\n' \
-        "$(date +%T)" "$total" $((pipeline_end - pipeline_start))
+
+    # --- reap background lane (wait so no container is orphaned on failure) --
+    banner "background gates (deny / audit / book-build)"
+    for step in "${bg_steps[@]}"; do
+        wait "${bg_pid[$step]}"
+        read -r brc bdur < "$bg_dir/$step.meta"
+        if [[ "$brc" -eq 0 ]]; then
+            passln "$step" "$bdur"
+        else
+            failln "$step" "$bdur" "$brc"
+            echo "----- $step output -----"
+            cat "$bg_dir/$step.log"
+            rc="$brc"
+        fi
+    done
+    rm -rf "$bg_dir"
+
+    # --- summary ------------------------------------------------------------
+    total=$(( ${#bg_steps[@]} + ${#fg_steps[@]} ))
+    elapsed=$(( $(date +%s) - pipeline_start ))
+    if [[ $rc -eq 0 ]]; then
+        printf '\n\033[1;32m[%s] ✓✓✓ all %d gates passed (total %ds)\033[0m\n' \
+            "$(date +%T)" "$total" "$elapsed"
+    else
+        [[ -n "$halted" ]] && \
+            printf '\033[1;31mcompile lane halted at: %s\033[0m\n' "$halted"
+        printf '\033[1;31m[%s] ✗ CI FAILED (total %ds) — see ✗ lines above\033[0m\n' \
+            "$(date +%T)" "$elapsed"
+        exit "$rc"
+    fi
 
 # --- developer workflow helpers ----------------------------------------------
+
+# Builds the dev image, installs git hooks, checks the env, runs the tests.
+# Idempotent, safe to re-run after a pull — the one command to run after cloning.
+[group('dev')]
+setup:
+    docker compose build dev
+    just hooks
+    just doctor
+    just test
 
 # One-screen snapshot of the local environment: images, volumes, the aozora
 # SHA pin ↔ Cargo.lock, and playground artefacts. Exit 1 = a missing
 # prerequisite a build would trip on.
+[group('dev')]
 doctor:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -789,12 +917,14 @@ doctor:
 # Run after a build to verify the cache is actually warm; a first-hand
 # way to notice when `RUSTC_WRAPPER` gets defeated by stray env or profile tweaks.
 # Show sccache hit/miss ratio, cache size, fetch counts.
+[group('dev')]
 sccache-stats:
     {{_dev}} sccache --show-stats
 
 # Useful before a measurement window:
 #   just sccache-zero && just clean && just build && just sccache-stats
 # Reset sccache counters to zero.
+[group('dev')]
 sccache-zero:
     {{_dev}} sccache --zero-stats
 
@@ -802,30 +932,37 @@ sccache-zero:
 # `just watch clippy`. Keybindings: `t` test / `c` clippy / `d` doc /
 # `f` failing-only / `esc` previous job / `q` quit / Ctrl-J list jobs.
 # Start the bacon file-watcher inside the dev container.
+[group('dev')]
 watch JOB="":
     {{_dev}} bacon {{JOB}}
 
 # Keeps the watch loop but prints plain lines. Useful for piping output
 # (`| tee`) and for sessions without a TTY.
 # Headless bacon run (no TUI).
+[group('dev')]
 watch-headless JOB="check":
     {{_ci}} bacon --headless --job {{JOB}}
 
 # Idempotent — re-run safely after lefthook.yml edits or to repair stubs.
 # Install git hooks (pre-commit / commit-msg / pre-push).
+[group('dev')]
 hooks:
     {{_dev}} lefthook install
 
 # Remove lefthook git hook stubs.
+[group('dev')]
 hooks-uninstall:
     {{_dev}} lefthook uninstall
 
 # --- cleanup ------------------------------------------------------------------
 
 # Remove build artifacts (keeps volumes; use `docker compose down -v` for volumes)
+[group('dev')]
 clean:
     {{_dev}} cargo clean --workspace
 
 # Tear down all compose state (destroys cached registry/target/sccache volumes)
+[confirm("Destroy cached cargo registry/target/sccache volumes? Next build is cold. [y/N]")]
+[group('dev')]
 nuke:
     docker compose down -v --remove-orphans
