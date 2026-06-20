@@ -61,24 +61,24 @@ jobs:
               - 'crates/afm-book/**'
 
   msrv:
-    # Verify that the pinned MSRV (1.95.0, see `rust-toolchain.toml`)
+    # Verify that the pinned MSRV (1.96.0, see `rust-toolchain.toml`)
     # still builds. ADR-0002 scope exception: native runner toolchain
-    # rather than dev image — the point is exercising a clean rustc
-    # 1.95.0 install, which the image has no mechanism to downgrade to.
-    name: msrv (rust 1.95.0)
+    # rather than dev image — an independent clean rustc 1.96.0 install
+    # that proves the declared MSRV builds without the dev-image layer.
+    name: msrv (rust 1.96.0)
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      - name: Install Rust 1.95.0 (MSRV)
+      - name: Install Rust 1.96.0 (MSRV)
         # NB: dtolnay/rust-toolchain uses the action ref tag AS the
         # Rust toolchain version. Pin @stable + pass MSRV via `with:`
         # so Dependabot doesn't unintentionally march the MSRV forward
         # (see .github/dependabot.yml ignore entry).
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.95.0
+          toolchain: 1.96.0
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           key: msrv

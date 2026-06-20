@@ -13,7 +13,7 @@ exclude = ["upstream/comrak", "crates/afm-book"]
 [workspace.package]
 version       = "0.4.0"
 edition       = "2024"
-rust-version  = "1.95.0"
+rust-version  = "1.96.0"
 license       = "Apache-2.0 OR MIT"
 description   = "Aozora Flavored Markdown: CommonMark/GFM + 青空文庫記法 integrated dialect built on the aozora parser"
 repository    = "https://github.com/P4suta/afm"

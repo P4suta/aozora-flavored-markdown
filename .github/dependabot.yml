@@ -24,13 +24,16 @@ updates:
       actions-sha-bumps:
         patterns: ["*"]
     ignore:
-      # `dtolnay/rust-toolchain`'s ref tag IS the toolchain version (@1.95.0
-      # installs 1.95.0); auto-bumping it would advance the MSRV. CI pins
+      # `dtolnay/rust-toolchain`'s ref tag IS the toolchain version (@1.96.0
+      # installs 1.96.0); auto-bumping it would advance the MSRV. CI pins
       # @stable and passes the version via `with:` (ci.yml msrv job).
       - dependency-name: "dtolnay/rust-toolchain"
 
   - package-ecosystem: docker
-    # Bumps Dockerfile FROM pins (rust, node, playwright).
+    # Bumps Dockerfile FROM pins (node, playwright). The `rust` base is
+    # pinned to the MSRV (= rust-toolchain.toml = 1.96.0); auto-bumping it
+    # would silently advance the MSRV, so it is ignored — bump it in a
+    # deliberate PR alongside rust-toolchain.toml / Cargo `rust-version`.
     directory: "/"
     schedule:
       interval: weekly
@@ -38,6 +41,8 @@ updates:
     groups:
       docker-base-images:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "rust"
 
   - package-ecosystem: devcontainers
     directory: "/"
