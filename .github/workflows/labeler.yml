@@ -1,0 +1,25 @@
+# Label PRs by the area of the tree they touch (rules in .github/labeler.yml).
+# Non-blocking: not a required check, so it never gates a merge. Uses
+# `pull_request` (not `pull_request_target`) so a PR is labelled by its own
+# copy of the rules; fork PRs get a read-only token and are simply skipped.
+name: labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9  # v5
+        with:
+          sync-labels: true

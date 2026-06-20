@@ -1,0 +1,48 @@
+# PR area labels, applied by .github/workflows/labeler.yml (actions/labeler
+# v5) from the paths a PR touches. Labels must already exist in the repo.
+# Dependency PRs are labelled separately by Dependabot (rust / docker /
+# github_actions / dependencies), so these are the human-authored areas.
+
+"area: markdown":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/afm-markdown/**"
+          - "crates/afm-markdown-test-support/**"
+
+"area: cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/afm-cli/**"
+
+"area: wasm":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/afm-wasm/**"
+          - "playground/**"
+
+"area: book":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/afm-book/**"
+
+"area: dev":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Justfile"
+          - "Dockerfile"
+          - "docker-compose.yml"
+          - ".devcontainer/**"
+          - "lefthook.yml"
+          - ".cargo/**"
+          - "rust-toolchain.toml"
+
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
