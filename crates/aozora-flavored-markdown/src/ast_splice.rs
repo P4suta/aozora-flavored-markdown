@@ -67,13 +67,19 @@ use crate::sentinel_stream::{
 /// into the comrak AST. After this returns, the AST contains no PUA
 /// sentinel character: `comrak::format_html` will emit fully resolved
 /// HTML in a single verbatim pass.
+/// `source` is the lexer input (the code-block-masked source). The
+/// splicer slices it via the registry's parallel `source_nodes` table to
+/// recover a sentinel's original Aozora source for literal markdown
+/// contexts (inline code spans, link destinations), where the notation
+/// must render verbatim rather than as interpreted Aozora HTML.
 pub(crate) fn splice_into_ast<'a, 'src>(
     root: &'a AstNode<'a>,
     arena: &'a Arena<'a>,
     lex_out: &BorrowedLexOutput<'src>,
+    source: &'src str,
 ) {
     let mut splicer = AstSplicer::<'a, 'src> {
-        cursor: SentinelCursor::from_lex_out(Some(lex_out)),
+        cursor: SentinelCursor::from_lex_out_with_source(Some(lex_out), source),
         container_stack: Vec::new(),
         in_heading_depth: 0,
         arena,
@@ -137,6 +143,10 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
                     self.in_heading_depth -= 1;
                     continue;
                 }
+                Work::ProcessLinkFields(node) => {
+                    self.process_link_fields(node);
+                    continue;
+                }
                 Work::Visit(node) => node,
             };
             let (action, is_heading) = {
@@ -149,7 +159,15 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
             match action {
                 DispatchAction::Skip => {}
                 DispatchAction::TextWith(text) => self.split_text_node(node, &text),
+                DispatchAction::CodeWith(literal) => self.splice_code_literal(node, &literal),
                 DispatchAction::Paragraph => self.dispatch_paragraph(node, &mut stack),
+                DispatchAction::RecurseLink => {
+                    // Children first (link text, in source order), then the
+                    // url/title fields: push the field-processing marker
+                    // *before* the children so it pops *after* them.
+                    stack.push(Work::ProcessLinkFields(node));
+                    push_children_rev(&mut stack, node);
+                }
                 DispatchAction::Recurse => {
                     if is_heading {
                         self.in_heading_depth += 1;
@@ -330,6 +348,66 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
         node.detach();
     }
 
+    /// Rewrite each sentinel in `s` to the original Aozora source the
+    /// lexer collapsed into it, leaving non-sentinel chars untouched.
+    /// Advances the cursor once per sentinel so later sentinels in
+    /// ordinary text stay in lockstep. A sentinel with no registry entry
+    /// (cursor exhausted) is dropped rather than leaked.
+    fn rewrite_literal_context(&mut self, s: &str) -> String {
+        let mut out = String::with_capacity(s.len());
+        for ch in s.chars() {
+            if is_sentinel_char(ch) {
+                if let Some((_node, literal)) = self.cursor.next_literal() {
+                    out.push_str(literal);
+                }
+            } else {
+                out.push(ch);
+            }
+        }
+        out
+    }
+
+    /// Inline code span (`` `…` ``): rewrite sentinels in the code literal
+    /// back to their original source. Inline code is literal markdown, so
+    /// `` `｜青梅《おうめ》` `` must render as the literal text, not as an
+    /// interpreted ruby — and the sentinel must never leak into `<code>`.
+    fn splice_code_literal(&mut self, node: &'a AstNode<'a>, literal: &str) {
+        let rewritten = self.rewrite_literal_context(literal);
+        let mut data = node.data.borrow_mut();
+        if let NodeValue::Code(code) = &mut data.value {
+            code.literal = rewritten;
+        }
+    }
+
+    /// Link/image destination + title: rewrite sentinels in `url` then
+    /// `title` (source order) back to their original source, so a notation
+    /// written inside a URL keeps the literal URL the author typed instead
+    /// of a percent-encoded sentinel. Called after the node's children, so
+    /// cursor consumption follows source order (text, then url, then title).
+    fn process_link_fields(&mut self, node: &'a AstNode<'a>) {
+        let (url, title) = {
+            let data = node.data.borrow();
+            match &data.value {
+                NodeValue::Link(link) | NodeValue::Image(link) => {
+                    let has = link.url.chars().any(is_sentinel_char)
+                        || link.title.chars().any(is_sentinel_char);
+                    if !has {
+                        return;
+                    }
+                    (link.url.clone(), link.title.clone())
+                }
+                _ => return,
+            }
+        };
+        let new_url = self.rewrite_literal_context(&url);
+        let new_title = self.rewrite_literal_context(&title);
+        let mut data = node.data.borrow_mut();
+        if let NodeValue::Link(link) | NodeValue::Image(link) = &mut data.value {
+            link.url = new_url;
+            link.title = new_title;
+        }
+    }
+
     fn flush_text(&self, current: &mut String, segments: &mut Vec<&'a AstNode<'a>>) {
         if !current.is_empty() {
             segments.push(self.new_text_node(mem::take(current)));
@@ -367,6 +445,10 @@ enum Work<'a> {
     /// processed, to restore `in_heading_depth` — the iterative
     /// analogue of the recursive `in_heading_depth -= 1` on unwind.
     ExitHeading,
+    /// Rewrite a link/image node's `url`/`title` fields after its children
+    /// (the link text) have been processed, so sentinels in the fields
+    /// consume their registry entries in source order.
+    ProcessLinkFields(&'a AstNode<'a>),
 }
 
 /// Push `parent`'s children onto `stack` as [`Work::Visit`] items in
@@ -390,11 +472,19 @@ enum DispatchAction {
     /// `［＃` prefix. The captured `String` is the text body, ready
     /// to feed into [`AstSplicer::split_text_node`] without re-borrow.
     TextWith(String),
+    /// Inline code span whose literal carries at least one sentinel. The
+    /// captured `String` is the code literal, fed to
+    /// [`AstSplicer::splice_code_literal`] which rewrites each sentinel to
+    /// its original source.
+    CodeWith(String),
+    /// Link or image: recurse into children, then rewrite `url`/`title`
+    /// (see [`Work::ProcessLinkFields`]).
+    RecurseLink,
     /// Block container that may carry interesting descendants —
     /// recurse into its children.
     Recurse,
-    /// Leaf or opaque content (raw HTML, code, already-rendered Raw)
-    /// that must not be searched for sentinels.
+    /// Leaf or opaque content (raw HTML, fenced code, already-rendered
+    /// Raw) that must not be searched for sentinels.
     Skip,
 }
 
@@ -408,10 +498,25 @@ fn classify(value: &NodeValue) -> DispatchAction {
                 DispatchAction::Skip
             }
         }
+        // Inline code spans are literal markdown: a sentinel here means an
+        // Aozora notation that the user wrote *inside* backticks. It must
+        // render as its original source, not interpreted HTML — and it
+        // must still consume its registry entry so later sentinels stay in
+        // lockstep. Code without a sentinel is left untouched.
+        NodeValue::Code(c) => {
+            if c.literal.chars().any(is_sentinel_char) {
+                DispatchAction::CodeWith(c.literal.clone())
+            } else {
+                DispatchAction::Skip
+            }
+        }
+        // Links/images carry sentinels in their `url`/`title` *fields*
+        // (not child text). Recurse into the children first, then rewrite
+        // the fields, so cursor consumption matches source order.
+        NodeValue::Link(_) | NodeValue::Image(_) => DispatchAction::RecurseLink,
         NodeValue::CodeBlock(_)
         | NodeValue::HtmlBlock(_)
         | NodeValue::HtmlInline(_)
-        | NodeValue::Code(_)
         | NodeValue::Raw(_) => DispatchAction::Skip,
         _ => DispatchAction::Recurse,
     }
@@ -477,7 +582,7 @@ mod tests {
         let comrak_arena: Arena<'_> = Arena::new();
         let opts = comrak::Options::default();
         let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &opts);
-        splice_into_ast(root, &comrak_arena, &lex_out);
+        splice_into_ast(root, &comrak_arena, &lex_out, &masked);
         let mut html = String::new();
         comrak::format_html(root, &opts, &mut html).expect("formatting to a String never fails");
         code_block_mask::unmask_html(&html, &originals).into_owned()

@@ -250,52 +250,100 @@ pub(crate) fn flatten_registry_in_source_order<'a>(
     out
 }
 
-/// Cursor over an owned sentinel-ordered `Vec<NodeRef>`.
+/// Cursor over an owned sentinel-ordered stream of `(NodeRef, literal)`
+/// pairs, where `literal` is the original source text the lexer
+/// collapsed into that sentinel.
 ///
-/// Both [`crate::ast_splice`] and [`crate::ir`] consume the
-/// registry by materialising it into a `Vec` once, then walking it
-/// linearly. The cursor owns that `Vec` so callers don't have to
-/// thread a separate slice lifetime through every walker — a single
-/// `'src` (the borrowed-AST payload lifetime) is enough.
+/// Both [`crate::ast_splice`] and [`crate::ir`] consume the registry by
+/// materialising it into a `Vec` once, then walking it linearly. The
+/// cursor owns that `Vec` so callers don't have to thread a separate
+/// slice lifetime through every walker — a single `'src` (the
+/// borrowed-AST payload lifetime) is enough.
+///
+/// The `literal` slice is needed only by the splicer's literal-context
+/// paths (a sentinel that landed inside a markdown inline code span or a
+/// link destination must render as its *original source*, not as the
+/// Aozora HTML). Callers that don't need it build with an empty literal
+/// via [`Self::from_lex_out`] / [`Self::from_nodes`] and read nodes with
+/// [`Self::next`] / [`Self::peek`].
 #[derive(Debug)]
 pub(crate) struct SentinelCursor<'src> {
-    nodes: Vec<NodeRef<'src>>,
+    nodes: Vec<(NodeRef<'src>, &'src str)>,
     idx: usize,
 }
 
 impl<'src> SentinelCursor<'src> {
-    /// Materialise the registry into a fresh cursor. Empty `lex_out`
-    /// produces a cursor with no entries; consumers degrade to
-    /// markdown-only behaviour.
+    /// Materialise the registry into a fresh cursor with empty literals.
+    /// Empty `lex_out` produces a cursor with no entries; consumers
+    /// degrade to markdown-only behaviour.
     pub(crate) fn from_lex_out(lex_out: Option<&BorrowedLexOutput<'src>>) -> Self {
-        Self {
-            nodes: lex_out
-                .map(flatten_registry_in_source_order)
-                .unwrap_or_default(),
-            idx: 0,
-        }
+        let nodes = lex_out
+            .map(flatten_registry_in_source_order)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|node| (node, ""))
+            .collect();
+        Self { nodes, idx: 0 }
+    }
+
+    /// Materialise the registry *with* each entry's original source text,
+    /// sliced from `source` (the lexer input) via the parallel
+    /// `source_nodes` table. Used by the HTML splicer so a sentinel that
+    /// lands in a literal markdown context (inline code, link URL) can be
+    /// rewritten back to its original Aozora source instead of leaking the
+    /// PUA char or rendering interpreted HTML where it doesn't belong.
+    ///
+    /// `registry.iter_sorted()` and `source_nodes` are parallel and both
+    /// source-ordered (pinned by `source_nodes_parallel_to_registry`), so
+    /// zipping pairs each node with its own span.
+    pub(crate) fn from_lex_out_with_source(
+        lex_out: Option<&BorrowedLexOutput<'src>>,
+        source: &'src str,
+    ) -> Self {
+        let nodes = lex_out.map_or_else(Vec::new, |lo| {
+            lo.registry
+                .iter_sorted()
+                .zip(lo.source_nodes.iter())
+                .map(|((_pos, node), sn)| (node, sn.source_span.slice(source)))
+                .collect()
+        });
+        Self { nodes, idx: 0 }
     }
 
     /// Construct directly from a `Vec` of registry entries (used
     /// by tests and by the streaming builder which owns the `Vec`).
+    /// Literals are empty — the streaming IR builder never reads them.
     pub(crate) fn from_nodes(nodes: Vec<NodeRef<'src>>) -> Self {
-        Self { nodes, idx: 0 }
+        Self {
+            nodes: nodes.into_iter().map(|node| (node, "")).collect(),
+            idx: 0,
+        }
     }
 
     /// Peek the registry entry at `offset` past the current cursor.
     /// `peek(0)` returns the next entry that [`Self::next`] would
     /// produce.
     pub(crate) fn peek(&self, offset: usize) -> Option<NodeRef<'src>> {
-        self.nodes.get(self.idx + offset).copied()
+        self.nodes.get(self.idx + offset).map(|(node, _)| *node)
     }
 
     /// Consume and return the next entry, advancing the cursor.
     pub(crate) fn next(&mut self) -> Option<NodeRef<'src>> {
-        let n = self.nodes.get(self.idx).copied();
+        let n = self.nodes.get(self.idx).map(|(node, _)| *node);
         if n.is_some() {
             self.idx += 1;
         }
         n
+    }
+
+    /// Consume the next entry, returning both its node and its original
+    /// source text. Used by the splicer's literal-context paths.
+    pub(crate) fn next_literal(&mut self) -> Option<(NodeRef<'src>, &'src str)> {
+        let entry = self.nodes.get(self.idx).copied();
+        if entry.is_some() {
+            self.idx += 1;
+        }
+        entry
     }
 
     /// Saturating advance by `n` entries.
@@ -467,6 +515,41 @@ mod tests {
                 lex_out.registry.len(),
                 "one node per registry entry for {src:?}"
             );
+        }
+    }
+
+    /// `from_lex_out_with_source` zips `registry.iter_sorted()` with
+    /// `source_nodes` by position, so the two must stay parallel: same
+    /// length, same source order. A divergence would pair a sentinel with
+    /// the wrong span and silently rewrite literal-context text to the
+    /// wrong source slice.
+    #[test]
+    fn source_nodes_parallel_to_registry() {
+        use aozora::pipeline::lex_into_arena;
+        use aozora::syntax::borrowed::Arena;
+
+        const REPRESENTATIVE: &str = "本文に｜青空《あおぞら》のルビと\
+            ［＃「強調」に傍点］を混ぜた段落。";
+        const PATHOLOGICAL: &str = "｜A《a》｜B《b》｜C《c》［＃「D」に傍点］｜E《e》";
+
+        for src in [REPRESENTATIVE, PATHOLOGICAL] {
+            let arena = Arena::new();
+            let lex_out = lex_into_arena(src, &arena);
+            assert_eq!(
+                lex_out.registry.len(),
+                lex_out.source_nodes.len(),
+                "registry and source_nodes must have equal length for {src:?}"
+            );
+            // Each source_nodes span, sliced from the source, must be a
+            // non-empty original-text run (the lexer never tiles an empty
+            // span), confirming the parallel table is usable for literal
+            // reconstruction.
+            for sn in lex_out.source_nodes {
+                assert!(
+                    !sn.source_span.slice(src).is_empty(),
+                    "source span must slice a non-empty run for {src:?}"
+                );
+            }
         }
     }
 }

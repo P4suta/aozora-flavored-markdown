@@ -482,8 +482,10 @@ where
     // Mutate the AST: every PUA sentinel becomes a `NodeValue::Raw`
     // node carrying the rendered Aozora HTML. After this returns,
     // the AST contains no sentinel character; `comrak::format_html`
-    // emits final HTML in a single verbatim pass.
-    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out);
+    // emits final HTML in a single verbatim pass. `masked_source` is
+    // passed so sentinels that landed in literal markdown contexts
+    // (inline code, link URLs) can be rewritten to their original source.
+    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out, &masked_source);
 
     let html = format_root(root, options, Some(mask_originals.as_slice()));
     let diagnostics = lex_out.diagnostics.iter().map(Diagnostic::from).collect();
@@ -603,7 +605,7 @@ pub fn render_blocks_to_ir(
             .map(|child| builder.walk_block(child))
             .collect()
     };
-    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out);
+    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out, &masked_source);
     let blocks = collect_rendered_blocks(root, options, blocks_ir);
     let diagnostics = lex_out.diagnostics.iter().map(Diagnostic::from).collect();
     (blocks, diagnostics)
