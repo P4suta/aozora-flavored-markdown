@@ -2,7 +2,7 @@
 //!
 //! Every type here is part of the `aozora_flavored_markdown::ir` public surface
 //! and feeds the TypeScript `IRDocument` consumed by
-//! `afm-obsidian/src/ir/types.ts`. Keeping the names and field
+//! `aozora-flavored-markdown-obsidian/src/ir/types.ts`. Keeping the names and field
 //! ordering aligned across the FFI boundary makes the
 //! `serde-wasm-bindgen` round-trip a pass-through, no shape
 //! adapters needed.
@@ -271,7 +271,7 @@ pub struct IrDiagnostic {
 /// Source-position range, end-exclusive.
 ///
 /// `start` and `end` carry 1-based line / column coordinates straight
-/// from comrak's `Sourcepos`. JS-side consumers (afm-obsidian's
+/// from comrak's `Sourcepos`. JS-side consumers (aozora-flavored-markdown-obsidian's
 /// `CodeMirror` bridge) can map these to editor positions without
 /// re-doing UTF-8 byte arithmetic, which the previous pseudo-byte
 /// representation silently broke for multi-byte CJK content.

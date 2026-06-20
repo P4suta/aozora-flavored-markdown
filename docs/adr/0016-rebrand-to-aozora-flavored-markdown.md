@@ -44,12 +44,12 @@ no brand-prefixed constructor remains (`Options::default()`).
 - The rendered-HTML class contract changes `afm-*` → `aozora-md-*` — a breaking
   output change, handled now because the crates are pre-publish (greenfield).
   ADR-0011 is updated for the new prefix.
-- **Preserved (not renamed):** sibling repo names `afm-obsidian` / `afm-logseq`
-  / `afm-epub` etc. (separate repos), and the GitHub repo URLs `P4suta/afm` /
-  `p4suta.github.io/afm` (the repo itself is not renamed here; GitHub redirects
+- **Preserved (not renamed):** sibling repo names `aozora-flavored-markdown-obsidian` / `aozora-flavored-markdown-logseq`
+  / `aozora-flavored-markdown-epub` etc. (separate repos), and the GitHub repo URLs `P4suta/aozora-flavored-markdown` /
+  `p4suta.github.io/aozora-flavored-markdown` (the repo itself is not renamed here; GitHub redirects
   if it ever is).
-- Downstream follow-up lives in the sibling repos: `afm-obsidian` /
-  `afm-logseq` must move their CSS selectors `.afm-*` → `.aozora-md-*`, update
+- Downstream follow-up lives in the sibling repos: `aozora-flavored-markdown-obsidian` /
+  `aozora-flavored-markdown-logseq` must move their CSS selectors `.afm-*` → `.aozora-md-*`, update
   the wasm npm package name, and the diagnostics schema id.
 
 ## Alternatives considered
@@ -70,4 +70,4 @@ keeps them distinct.
 - ADR-0011 (brand-boundary CSS class rewrite — now `aozora-md-*`)
 - ADR-0012 (diagnostics schema — now `aozora-md.diagnostics.v1`)
 - ADR-0015 (crates.io publication & semver)
-- Tracking issue: P4suta/afm#118
+- Tracking issue: P4suta/aozora-flavored-markdown#118

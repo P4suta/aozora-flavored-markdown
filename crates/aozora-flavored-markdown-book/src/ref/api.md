@@ -17,9 +17,9 @@ layer.
   / `gfm_only` factories) and the `IrDocument` / `IrBlock` /
   `IrInline` tree under `aozora_flavored_markdown::ir`.
 - [`aozora_flavored_markdown_wasm`](../api/aozora_flavored_markdown_wasm/index.html) — `#[wasm_bindgen]`
-  surface used by afm-obsidian and other browser hosts. The IR is
+  surface used by aozora-flavored-markdown-obsidian and other browser hosts. The IR is
   serialised through `serde-wasm-bindgen` and matches the TypeScript
-  `IRDocument` declared in `afm-obsidian/src/ir/types.ts`.
+  `IRDocument` declared in `aozora-flavored-markdown-obsidian/src/ir/types.ts`.
 - `aozora-flavored-markdown-cli` — the `aozora-flavored-markdown` binary. No library API; see
   [CLI Reference](cli.md) for invocation details.
 
@@ -52,4 +52,4 @@ When viewing this handbook locally (e.g. via `just book-serve`) the
 API link above will 404 — run `cargo doc --workspace --no-deps` and
 mount the resulting `target/doc/` at `/aozora-flavored-markdown/api/` to mirror the
 published Pages layout, or visit the published site at
-<https://p4suta.github.io/afm/api/> directly.
+<https://p4suta.github.io/aozora-flavored-markdown/api/> directly.

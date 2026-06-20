@@ -1,6 +1,6 @@
 [package]
 name        = "aozora-flavored-markdown-wasm"
-description = "WebAssembly bindings for aozora-flavored-markdown — used by afm-obsidian / afm-logseq / browser hosts"
+description = "WebAssembly bindings for aozora-flavored-markdown — used by aozora-flavored-markdown-obsidian / aozora-flavored-markdown-logseq / browser hosts"
 # Not a crates.io library: ships as a wasm-pack/npm artefact to the editor
 # hosts, so it stays out of the `publish-crates.yml` ladder (ADR-0015).
 publish     = false
@@ -49,6 +49,6 @@ panic-hook = ["dep:console_error_panic_hook"]
 
 # wasm-pack consumers should NOT enable wasm-opt here; the docker
 # `wasm` service runs a fresh binaryen wasm-opt over the produced
-# .wasm via a dedicated stage (see afm-obsidian/Dockerfile).
+# .wasm via a dedicated stage (see aozora-flavored-markdown-obsidian/Dockerfile).
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false

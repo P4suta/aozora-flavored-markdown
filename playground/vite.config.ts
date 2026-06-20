@@ -60,7 +60,7 @@ function cspInProd(): Plugin {
   };
 }
 
-// Served at https://p4suta.github.io/afm/playground/ in production.
+// Served at https://p4suta.github.io/aozora-flavored-markdown/playground/ in production.
 // During `vite dev` we mount at root so assets resolve cleanly without
 // the path prefix the GitHub Pages deploy demands.
 //

@@ -96,7 +96,7 @@ pub struct Options {
     pub aozora_enabled: bool,
     /// When `true`, the HTML renderer adds `data-aozora-md-source-line="N"`
     /// (1-based) to every top-level block element it emits. The
-    /// afm-obsidian document-mode adapter (Pillar 6 of the plan)
+    /// aozora-flavored-markdown-obsidian document-mode adapter (Pillar 6 of the plan)
     /// uses these anchors to map per-block post-processor calls back
     /// to slices of the rendered fragment without re-parsing.
     ///
@@ -276,7 +276,7 @@ const fn source_within_span_budget(input: &str) -> bool {
 
 /// Render aozora-flavored-markdown source text to HTML.
 ///
-/// One-stop entry point for the typical caller (aozora-flavored-markdown CLI, afm-epub).
+/// One-stop entry point for the typical caller (aozora-flavored-markdown CLI, aozora-flavored-markdown-epub).
 /// Internally:
 ///
 /// 1. [`aozora::lex_into_arena`] turns the source into a normalized
@@ -328,7 +328,7 @@ pub fn render_to_string(input: &str, options: &Options) -> Rendered {
 ///
 /// Mirrors [`render_to_string`] but additionally walks comrak's AST
 /// to emit a typed [`ir::IrDocument`]. The IR is the canonical
-/// contract between aozora-flavored-markdown-wasm and afm-obsidian's TS renderers.
+/// contract between aozora-flavored-markdown-wasm and aozora-flavored-markdown-obsidian's TS renderers.
 ///
 /// The IR covers the full Markdown side (paragraph, heading,
 /// blockquote, list, code, thematic break, table, image) and the
@@ -473,7 +473,7 @@ pub struct RenderedBlock {
 /// Per-block streaming render.
 ///
 /// Produces one [`RenderedBlock`] per top-level comrak child, in
-/// document order. Used by afm-obsidian's chunked-cancellation path
+/// document order. Used by aozora-flavored-markdown-obsidian's chunked-cancellation path
 /// (ADR-0009): the JS bridge can iterate the returned vector and
 /// check its `AbortSignal` between blocks.
 ///

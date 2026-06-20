@@ -4,7 +4,7 @@
 //
 // Single source of truth: `aozora_flavored_markdown::ir` (the IrDocument tree) plus
 // aozora-flavored-markdown-wasm's wire envelope. The IR is a camelCase, `kind`-discriminated
-// union mirrored by afm-obsidian/src/ir/types.ts.
+// union mirrored by aozora-flavored-markdown-obsidian/src/ir/types.ts.
 
 // =========================================================
 // Source positions

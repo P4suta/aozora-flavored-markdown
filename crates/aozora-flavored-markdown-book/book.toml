@@ -10,8 +10,8 @@ edition = "2024"
 [output.html]
 default-theme = "light"
 preferred-dark-theme = "ayu"
-git-repository-url = "https://github.com/P4suta/afm"
-edit-url-template = "https://github.com/P4suta/afm/edit/main/crates/aozora-flavored-markdown-book/{path}"
+git-repository-url = "https://github.com/P4suta/aozora-flavored-markdown"
+edit-url-template = "https://github.com/P4suta/aozora-flavored-markdown/edit/main/crates/aozora-flavored-markdown-book/{path}"
 site-url = "/aozora-flavored-markdown/"
 additional-css = []
 

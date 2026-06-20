@@ -75,7 +75,7 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
         run: |
-          ua="aozora-md-release (+https://github.com/P4suta/afm)"
+          ua="aozora-md-release (+https://github.com/P4suta/aozora-flavored-markdown)"
           ver="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
           echo "Publishing workspace version: ${ver}"
           publish_one() {

@@ -8,7 +8,7 @@ anything with exploitative potential — **do not open a public
 issue**. Instead:
 
 1. Preferred: open a private report via
-   [GitHub Security Advisories](https://github.com/P4suta/afm/security/advisories/new).
+   [GitHub Security Advisories](https://github.com/P4suta/aozora-flavored-markdown/security/advisories/new).
    This lets us discuss and patch before disclosure.
 2. Alternative: email the maintainer at
    `42543015+P4suta@users.noreply.github.com` with the subject

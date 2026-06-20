@@ -83,7 +83,7 @@ enum Command {
     /// envelope from the live Rust types, or drift-check it. The
     /// generated file (`crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types.d.ts`) is the
     /// single source of truth for downstream TS consumers (playground,
-    /// afm-obsidian); `types check` is the CI drift gate.
+    /// aozora-flavored-markdown-obsidian); `types check` is the CI drift gate.
     Types(TypesArgs),
     /// Generate (or, with `--check`, drift-check) the release assets bundled
     /// into the dist archives: shell completions and the man page, written

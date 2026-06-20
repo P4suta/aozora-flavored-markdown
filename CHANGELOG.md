@@ -145,13 +145,13 @@ is replaced by `Options::default()` (the dialect preset is now the `Default`).
   offsets to the editor (#62).
 - **Build provenance attestation** on release artefacts via
   `actions/attest-build-provenance`: every archive is verifiable with
-  `gh attestation verify <archive> --repo P4suta/afm`, no certificates.
+  `gh attestation verify <archive> --repo P4suta/aozora-flavored-markdown`, no certificates.
   (#64, #66)
 - **aozora pin advanced to the tagged v0.4.0 release** (`df0f64b`) — aozora-flavored-markdown
   v0.4.0 builds against the provenance-attested aozora v0.4.0.
 - **Browser playground at `/aozora-flavored-markdown/playground/`** — Solid + Vite frontend
   over `crates/aozora-flavored-markdown-wasm`, deployed to
-  <https://p4suta.github.io/afm/playground/>. CodeMirror 6 editor with
+  <https://p4suta.github.io/aozora-flavored-markdown/playground/>. CodeMirror 6 editor with
   a small Aozora syntax overlay (`｜《》`, 連結ルビ, `［＃...］`,
   `※［＃...］`); 縦書き / 横書き toggle that swaps stylesheets without
   re-rendering; seven curated example snippets; URL-shareable state
@@ -252,7 +252,7 @@ is replaced by `Options::default()` (the dialect preset is now the `Default`).
   coordinates straight from comrak's `Sourcepos`. The previous
   `{ from: u32, to: u32 }` was a pseudo-byte offset
   (`(line-1)*1024 + (col-1)`) that silently broke under multi-byte
-  CJK content. JS-side consumers (afm-obsidian's CodeMirror bridge)
+  CJK content. JS-side consumers (aozora-flavored-markdown-obsidian's CodeMirror bridge)
   no longer need to redo UTF-8 byte arithmetic. TS contract on the
   consumer side must be updated to match.
 - **`pub use aozora_pipeline::*_SENTINEL`** from `aozora_flavored_markdown` is
@@ -347,7 +347,7 @@ is replaced by `Options::default()` (the dialect preset is now the `Default`).
   CommonMark images survive the IR boundary.
 - **`aozora_flavored_markdown::ir::StreamingIrBuilder`.** Public stateful
   per-block IR builder that threads the sentinel-stream cursor
-  across `walk_block` calls. afm-obsidian's chunked-cancellation
+  across `walk_block` calls. aozora-flavored-markdown-obsidian's chunked-cancellation
   path uses this to checkpoint between blocks without losing
   Aozora projection lockstep.
 - **`crates/aozora-flavored-markdown/src/sentinels.rs`.** New shared module
@@ -532,7 +532,7 @@ true assertion.
 
 ### Internal
 
-- aozora-tools (225 tests + ADRs) and afm-epub (placeholder) verified
+- aozora-tools (225 tests + ADRs) and aozora-flavored-markdown-epub (placeholder) verified
   unchanged after this release: the only modifications live in
   aozora-flavored-markdown's own surface plus tooling, so the sibling repos pass
   unchanged.
@@ -693,6 +693,6 @@ Initial public preview release of Aozora Flavored Markdown.
   strict-code grep gate that rejects `#[allow(...)]`, nightly feature
   gates, and raw `println!` in library crates.
 
-[Unreleased]: https://github.com/P4suta/afm/compare/v0.4.1...HEAD
-[0.4.1]: https://github.com/P4suta/afm/compare/v0.4.0...v0.4.1
-[0.1.0]: https://github.com/P4suta/afm/releases/tag/v0.1.0
+[Unreleased]: https://github.com/P4suta/aozora-flavored-markdown/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/P4suta/aozora-flavored-markdown/compare/v0.4.0...v0.4.1
+[0.1.0]: https://github.com/P4suta/aozora-flavored-markdown/releases/tag/v0.1.0

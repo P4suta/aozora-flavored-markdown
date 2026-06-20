@@ -17,12 +17,12 @@ Reports of conduct violations should reach the maintainers privately
 through one of:
 
 1. A **GitHub private security advisory** at
-   <https://github.com/P4suta/afm/security/advisories/new>. Although
+   <https://github.com/P4suta/aozora-flavored-markdown/security/advisories/new>. Although
    security advisories are normally the channel for vulnerability
    reports, they also accept private conduct reports — please mark
    the report title clearly as a conduct concern.
 2. A direct message to a maintainer via **GitHub Discussions**
-   (<https://github.com/P4suta/afm/discussions>).
+   (<https://github.com/P4suta/aozora-flavored-markdown/discussions>).
 
 Please **do not open public issues** for personal conduct complaints.
 Maintainers will acknowledge reports within seven days and will keep the

@@ -3,20 +3,20 @@
 [English](./README.md) · [日本語](./README.ja.md)
 
 <p align="center">
-  <a href="https://github.com/P4suta/afm/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/P4suta/afm/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/P4suta/afm/actions/workflows/docs.yml"><img alt="docs deploy" src="https://github.com/P4suta/afm/actions/workflows/docs.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/docs.yml"><img alt="docs deploy" src="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/docs.yml/badge.svg"></a>
   <a href="https://crates.io/crates/aozora-flavored-markdown-cli"><img alt="crates.io" src="https://img.shields.io/crates/v/aozora-flavored-markdown-cli?label=aozora-flavored-markdown-cli"></a>
   <a href="https://docs.rs/aozora-flavored-markdown"><img alt="docs.rs" src="https://img.shields.io/docsrs/aozora-flavored-markdown?label=docs.rs"></a>
-  <a href="https://github.com/P4suta/afm/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/P4suta/afm?display_name=tag&sort=semver"></a>
+  <a href="https://github.com/P4suta/aozora-flavored-markdown/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/P4suta/aozora-flavored-markdown?display_name=tag&sort=semver"></a>
   <a href="./LICENSE-APACHE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue"></a>
   <a href="./rust-toolchain.toml"><img alt="msrv" src="https://img.shields.io/badge/rust-1.96%2B-orange"></a>
-  <a href="https://codespaces.new/P4suta/afm"><img alt="open in github codespaces" src="https://github.com/codespaces/badge.svg" height="20"></a>
+  <a href="https://codespaces.new/P4suta/aozora-flavored-markdown"><img alt="open in github codespaces" src="https://github.com/codespaces/badge.svg" height="20"></a>
 </p>
 
 <p align="center">
-  📖 <a href="https://p4suta.github.io/afm/"><strong>Documentation site</strong></a>
-  · 🧪 <a href="https://p4suta.github.io/afm/api/"><strong>API reference (rustdoc)</strong></a>
-  · 📦 <a href="https://github.com/P4suta/afm/releases"><strong>Releases &amp; binaries</strong></a>
+  📖 <a href="https://p4suta.github.io/aozora-flavored-markdown/"><strong>Documentation site</strong></a>
+  · 🧪 <a href="https://p4suta.github.io/aozora-flavored-markdown/api/"><strong>API reference (rustdoc)</strong></a>
+  · 📦 <a href="https://github.com/P4suta/aozora-flavored-markdown/releases"><strong>Releases &amp; binaries</strong></a>
   · 📝 <a href="./CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
@@ -34,7 +34,7 @@ binary drop into the same slot you would otherwise use a CommonMark
 parser in.
 
 This repository hosts both the **specification** of aozora-flavored-markdown (rendered as
-the [mdbook site](https://p4suta.github.io/afm/) under
+the [mdbook site](https://p4suta.github.io/aozora-flavored-markdown/) under
 [`crates/aozora-flavored-markdown-book/`](./crates/aozora-flavored-markdown-book/)) and its **reference
 implementation** — the same split GFM uses.
 
@@ -179,7 +179,7 @@ cargo install aozora-flavored-markdown-cli
 
 Pre-built binaries for **Linux x86_64**, **macOS arm64**, and **Windows
 x86_64** are attached to every GitHub Release — see
-[the releases page](https://github.com/P4suta/afm/releases) and pick a
+[the releases page](https://github.com/P4suta/aozora-flavored-markdown/releases) and pick a
 `aozora-flavored-markdown-vX.Y.Z-<target>.{tar.gz,zip}`. SHA256 sums are published as
 `SHA256SUMS` next to the archives. Each archive bundles the binary, shell
 completions, and the `aozora-flavored-markdown.1` man page.
@@ -187,7 +187,7 @@ completions, and the `aozora-flavored-markdown.1` man page.
 Bleeding edge from git:
 
 ```sh
-cargo install --git https://github.com/P4suta/afm --locked aozora-flavored-markdown-cli
+cargo install --git https://github.com/P4suta/aozora-flavored-markdown --locked aozora-flavored-markdown-cli
 ```
 
 ### Library

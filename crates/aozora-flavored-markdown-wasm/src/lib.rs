@@ -1,16 +1,16 @@
 //! WebAssembly bindings for aozora-flavored-markdown.
 //!
 //! Exposes a thin set of `#[wasm_bindgen]` exports that
-//! afm-obsidian (and other browser hosts) call across the WASM
+//! aozora-flavored-markdown-obsidian (and other browser hosts) call across the WASM
 //! boundary. The IR shape returned by `render_afm` and
 //! `render_aozora_only` mirrors the TS `IRDocument` defined in
-//! `afm-obsidian/src/ir/types.ts` and is validated on the JS side
+//! `aozora-flavored-markdown-obsidian/src/ir/types.ts` and is validated on the JS side
 //! by `from-wasm.ts`.
 //!
 //! # Stability
 //!
 //! Public exports here are version-pinned to aozora-flavored-markdown's
-//! workspace version. A bump on this crate implies an afm-obsidian
+//! workspace version. A bump on this crate implies an aozora-flavored-markdown-obsidian
 //! recompilation against the new IR shape.
 //!
 //! # Surface
@@ -18,7 +18,7 @@
 //! - [`init_panic_hook`] — opt-in panic forwarder (debug builds).
 //! - [`render_afm`] — full aozora-flavored-markdown pipeline (CommonMark + GFM + aozora).
 //! - [`render_aozora_only`] — aozora-only inline mode (used by
-//!   afm-obsidian's inline post-processor; bypasses comrak).
+//!   aozora-flavored-markdown-obsidian's inline post-processor; bypasses comrak).
 //! - [`hash_source`] — xxh3-64 over the source, returned as `u64`
 //!   for cache-key construction on the JS side.
 
@@ -42,7 +42,7 @@ pub fn init_panic_hook() {
 }
 
 /// Result envelope returned to JS. Matches the shape consumed by
-/// `afm-obsidian/src/ir/from-wasm.ts`.
+/// `aozora-flavored-markdown-obsidian/src/ir/from-wasm.ts`.
 #[derive(Serialize)]
 struct RenderResult {
     /// Structured IR — see `aozora_flavored_markdown::ir` for the type tree.
@@ -224,7 +224,7 @@ struct BlocksResult {
 /// Per-block streaming render.
 ///
 /// Returns one `{ir, html, sourceLine}` entry per top-level comrak
-/// block. The afm-obsidian bridge iterates the array and checks its
+/// block. The aozora-flavored-markdown-obsidian bridge iterates the array and checks its
 /// `AbortSignal` between blocks (ADR-0009 chunked-cancellation
 /// strategy).
 ///

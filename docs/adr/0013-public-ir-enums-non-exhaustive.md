@@ -8,7 +8,7 @@
 ## Context
 
 `aozora_flavored_markdown::ir::{IrBlock, IrInline}` are the public, `serde`-serialised IR
-the wasm bridge hands to afm-obsidian's TypeScript renderers. They grow over
+the wasm bridge hands to aozora-flavored-markdown-obsidian's TypeScript renderers. They grow over
 time: every new 青空文庫 notation that lands upstream surfaces here as a new
 variant (the IR already carries `Ruby`, `DoubleRuby`, `Bouten`, `Tcy`,
 `Gaiji`, `Annotation`, `Container`, `PageBreak`, `SectionBreak`, …).

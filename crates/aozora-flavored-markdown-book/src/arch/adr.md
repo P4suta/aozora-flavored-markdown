@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 aozora-flavored-markdown records load-bearing design decisions as MADR-formatted ADRs under
-[`docs/adr/`](https://github.com/P4suta/afm/tree/main/docs/adr); the rationale,
+[`docs/adr/`](https://github.com/P4suta/aozora-flavored-markdown/tree/main/docs/adr); the rationale,
 alternatives, and consequences live there in full. The table below is a map.
 
 | #    | Title                                              | Status               |

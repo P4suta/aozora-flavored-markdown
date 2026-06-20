@@ -23,7 +23,7 @@ This handbook is both a practical tour and a reference:
 100% CommonMark / GFM spec compatibility, all major Aozora Bunko
 annotations implemented, with a 96% regions coverage floor.
 
-See the [project README](https://github.com/P4suta/afm) for an
+See the [project README](https://github.com/P4suta/aozora-flavored-markdown) for an
 at-a-glance summary and the
-[CHANGELOG](https://github.com/P4suta/afm/blob/main/CHANGELOG.md) for
+[CHANGELOG](https://github.com/P4suta/aozora-flavored-markdown/blob/main/CHANGELOG.md) for
 release history.

@@ -30,7 +30,7 @@ per-file via `git filter-repo --path-rename`.
 P4suta/aozora-tools/   authoring environment (LSP / fmt / VS Code)
         │ git tag
         ▼
-P4suta/afm/            CommonMark+GFM+aozora Markdown dialect
+P4suta/aozora-flavored-markdown/            CommonMark+GFM+aozora Markdown dialect
                        (aozora-flavored-markdown, aozora-flavored-markdown-cli, aozora-flavored-markdown-book, vendored comrak)
         │ git tag
         ▼
