@@ -41,7 +41,7 @@ const UPSTREAM_DIFF_BUDGET_LINES: usize = 0;
 const UPSTREAM_COMRAK_URL: &str = "https://github.com/kivikakk/comrak.git";
 
 #[derive(Parser, Debug)]
-#[command(version, about = "afm workspace automation", long_about = None)]
+#[command(version, about = "aozora-flavored-markdown workspace automation", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -81,13 +81,13 @@ enum Command {
     },
     /// Generate the TypeScript `.d.ts` artefact for the IR + wasm
     /// envelope from the live Rust types, or drift-check it. The
-    /// generated file (`crates/afm-wasm/types/afm_types.d.ts`) is the
+    /// generated file (`crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types.d.ts`) is the
     /// single source of truth for downstream TS consumers (playground,
     /// afm-obsidian); `types check` is the CI drift gate.
     Types(TypesArgs),
     /// Generate (or, with `--check`, drift-check) the release assets bundled
     /// into the dist archives: shell completions and the man page, written
-    /// under `dist/assets/`. Shells out to the built `afm` binary so the CLI
+    /// under `dist/assets/`. Shells out to the built `aozora-flavored-markdown` binary so the CLI
     /// definition stays the single source of truth.
     GenDistAssets {
         /// Compare committed assets against fresh generation and exit non-zero
@@ -105,11 +105,11 @@ struct TypesArgs {
 
 #[derive(Subcommand, Debug)]
 enum TypesOp {
-    /// Regenerate `crates/afm-wasm/types/afm_types.d.ts` from the live
+    /// Regenerate `crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types.d.ts` from the live
     /// IR + envelope types and write it. Overwrites the existing file;
     /// commit the diff.
     Ts,
-    /// Compare the committed `afm_types.d.ts` against fresh codegen and
+    /// Compare the committed `aozora_flavored_markdown_types.d.ts` against fresh codegen and
     /// exit non-zero on drift. Used as the CI gate so a renamed field /
     /// added variant forces the artefact regeneration step.
     Check,
@@ -141,36 +141,36 @@ fn main() -> Result<()> {
 /// Shells (`clap_complete`) we ship completions for, with their conventional
 /// install filenames.
 const COMPLETION_TARGETS: [(&str, &str); 5] = [
-    ("bash", "afm.bash"),
-    ("zsh", "_afm"),
-    ("fish", "afm.fish"),
-    ("powershell", "_afm.ps1"),
-    ("elvish", "afm.elv"),
+    ("bash", "aozora-flavored-markdown.bash"),
+    ("zsh", "_aozora-flavored-markdown"),
+    ("fish", "aozora-flavored-markdown.fish"),
+    ("powershell", "_aozora-flavored-markdown.ps1"),
+    ("elvish", "aozora-flavored-markdown.elv"),
 ];
 
 /// Generate, or drift-check, the completion scripts and man page bundled into
-/// the release archives. Generation runs the built `afm` binary so the CLI
-/// definition is the single source of truth (afm-cli is a binary, not a
+/// the release archives. Generation runs the built `aozora-flavored-markdown` binary so the CLI
+/// definition is the single source of truth (aozora-flavored-markdown-cli is a binary, not a
 /// library, so xtask cannot import its `Cli` directly).
 fn gen_dist_assets(check: bool) -> Result<()> {
-    let afm = afm_binary_path();
-    if !afm.is_file() {
+    let bin = aozora_binary_path();
+    if !bin.is_file() {
         bail!(
-            "gen-dist-assets: {} not found — build it first (`cargo build -p afm-cli`); \
+            "gen-dist-assets: {} not found — build it first (`cargo build -p aozora-flavored-markdown-cli`); \
              `just dist-assets` does this for you",
-            afm.display()
+            bin.display()
         );
     }
 
     let comp_dir = PathBuf::from("dist/assets/completions");
-    let man_path = PathBuf::from("dist/assets/man/afm.1");
+    let man_path = PathBuf::from("dist/assets/man/aozora-flavored-markdown.1");
     let mut drift: Vec<String> = Vec::new();
 
     for (shell, filename) in COMPLETION_TARGETS {
-        let script = run_afm_capture(&afm, &["completions", shell])?;
+        let script = run_cli_capture(&bin, &["completions", shell])?;
         sync_or_check(&comp_dir.join(filename), &script, check, &mut drift)?;
     }
-    let man = run_afm_capture(&afm, &["_man"])?;
+    let man = run_cli_capture(&bin, &["_man"])?;
     sync_or_check(&man_path, &man, check, &mut drift)?;
 
     if check {
@@ -194,24 +194,24 @@ fn gen_dist_assets(check: bool) -> Result<()> {
     }
 }
 
-/// Path to the debug `afm` binary, honoring `CARGO_TARGET_DIR`.
-fn afm_binary_path() -> PathBuf {
+/// Path to the debug `aozora-flavored-markdown` binary, honoring `CARGO_TARGET_DIR`.
+fn aozora_binary_path() -> PathBuf {
     let target =
         env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from);
-    target.join("debug").join("afm")
+    target.join("debug").join("aozora-flavored-markdown")
 }
 
-/// Run the built `afm` binary with `args` and return its stdout, or bail on a
+/// Run the built `aozora-flavored-markdown` binary with `args` and return its stdout, or bail on a
 /// non-zero exit.
-fn run_afm_capture(afm: &Path, args: &[&str]) -> Result<Vec<u8>> {
-    let out = ProcessCommand::new(afm)
+fn run_cli_capture(bin: &Path, args: &[&str]) -> Result<Vec<u8>> {
+    let out = ProcessCommand::new(bin)
         .args(args)
         .output()
-        .with_context(|| format!("running {} {args:?}", afm.display()))?;
+        .with_context(|| format!("running {} {args:?}", bin.display()))?;
     if !out.status.success() {
         bail!(
             "{} {args:?} failed: {}",
-            afm.display(),
+            bin.display(),
             String::from_utf8_lossy(&out.stderr)
         );
     }
@@ -294,9 +294,9 @@ fn upstream_diff() -> Result<()> {
 
 /// Replace `upstream/comrak/` with the source tree at `tag`.
 ///
-/// Pure tree-replace (ADR-0001): there are no afm patches to re-apply
+/// Pure tree-replace (ADR-0001): there are no aozora-flavored-markdown patches to re-apply
 /// because the diff budget is 0. We preserve the two
-/// afm-side metadata files (`COMRAK_SHA` and `UPSTREAM_DIFF.md`)
+/// aozora-md-side metadata files (`COMRAK_SHA` and `UPSTREAM_DIFF.md`)
 /// across the wipe, then rewrite `COMRAK_SHA` with the new pin.
 ///
 /// Network: shells out to `git clone --depth 1 --branch <tag>`.
@@ -373,7 +373,7 @@ fn upstream_sync(tag: &str) -> Result<()> {
     copy_dir_recursive(&scratch, &upstream_dir)
         .with_context(|| format!("copying scratch tree into {}", upstream_dir.display()))?;
 
-    // Restore afm metadata, then update COMRAK_SHA with the new pin.
+    // Restore aozora-flavored-markdown metadata, then update COMRAK_SHA with the new pin.
     for (path, content) in preserved {
         fs::write(&path, content).with_context(|| format!("restoring {}", path.display()))?;
     }
@@ -510,7 +510,7 @@ fn today_yyyy_mm_dd() -> Result<String> {
         .to_owned())
 }
 
-/// Manifests carrying a `P4suta/aozora.git` rev pin. Post-B1 (PR #43) afm
+/// Manifests carrying a `P4suta/aozora.git` rev pin. Post-B1 (PR #43) aozora-flavored-markdown
 /// depends on the single umbrella `aozora` crate — not the old six
 /// internal crates — pinned in the workspace manifest; the
 /// workspace-external cargo-fuzz crate pins the same rev independently.
@@ -518,7 +518,10 @@ fn today_yyyy_mm_dd() -> Result<String> {
 /// crate behind, then refreshes Cargo.lock. Idempotent: if every pin
 /// already matches the target SHA, nothing is written and `cargo update`
 /// is skipped.
-const AOZORA_PINNED_MANIFESTS: [&str; 2] = ["Cargo.toml", "crates/afm-markdown/fuzz/Cargo.toml"];
+const AOZORA_PINNED_MANIFESTS: [&str; 2] = [
+    "Cargo.toml",
+    "crates/aozora-flavored-markdown/fuzz/Cargo.toml",
+];
 
 fn aozora_bump(new_sha: &str) -> Result<()> {
     // Accept only fully-spelled lowercase hex SHAs — short / mixed-case

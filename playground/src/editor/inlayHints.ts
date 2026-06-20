@@ -1,4 +1,4 @@
-// Gaiji inlay hints for the afm playground editor.
+// Gaiji inlay hints for the aozora-md playground editor.
 //
 // Ported verbatim-in-structure from the aozora playground
 // (playground/src/editor/inlayHints.ts). A ViewPlugin reads the parser
@@ -6,11 +6,11 @@
 // inline (`→<resolved>`) just after each `※［＃...］` reference, using a
 // Decoration.widget so the source text the user typed is never mutated.
 //
-// afm adaptations:
-//   - parser state is imported from the local afm parserState module,
+// aozora-md adaptations:
+//   - parser state is imported from the local aozora-md parserState module,
 //   - the internal CSS class stays `cm-aozora-inlay` (editor implementation
-//     detail, not an afm brand surface) so the shared stylesheet matches;
-//     its colours are wired to afm chrome tokens (var(--afm-pg-*)) in CSS.
+//     detail, not an aozora-md brand surface) so the shared stylesheet matches;
+//     its colours are wired to aozora-md chrome tokens (var(--aozora-md-pg-*)) in CSS.
 
 import {
   Decoration,

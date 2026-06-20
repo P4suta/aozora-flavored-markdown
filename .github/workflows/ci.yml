@@ -1,4 +1,4 @@
-# afm CI. The `setup-dev-image` composite action pulls the dev image published
+# aozora-flavored-markdown CI. The `setup-dev-image` composite action pulls the dev image published
 # by dev-image.yml (or falls back to a local build), then `just <target>` runs
 # on the runner host — each recipe wraps cargo in `docker compose run` itself,
 # so this avoids Docker-in-Docker. Action SHAs are pinned; Dependabot bumps weekly.
@@ -28,7 +28,7 @@ jobs:
   # Change-aware gating. `dorny/paths-filter` classifies the PR (or push) diff
   # so the heavy compile/test/lint matrix is skipped on docs-only changes; the
   # `ci-success` aggregator (bottom) tolerates the resulting "skipped" results.
-  # Unlike aozora, afm has no build-once `dev-image` job to skip (every job
+  # Unlike aozora, aozora-flavored-markdown has no build-once `dev-image` job to skip (every job
   # self-provisions cheaply via the GHCR pull), so this mainly saves the
   # compile / test / coverage matrix, not an image build.
   changes:
@@ -44,7 +44,7 @@ jobs:
           filters: |
             rust:
               - 'crates/**'
-              - '!crates/afm-book/**'
+              - '!crates/aozora-flavored-markdown-book/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
@@ -58,7 +58,7 @@ jobs:
               - 'playground/**'
               - '.github/**'
             book:
-              - 'crates/afm-book/**'
+              - 'crates/aozora-flavored-markdown-book/**'
 
   msrv:
     # Verify that the pinned MSRV (1.96.0, see `rust-toolchain.toml`)
@@ -130,7 +130,7 @@ jobs:
       - run: just doc
 
   # Phase-2 (needs check). IR→TS codegen drift gate (`xtask types check`):
-  # fails if afm_types.d.ts wasn't regenerated after an IR change.
+  # fails if aozora_flavored_markdown_types.d.ts wasn't regenerated after an IR change.
   types-check:
     runs-on: ubuntu-latest
     needs: [changes, check]
@@ -152,7 +152,7 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just dist-assets-check
 
-  # Phase-2 (needs check). Build afm-wasm + the Vite playground at PR time so
+  # Phase-2 (needs check). Build aozora-flavored-markdown-wasm + the Vite playground at PR time so
   # a wasm-pack or playground break fails here, not post-merge in docs.yml.
   wasm-build:
     runs-on: ubuntu-latest
@@ -166,7 +166,7 @@ jobs:
 
   # Phase-1 (parallel with `check`). Style + grep checks, no compile dependency.
   # Matrixed so the four legs run concurrently (wall-time ≈ the slowest leg,
-  # clippy). afm's `just clippy` is already `--all-targets`, so it is the strict
+  # clippy). aozora-flavored-markdown's `just clippy` is already `--all-targets`, so it is the strict
   # surface — there is no separate clippy-strict leg (unlike aozora).
   lint:
     name: lint (${{ matrix.target }})
@@ -219,7 +219,7 @@ jobs:
       - run: just test-doc
 
   # Phase-2 (needs check). CommonMark + GFM conformance. (Aozora-layer specs
-  # live in the aozora repo; afm exercises the pipeline via `aozora_parity`.)
+  # live in the aozora repo; aozora-flavored-markdown exercises the pipeline via `aozora_parity`.)
   spec:
     runs-on: ubuntu-latest
     needs: [changes, check]
@@ -268,8 +268,8 @@ jobs:
     # Runs `docker compose run book` directly, so set root here: the book
     # image's non-root user can't write mdbook output into the runner checkout.
     env:
-      AFM_UID: "0"
-      AFM_GID: "0"
+      AOZORA_MD_UID: "0"
+      AOZORA_MD_GID: "0"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5  # v4.1.0
@@ -277,7 +277,7 @@ jobs:
         with:
           context: .
           target: book
-          tags: afm-book:local
+          tags: aozora-flavored-markdown-book:local
           load: true
 
   # Aggregate gate. Branch protection requires only this job (plus the CodeQL

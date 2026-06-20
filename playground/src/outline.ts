@@ -1,7 +1,7 @@
-// Derive a heading outline from the afm IR.
+// Derive a heading outline from the aozora-md IR.
 //
-// afm already ships heading positions in its IR (`heading` for Markdown
-// `#`, `afmHeading` for 青空文庫 `［＃大見出し］`), each carrying a
+// aozora-md already ships heading positions in its IR (`heading` for Markdown
+// `#`, `aozoraMdHeading` for 青空文庫 `［＃大見出し］`), each carrying a
 // `sourceLine`, so the outline needs no extra WASM call — unlike the
 // sibling aozora playground, which reads a dedicated nodes_json. We walk
 // the block tree (descending into blockquote / list / container) and

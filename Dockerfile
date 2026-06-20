@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# afm development / CI container. Every developer and CI job runs inside this
+# aozora-flavored-markdown development / CI container. Every developer and CI job runs inside this
 # image; the host toolchain is never invoked. Layered so upstream-sync /
 # dependency bumps rebuild a minimal surface.
 #
@@ -102,7 +102,7 @@ RUN curl -fsSL \
     | gunzip > /usr/local/bin/lefthook \
     && chmod +x /usr/local/bin/lefthook
 
-# wasm-pack — builds the afm-wasm crate consumed by `playground/` and any
+# wasm-pack — builds the aozora-flavored-markdown-wasm crate consumed by `playground/` and any
 # browser host. Pinned alongside the workflow pin in .github/workflows/docs.yml
 # so dev and CI agree on the wasm-bindgen-cli that gets auto-fetched.
 ARG WASM_PACK_VERSION=0.15.0
@@ -151,7 +151,7 @@ COPY --from=cargo-tools /usr/local/bin/ /usr/local/bin/
 # scrubs the env and trips the sccache pin above).
 RUN rustup component add rustfmt clippy rust-src
 
-# AFM_IN_CONTAINER tells the Justfile it is already inside the dev image, so its
+# AOZORA_MD_IN_CONTAINER tells the Justfile it is already inside the dev image, so its
 # recipes run tools directly instead of nesting another `docker compose run`
 # (which has no daemon here). Lets `just shell`, devcontainers and Codespaces
 # use the same `just` recipes as the host. Inherited by the fuzz / ci stages.
@@ -160,7 +160,7 @@ ENV CARGO_HOME=/cargo/home \
     RUSTC_WRAPPER=sccache \
     SCCACHE_DIR=/cargo/sccache \
     RUST_BACKTRACE=1 \
-    AFM_IN_CONTAINER=1
+    AOZORA_MD_IN_CONTAINER=1
 
 # Pre-create the /cargo/* cache mount targets. They live OUTSIDE the
 # /workspace bind mount on purpose: nesting them under /workspace makes the
@@ -171,7 +171,7 @@ RUN mkdir -p /cargo/target /cargo/home/registry /cargo/home/git /cargo/sccache \
 # Run as non-root so files written into the /workspace bind mount are
 # host-owned, not root. UID/GID default to 1000; override with
 # `--build-arg UID=$(id -u) --build-arg GID=$(id -g)`. CI flips back to root
-# via `user:` in docker-compose.yml (AFM_UID=0) — its checkout UID is
+# via `user:` in docker-compose.yml (AOZORA_MD_UID=0) — its checkout UID is
 # throwaway, so root sidesteps cross-UID write failures.
 ARG UID=1000
 ARG GID=1000
@@ -233,7 +233,7 @@ RUN groupadd --gid "${GID}" dev \
     && useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash dev
 ENV HOME=/home/dev
 
-WORKDIR /workspace/crates/afm-book
+WORKDIR /workspace/crates/aozora-flavored-markdown-book
 USER dev
 EXPOSE 3000
 CMD ["mdbook", "serve", "--hostname", "0.0.0.0", "--port", "3000"]

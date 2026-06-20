@@ -1,6 +1,6 @@
-# afm 記法リファレンス
+# aozora-md 記法リファレンス
 
-afm（Aozora Flavored Markdown）は **CommonMark + GFM** に **青空文庫記法** を
+aozora-md（Aozora Flavored Markdown）は **CommonMark + GFM** に **青空文庫記法** を
 重ね合わせた記法です。ふつうの Markdown をそのまま書きつつ、ルビ・傍点・
 縦中横などの日本語組版を `［＃…］` の注記で表現できます。
 

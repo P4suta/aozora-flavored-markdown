@@ -1,4 +1,4 @@
-# afm workspace compose file. Every `just` target runs a command here.
+# aozora-flavored-markdown workspace compose file. Every `just` target runs a command here.
 #
 # Services:
 #   dev        — interactive development (stable Rust only; no nightly)
@@ -10,7 +10,7 @@
 #
 # Volumes are named so cargo registry + target + sccache persist between runs.
 
-name: afm
+name: aozora-md
 
 x-common-env: &common-env
   # Cargo caches live at /cargo/* (named volumes), OUTSIDE the /workspace bind
@@ -50,11 +50,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: afm-dev:local
+    image: aozora-md-dev:local
     working_dir: /workspace
     # Runtime UID/GID. Unset locally → 1000 (host-owned bind-mount writes);
-    # CI sets AFM_UID=0/AFM_GID=0 → root over its throwaway checkout.
-    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"
+    # CI sets AOZORA_MD_UID=0/AOZORA_MD_GID=0 → root over its throwaway checkout.
+    user: "${AOZORA_MD_UID:-1000}:${AOZORA_MD_GID:-1000}"
     environment: *common-env
     volumes:
       - .:/workspace:cached
@@ -74,9 +74,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: fuzz
-    image: afm-fuzz:local
+    image: aozora-md-fuzz:local
     working_dir: /workspace
-    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
+    user: "${AOZORA_MD_UID:-1000}:${AOZORA_MD_GID:-1000}"  # see `dev` service
     environment: *common-env
     volumes:
       - .:/workspace:cached
@@ -93,9 +93,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: ci
-    image: afm-ci:local
+    image: aozora-md-ci:local
     working_dir: /workspace
-    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
+    user: "${AOZORA_MD_UID:-1000}:${AOZORA_MD_GID:-1000}"  # see `dev` service
     environment:
       <<: *common-env
       CI: "true"
@@ -111,16 +111,16 @@ services:
   # VS Code devcontainer / GitHub Codespaces target. Same image as `ci` (every
   # tool, incl. nightly + mdbook) so the in-container `just` path runs the full
   # gate set directly — but with interactive settings and WITHOUT `CI=true`, so
-  # it behaves like a dev box, not a CI runner. `AFM_IN_CONTAINER=1` (baked into
+  # it behaves like a dev box, not a CI runner. `AOZORA_MD_IN_CONTAINER=1` (baked into
   # the image) flips the Justfile to its no-docker-nesting mode.
   devcontainer:
     build:
       context: .
       dockerfile: Dockerfile
       target: ci
-    image: afm-ci:local
+    image: aozora-md-ci:local
     working_dir: /workspace
-    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
+    user: "${AOZORA_MD_UID:-1000}:${AOZORA_MD_GID:-1000}"  # see `dev` service
     environment: *common-env
     volumes:
       - .:/workspace:cached
@@ -137,9 +137,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: book
-    image: afm-book:local
-    working_dir: /workspace/crates/afm-book
-    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
+    image: aozora-flavored-markdown-book:local
+    working_dir: /workspace/crates/aozora-flavored-markdown-book
+    user: "${AOZORA_MD_UID:-1000}:${AOZORA_MD_GID:-1000}"  # see `dev` service
     volumes:
       - .:/workspace:cached
     ports:
@@ -150,7 +150,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: browser
-    image: afm-browser:local
+    image: aozora-md-browser:local
     working_dir: /workspace
     environment:
       <<: *common-env
@@ -169,9 +169,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: afm-dev:local
+    image: aozora-md-dev:local
     working_dir: /workspace/playground
-    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
+    user: "${AOZORA_MD_UID:-1000}:${AOZORA_MD_GID:-1000}"  # see `dev` service
     environment: *common-env
     volumes:
       - .:/workspace:cached

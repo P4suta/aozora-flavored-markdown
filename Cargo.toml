@@ -1,17 +1,17 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/afm-markdown",
-    "crates/afm-markdown-test-support",
-    "crates/afm-cli",
-    "crates/afm-wasm",
+    "crates/aozora-flavored-markdown",
+    "crates/aozora-flavored-markdown-test-support",
+    "crates/aozora-flavored-markdown-cli",
+    "crates/aozora-flavored-markdown-wasm",
     "crates/xtask",
 ]
-# afm-book (mdbook site) and upstream/comrak (vendored verbatim) are not crates.
-exclude = ["upstream/comrak", "crates/afm-book"]
+# aozora-flavored-markdown-book (mdbook site) and upstream/comrak (vendored verbatim) are not crates.
+exclude = ["upstream/comrak", "crates/aozora-flavored-markdown-book"]
 
 [workspace.package]
-version       = "0.4.0"
+version       = "0.4.1"
 edition       = "2024"
 rust-version  = "1.96.0"
 license       = "Apache-2.0 OR MIT"
@@ -19,7 +19,7 @@ description   = "Aozora Flavored Markdown: CommonMark/GFM + 青空文庫記法 i
 repository    = "https://github.com/P4suta/afm"
 homepage      = "https://p4suta.github.io/afm/"
 documentation = "https://p4suta.github.io/afm/api/"
-authors       = ["afm contributors"]
+authors       = ["aozora-flavored-markdown contributors"]
 readme        = "README.md"
 keywords      = ["markdown", "aozora", "japanese", "typography", "parser"]
 categories    = ["parser-implementations", "text-processing", "localization"]
@@ -49,7 +49,7 @@ explicit_outlives_requirements = "warn"
 let_underscore_drop        = "warn"  # `let _ = ...` silently drops Drop types
 keyword_idents_2024        = "warn"  # 2024-edition reserved keywords as idents
 # Kept stricter than aozora on purpose: aozora `allow`s this for an
-# aozora-lexer enum whose largest variant trips the heuristic; afm has no
+# aozora-lexer enum whose largest variant trips the heuristic; aozora-flavored-markdown has no
 # such enum, so we keep the `warn` and `Box` large variants if one appears.
 variant_size_differences   = "warn"  # large enum variants — push to `Box`
 ambiguous_negative_literals = "warn" # `-1.pow(2)` precedence traps
@@ -123,16 +123,16 @@ missing_const_for_fn    = "allow" # zero-arg builders read clearer as fns
 redundant_pub_crate     = "allow" # conflicts with rustc's `unreachable_pub` (our source of truth)
 
 [workspace.dependencies]
-afm-markdown = { version = "0.4.0", path = "crates/afm-markdown" }
+aozora-flavored-markdown = { version = "0.4.0", path = "crates/aozora-flavored-markdown" }
 # Test-only dev-dependency; `publish = false`. Path-only (no version) so
 # `cargo publish` strips it from the published manifest — it is never on
 # crates.io. The resulting `*` path requirement is permitted by deny.toml's
 # `allow-wildcard-paths` (ADR-0015).
-afm-markdown-test-support = { path = "crates/afm-markdown-test-support" }
+aozora-flavored-markdown-test-support = { path = "crates/aozora-flavored-markdown-test-support" }
 
 # Sibling 青空文庫記法 parser. Depend on the umbrella `aozora` crate only, not
-# its internal build-block crates, so afm is insulated from its decomposition.
-# Registry dependency (crates.io) so afm-markdown can itself be published — a
+# its internal build-block crates, so aozora-flavored-markdown is insulated from its decomposition.
+# Registry dependency (crates.io) so aozora-flavored-markdown can itself be published — a
 # git source would make `cargo publish` reject the crate (ADR-0015). v0.4.1 is
 # the published cut of the former `rev = a53c632…` pin; an intentional sync is
 # now one PR per `cargo update -p aozora` + version bump. `default-features =
@@ -140,7 +140,7 @@ afm-markdown-test-support = { path = "crates/afm-markdown-test-support" }
 aozora = { version = "0.4.1", default-features = false }
 
 # Vendored comrak fork (path, not crates.io). `default-features = false` drops
-# the comrak CLI (`cli` / `syntect` / `bon`); afm-cli is our own binary.
+# the comrak CLI (`cli` / `syntect` / `bon`); aozora-flavored-markdown-cli is our own binary.
 comrak = { version = "0.52.0", path = "upstream/comrak", default-features = false }
 
 # Error handling
@@ -163,7 +163,7 @@ encoding_rs = "0.8.35"
 # Compile-time hash maps (gaiji UCS lookup table, kaeriten/bouten slugs)
 phf = { version = "0.13", features = ["macros"] }
 
-# Filesystem walking — used by afm-corpus to iterate test corpora
+# Filesystem walking — used by aozora-md-corpus to iterate test corpora
 walkdir = "2.5"
 
 # Test helpers

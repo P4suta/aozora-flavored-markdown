@@ -1,25 +1,25 @@
-# Contributing to afm
+# Contributing to aozora-flavored-markdown
 
-Thanks for wanting to help. afm is an active project with a small
+Thanks for wanting to help. aozora-flavored-markdown is an active project with a small
 surface area of rules, but those rules are strict — the guarantees
 below only stay true if every contribution respects them.
 
 ## Where things live
 
-afm is the **Markdown ↔ Aozora composition layer**: it composes a
+aozora-flavored-markdown is the **Markdown ↔ Aozora composition layer**: it composes a
 vendored verbatim comrak with the sibling
 [`P4suta/aozora`](https://github.com/P4suta/aozora) parser /
 renderer to produce HTML where CommonMark + GFM and 青空文庫記法
 coexist correctly. New 青空文庫記法 / lexer / per-node render work
-lands in the sibling repo, not here. afm-side work falls into:
+lands in the sibling repo, not here. aozora-md-side work falls into:
 
-1. **Markdown ↔ Aozora glue** — `crates/afm-markdown/`
+1. **Markdown ↔ Aozora glue** — `crates/aozora-flavored-markdown/`
    (`render_to_string`, `render_to_ir`, `serialize`,
    `ast_splice::splice_into_ast`, the `IrDocument` projection).
-2. **CLI** — `crates/afm-cli/` (`afm render` / `afm check`).
-3. **WASM bridge** — `crates/afm-wasm/` (afm-obsidian / browser
+2. **CLI** — `crates/aozora-flavored-markdown-cli/` (`aozora-flavored-markdown render` / `aozora-flavored-markdown check`).
+3. **WASM bridge** — `crates/aozora-flavored-markdown-wasm/` (afm-obsidian / browser
    hosts).
-4. **Documentation** — `crates/afm-book/` (mdbook site) and
+4. **Documentation** — `crates/aozora-flavored-markdown-book/` (mdbook site) and
    `docs/adr/` (Architecture Decision Records).
 
 Authoring tools (formatter / LSP / VS Code extension) live in a
@@ -35,7 +35,7 @@ per ADR-0009.
 2. **Vendored comrak is hands-off** (ADR-0001). The fork sits at
    `upstream/comrak/` with a **0-line diff budget** — any change
    would be a fork divergence and needs its own ADR. Composition
-   happens in `afm-markdown::ast_splice` (AST sentinel splice),
+   happens in `aozora-flavored-markdown::ast_splice` (AST sentinel splice),
    never inside `upstream/comrak/`.
 3. **No warning suppressions.** `#[allow(...)]`, `#![allow(...)]`,
    `#[cfg_attr(..., allow(...))]`, `continue-on-error` in
@@ -80,7 +80,7 @@ just spec-commonmark           # CommonMark 0.31.2 (652 cases)
 just spec-gfm                  # GFM 0.29 spec
 just coverage                  # cargo llvm-cov, fails below _COV_FLOOR
 just upstream-diff             # verify upstream/comrak/ is still 0-line
-just book-build                # mdbook build into crates/afm-book/book
+just book-build                # mdbook build into crates/aozora-flavored-markdown-book/book
 just ci                        # replica of the full CI pipeline
 
 # Before a release:
@@ -100,7 +100,7 @@ A quick lap to confirm the loop works end to end:
 
 1. `just setup` — once per clone (build image, hooks, doctor, tests).
 2. `just watch` in one terminal — bacon recompiles on every save.
-3. Make a small edit in `crates/afm-markdown/` and add a test next to
+3. Make a small edit in `crates/aozora-flavored-markdown/` and add a test next to
    it (a `#[cfg(test)]` case, or a row in the relevant `tests/*.rs`).
    The watcher stays red until it passes.
 4. `just test` for the whole suite, `just lint` for fmt + clippy.
@@ -132,7 +132,7 @@ anything missing.
   host-side rust-analyzer cannot see the toolchain and never will.
 - **`just <recipe>` fails with a Docker error from inside a container.**
   Your image predates the container-aware Justfile. Rebuild it
-  (`docker compose build dev`) so `AFM_IN_CONTAINER=1` is baked in and
+  (`docker compose build dev`) so `AOZORA_MD_IN_CONTAINER=1` is baked in and
   recipes run their tool directly instead of nesting a container.
 - **sccache looks cold (slow rebuilds).** `just sccache-stats` shows the
   hit ratio; a stray `RUSTC_WRAPPER` override or profile tweak can defeat
@@ -149,41 +149,41 @@ anything missing.
 
 ## How to make a change
 
-### afm-markdown (the glue layer)
+### aozora-flavored-markdown (the glue layer)
 
-Most afm-side changes are one of:
+Most aozora-md-side changes are one of:
 
 - **Aozora splice edge case** — landing in
-  `crates/afm-markdown/src/ast_splice.rs`. Add a unit test in the
+  `crates/aozora-flavored-markdown/src/ast_splice.rs`. Add a unit test in the
   same module's `#[cfg(test)] mod tests` and a property-test ping
   in `tests/post_process_invariants.rs` if the change has
   cross-input semantics. Predicates that codify "must-never-be"
-  HTML shapes live in the `afm-markdown-test-support` crate —
+  HTML shapes live in the `aozora-flavored-markdown-test-support` crate —
   add new ones there with both the predicate and a unit pin
   (`invariant_unit_check_X_passes_on_clean_input`,
   `invariant_unit_check_X_fires_on_<shape>`).
-- **IR projection** — `crates/afm-markdown/src/ir/`. Each
+- **IR projection** — `crates/aozora-flavored-markdown/src/ir/`. Each
   Aozora node maps via `project_inline` / `project_block_leaf`;
   paragraph dispatch flows through `IrWalker::walk_top` →
   `classify_paragraph`. Streaming-mode behaviour goes through
   `StreamingIrBuilder`. Add tests in
-  `crates/afm-markdown/tests/ir_aozora.rs`.
+  `crates/aozora-flavored-markdown/tests/ir_aozora.rs`.
 - **CSS class contract drift** — when the sibling renderer adds a
   new `aozora-*` class, update
-  `afm-markdown-test-support`'s `AFM_CLASSES` (the brand
-  is rewritten to `afm-*` per ADR-0011) and the corresponding rule
-  in `crates/afm-book/theme/afm-{horizontal,vertical}.css`.
-- **Public API drift** — `Options::afm_default` defaults, new
+  `aozora-flavored-markdown-test-support`'s `AOZORA_MD_CLASSES` (the brand
+  is rewritten to `aozora-md-*` per ADR-0011) and the corresponding rule
+  in `crates/aozora-flavored-markdown-book/theme/aozora-md-{horizontal,vertical}.css`.
+- **Public API drift** — `Options::default` defaults, new
   entry points, diagnostic shape. Lives in
-  `crates/afm-markdown/src/lib.rs`. Bumping the IR schema is a
-  semver-major change because afm-wasm and afm-obsidian validate
+  `crates/aozora-flavored-markdown/src/lib.rs`. Bumping the IR schema is a
+  semver-major change because aozora-flavored-markdown-wasm and afm-obsidian validate
   it on the JS side.
-- **CLI behaviour** — `crates/afm-cli/src/main.rs` and the binary-
-  level integration tests in `crates/afm-cli/tests/cli_integration.rs`.
+- **CLI behaviour** — `crates/aozora-flavored-markdown-cli/src/main.rs` and the binary-
+  level integration tests in `crates/aozora-flavored-markdown-cli/tests/cli_integration.rs`.
 
 ### Spec / golden / corpus regression
 
-`crates/afm-markdown/tests/*.rs` covers the CommonMark + GFM spec
+`crates/aozora-flavored-markdown/tests/*.rs` covers the CommonMark + GFM spec
 runners (`commonmark_spec.rs`, `gfm_spec.rs`) and the Aozora ×
 Markdown integration surface (`aozora_parity.rs`,
 `paired_container.rs`, `heading_promotion.rs`,
@@ -193,14 +193,14 @@ new invariants ride on the same scaffolding.
 
 ### Adding a 青空文庫 notation
 
-This **does not happen on the afm side**. Lexer phases, AST
+This **does not happen on the aozora-flavored-markdown side**. Lexer phases, AST
 shapes, recogniser tables, and per-node renderers all live in the
 sibling [`P4suta/aozora`](https://github.com/P4suta/aozora) repo
 (see ADR-0010 for the rationale). Once a new construct is
-classified upstream and lands in `aozora-syntax`, afm picks it up
+classified upstream and lands in `aozora-syntax`, aozora-flavored-markdown picks it up
 automatically through the workspace dep — usually with a one-line
-mapping in `afm_markdown::ir::project_inline` /
-`project_block_leaf` plus a test, and a `AFM_CLASSES` update if
+mapping in `aozora_flavored_markdown::ir::project_inline` /
+`project_block_leaf` plus a test, and a `AOZORA_MD_CLASSES` update if
 the renderer adds a new CSS hook.
 
 ## Architectural changes
@@ -227,8 +227,8 @@ for an example of a small, scoped boundary decision.
 hook enforces this. Accepted types: `feat`, `fix`, `docs`,
 `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
 `revert`. Scopes match the workspace shape — one of: `markdown`
-(afm-markdown), `cli` (afm-cli), `wasm` (afm-wasm), `book`
-(afm-book), `xtask`, `comrak` (touches under `upstream/comrak/`),
+(aozora-flavored-markdown), `cli` (aozora-flavored-markdown-cli), `wasm` (aozora-flavored-markdown-wasm), `book`
+(aozora-flavored-markdown-book), `xtask`, `comrak` (touches under `upstream/comrak/`),
 `adr`, `release`, `dev`, `test`.
 
 A single commit should be a single logical change. Split unrelated
@@ -277,21 +277,21 @@ Releases are automated by [cargo-dist](https://opensource.axo.dev/cargo-dist/)
    `[<version>] - YYYY-MM-DD` and add a fresh `[Unreleased]` stub.
 2. Regenerate the bundled CLI assets: `just dist-assets`. The man page
    embeds the version, so a version bump changes
-   `dist/assets/man/afm.1` (and `just ci`'s `dist-assets-check` gate
+   `dist/assets/man/aozora-flavored-markdown.1` (and `just ci`'s `dist-assets-check` gate
    would otherwise fail).
 3. Commit the changelog + asset bump:
    `git commit -m "chore: release v<version>"`.
 4. Tag (annotated): `git tag -a v<version> -m 'v<version>'`.
 5. Push: `git push origin main v<version>`.
 6. `.github/workflows/release.yml` (generated by `dist`) reacts to
-   the tag, builds the `afm` binary on the five targets configured
+   the tag, builds the `aozora-flavored-markdown` binary on the five targets configured
    in `dist-workspace.toml` (aarch64/x86_64 linux-gnu, aarch64/x86_64
    macOS, x86_64 windows-msvc), packages each as an archive with the
    licences + `README.md` + bundled completions and man page, generates
    `shell`/`powershell` installer scripts and checksums, and creates the
    GitHub Release with notes derived from the changelog.
 7. Sanity check: download one artefact, verify its `.sha256`, then
-   `./afm --version` to confirm the embedded version matches the tag.
+   `./aozora-flavored-markdown --version` to confirm the embedded version matches the tag.
 
 The release config lives in `dist-workspace.toml`; regenerate the
 workflow after editing it with `dist generate`. Every PR runs the

@@ -1,7 +1,7 @@
 // Selection-wrap commands for 青空文庫 notation, ported from the sibling
 // aozora playground's `editor/wrapCommands.ts` (which in turn mirrors
 // aozora-tools' VSCode `wrap.ts`). Every shape is plain aozora notation
-// that afm renders, and none collides with Markdown syntax, so the set
+// that aozora-md renders, and none collides with Markdown syntax, so the set
 // carries over unchanged. Each wraps the selection in a snippet template
 // so the `${0}` tabstop lands the cursor predictably.
 
@@ -18,12 +18,12 @@ export interface WrapShape {
 }
 
 export const WRAP_SHAPES: readonly WrapShape[] = [
-  { id: 'afm.wrap.ruby', template: '｜BASE《${0}》', description: 'ルビ' },
-  { id: 'afm.wrap.doubleRuby', template: '｜BASE《《${0}》》', description: 'ダブルルビ' },
-  { id: 'afm.wrap.bouten', template: 'BASE［＃「BASE」に傍点］${0}', description: '傍点' },
-  { id: 'afm.wrap.kagikakko', template: '「BASE」${0}', description: '鉤括弧で囲む' },
-  { id: 'afm.wrap.kikkou', template: '〔BASE〕${0}', description: '亀甲括弧で囲む' },
-  { id: 'afm.wrap.chuki', template: '［＃BASE］${0}', description: '注記で囲む' },
+  { id: 'aozora-md.wrap.ruby', template: '｜BASE《${0}》', description: 'ルビ' },
+  { id: 'aozora-md.wrap.doubleRuby', template: '｜BASE《《${0}》》', description: 'ダブルルビ' },
+  { id: 'aozora-md.wrap.bouten', template: 'BASE［＃「BASE」に傍点］${0}', description: '傍点' },
+  { id: 'aozora-md.wrap.kagikakko', template: '「BASE」${0}', description: '鉤括弧で囲む' },
+  { id: 'aozora-md.wrap.kikkou', template: '〔BASE〕${0}', description: '亀甲括弧で囲む' },
+  { id: 'aozora-md.wrap.chuki', template: '［＃BASE］${0}', description: '注記で囲む' },
 ] as const;
 
 function escapeSnippet(text: string): string {
@@ -58,20 +58,20 @@ const SHAPE_BY_ID: Record<string, WrapShape> = Object.fromEntries(
  * Mod-Alt-B = bouten. Mirrors aozora-tools' bindings so muscle memory
  * carries across the VSCode extension and both playgrounds.
  */
-export const afmWrapKeymap: readonly KeyBinding[] = [
+export const aozoraMdWrapKeymap: readonly KeyBinding[] = [
   {
     key: 'Mod-Alt-r',
-    run: wrapCommand(SHAPE_BY_ID['afm.wrap.ruby']!),
+    run: wrapCommand(SHAPE_BY_ID['aozora-md.wrap.ruby']!),
     preventDefault: true,
   },
   {
     key: 'Mod-Alt-Shift-r',
-    run: wrapCommand(SHAPE_BY_ID['afm.wrap.doubleRuby']!),
+    run: wrapCommand(SHAPE_BY_ID['aozora-md.wrap.doubleRuby']!),
     preventDefault: true,
   },
   {
     key: 'Mod-Alt-b',
-    run: wrapCommand(SHAPE_BY_ID['afm.wrap.bouten']!),
+    run: wrapCommand(SHAPE_BY_ID['aozora-md.wrap.bouten']!),
     preventDefault: true,
   },
 ];

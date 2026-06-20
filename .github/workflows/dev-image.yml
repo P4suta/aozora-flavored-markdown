@@ -1,6 +1,6 @@
-# Build and publish the afm dev container image to GHCR.
+# Build and publish the aozora-flavored-markdown dev container image to GHCR.
 #
-# Lets ci.yml `docker pull ghcr.io/p4suta/afm-dev:latest` instead of
+# Lets ci.yml `docker pull ghcr.io/p4suta/aozora-md-dev:latest` instead of
 # rebuilding the toolchain + cargo dev tools image (30-40 min) on every
 # commit.
 #
@@ -38,7 +38,7 @@ concurrency:
 
 jobs:
   build-and-push:
-    name: build & push (ghcr.io/p4suta/afm-dev)
+    name: build & push (ghcr.io/p4suta/aozora-md-dev)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.2
@@ -59,7 +59,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9  # v6.1.0
         with:
-          images: ghcr.io/p4suta/afm-dev
+          images: ghcr.io/p4suta/aozora-md-dev
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,format=long

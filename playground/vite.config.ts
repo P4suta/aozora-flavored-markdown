@@ -4,7 +4,7 @@ import wasm from 'vite-plugin-wasm';
 
 // Strict Content-Security-Policy for the production bundle. Defense-in-depth
 // layered *on top of* the renderer's escaping: the preview is mounted via
-// `innerHTML` into `.afm-root` (components/PreviewPane.tsx), but the afm
+// `innerHTML` into `.aozora-md-root` (components/PreviewPane.tsx), but the aozora-md
 // renderer (comrak + aozora-render) entity-escapes all text and emits no
 // active markup, so the CSP is a second wall — not the primary XSS guard.
 //
@@ -12,9 +12,9 @@ import wasm from 'vite-plugin-wasm';
 //   default-src 'self'            — same-origin baseline for everything.
 //   script-src 'self'             — our bundle/chunks only…
 //     'wasm-unsafe-eval'          — …plus WebAssembly.instantiate for the
-//                                   afm-wasm module (no JS eval/unsafe-eval).
+//                                   aozora-flavored-markdown-wasm module (no JS eval/unsafe-eval).
 //   style-src 'self'              — hashed CSS assets, incl. the dynamically
-//                                   swapped #afm-theme <link href>…
+//                                   swapped #aozora-md-theme <link href>…
 //     'unsafe-inline'             — …plus the runtime <style> tags Solid and
 //                                   CodeMirror inject (no nonce path).
 //   img-src 'self' data:          — favicon + inline data: URIs.
@@ -74,13 +74,13 @@ function cspInProd(): Plugin {
 // so keeping it would have meant re-adding esbuild for no benefit.)
 export default defineConfig(({ command }) => ({
   plugins: [wasm(), solid(), cspInProd()],
-  base: command === 'build' ? '/afm/playground/' : '/',
+  base: command === 'build' ? '/aozora-md/playground/' : '/',
   server: {
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
     fs: {
-      // afm-book/theme/*.css lives one level above playground/. Vite's
+      // aozora-flavored-markdown-book/theme/*.css lives one level above playground/. Vite's
       // default fs.allow restricts dev-server reads to the project root;
       // widen it so the theme `?url` imports in `src/styles/theme-urls.ts`
       // resolve. Production `build` does not consult this list.
@@ -118,7 +118,7 @@ export default defineConfig(({ command }) => ({
           if (id.includes('node_modules/lz-string/')) {
             return 'vendor-lz-string';
           }
-          // Everything else stays in the main entry chunk; afm-wasm is
+          // Everything else stays in the main entry chunk; aozora-flavored-markdown-wasm is
           // its own asset via vite-plugin-wasm and not bundled in JS.
           return undefined;
         },

@@ -7,13 +7,13 @@
 
 ## Context
 
-`afm_markdown::ir::{IrBlock, IrInline}` are the public, `serde`-serialised IR
+`aozora_flavored_markdown::ir::{IrBlock, IrInline}` are the public, `serde`-serialised IR
 the wasm bridge hands to afm-obsidian's TypeScript renderers. They grow over
 time: every new 青空文庫 notation that lands upstream surfaces here as a new
 variant (the IR already carries `Ruby`, `DoubleRuby`, `Bouten`, `Tcy`,
 `Gaiji`, `Annotation`, `Container`, `PageBreak`, `SectionBreak`, …).
 
-With afm-markdown heading for crates.io (ADR-0015), external Rust consumers
+With aozora-flavored-markdown heading for crates.io (ADR-0015), external Rust consumers
 become possible. If the enums were exhaustive, every added variant would be a
 **breaking** change for any downstream `match` — forcing a major (pre-1.0:
 minor) bump for what is conceptually an additive feature.
@@ -26,13 +26,13 @@ match *from another crate*, which is where those witnesses lived.
 ## Decision
 
 Mark `IrBlock` and `IrInline` `#[non_exhaustive]`. External Rust consumers must
-add a `_ =>` arm; afm can then introduce a new IR variant in a
+add a `_ =>` arm; aozora-flavored-markdown can then introduce a new IR variant in a
 minor/patch release without breaking them. Serde output is unchanged, so the
 JSON/TypeScript contract is unaffected (TS consumers already tolerate an
 unknown `kind`, matching the ADR-0012 "tolerate unknown code" rule).
 
 Relocate the `assert_block_variants` / `assert_inline_variants` completeness
-witnesses **into the owning crate** (`afm_markdown::ir::types`), where an
+witnesses **into the owning crate** (`aozora_flavored_markdown::ir::types`), where an
 exhaustive match is still allowed. They keep forcing a compile error on a new
 variant; their comment is the reminder to also extend the hand-written `.d.ts`
 union and its samples in `crates/xtask/src/types.rs`.
@@ -51,7 +51,7 @@ wire contract stays additive without `#[non_exhaustive]`.
   consumers — only the in-crate witness must be updated (which also nudges the
   TS union).
 - Downstream Rust `match`es over `IrBlock`/`IrInline` now require a wildcard
-  arm. afm's own walker (`ir/mod.rs`) and the relocated witnesses are in-crate
+  arm. aozora-flavored-markdown's own walker (`ir/mod.rs`) and the relocated witnesses are in-crate
   and unaffected.
 - Struct field additions remain breaking for out-of-crate *literal*
   construction, but the only such constructors are the in-workspace xtask
@@ -74,5 +74,5 @@ exists.
 
 - ADR-0012 (diagnostic JSON schema & stability — additive-only precedent)
 - ADR-0015 (crates.io publication & semver policy)
-- `crates/afm-markdown/src/ir/types.rs`, `crates/xtask/src/types.rs`
+- `crates/aozora-flavored-markdown/src/ir/types.rs`, `crates/xtask/src/types.rs`
 - Plan: `~/.claude/plans/aozora-dapper-hopper.md`

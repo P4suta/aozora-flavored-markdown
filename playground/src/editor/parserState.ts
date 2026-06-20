@@ -2,13 +2,13 @@
 // playground's editor/parserState.ts.
 //
 // A single CodeMirror StateField owns one `Document` (the raw 青空文庫
-// parser handle from afm-wasm) per source revision, runs every wire
+// parser handle from aozora-flavored-markdown-wasm) per source revision, runs every wire
 // query once, pre-parses the JSON, and builds the UTF-16 <-> UTF-8
 // offset tables. Every other editor assist (decorations / linter /
 // hover / inlay / fold / linked-ranges) reads from
 // `view.state.field(parserStateField)` instead of touching the Document.
 //
-// This Document is the Aozora parser directly, NOT the afm pipeline, so
+// This Document is the Aozora parser directly, NOT the aozora-md pipeline, so
 // its spans are in source coordinates — which is what the assists need.
 
 import { StateField } from '@codemirror/state';

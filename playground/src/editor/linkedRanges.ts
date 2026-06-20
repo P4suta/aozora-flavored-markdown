@@ -7,9 +7,9 @@
 // partner side, so the two delimiters stay in sync instead of leaving dangling
 // markup.
 //
-// The logic is identical to aozora's: this file carries no afm-specific chrome
+// The logic is identical to aozora's: this file carries no aozora-md-specific chrome
 // (no decorations, no CSS, no brand tokens) — it only rewrites transactions, so
-// the only difference from the source is this header. It relies on afm's
+// the only difference from the source is this header. It relies on aozora-md's
 // parserState port, which exposes the same `parserStateField`, `byteToUtf16`,
 // `PairEntry`, and `ParserState` surface as aozora.
 

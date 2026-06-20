@@ -4,7 +4,7 @@
 // production bundle ships their content inline (no extra fetch on
 // dropdown change).
 
-const rawModules = import.meta.glob<string>('../examples/*.afm', {
+const rawModules = import.meta.glob<string>('../examples/*.md', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -16,7 +16,7 @@ interface ExampleLabelEntry {
 }
 
 const ORDERED_LABELS: readonly ExampleLabelEntry[] = [
-  { slug: '01-welcome', label: 'はじめに ― afm へようこそ' },
+  { slug: '01-welcome', label: 'はじめに ― aozora-md へようこそ' },
   { slug: '02-ruby-furigana', label: 'ルビ (｜ … 《 … 》)' },
   { slug: '03-bouten', label: '傍点 (［＃「…」に傍点］)' },
   { slug: '04-tate-chu-yoko', label: '縦中横' },
@@ -34,7 +34,7 @@ export interface Example {
 export function loadExamples(): readonly Example[] {
   const bySlug = new Map<string, string>();
   for (const [path, source] of Object.entries(rawModules)) {
-    const m = /\/(\d+-[a-z-]+)\.afm$/.exec(path);
+    const m = /\/(\d+-[a-z-]+)\.md$/.exec(path);
     if (m && m[1] !== undefined) bySlug.set(m[1], source);
   }
   return ORDERED_LABELS.flatMap(({ slug, label }) => {

@@ -5,7 +5,7 @@
 header = """
 # Changelog
 
-All notable changes to Aozora Flavored Markdown (afm) are recorded in
+All notable changes to Aozora Flavored Markdown (aozora-flavored-markdown) are recorded in
 this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -57,4 +57,4 @@ sort_commits   = "newest"
 
 [remote.github]
 owner = "P4suta"
-repo  = "afm"
+repo  = "aozora-flavored-markdown"

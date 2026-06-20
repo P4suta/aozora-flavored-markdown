@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you discover a security vulnerability in afm — a parser crash on
+If you discover a security vulnerability in aozora-flavored-markdown — a parser crash on
 untrusted input, a memory-safety issue, an HTML-injection bypass, or
 anything with exploitative potential — **do not open a public
 issue**. Instead:
@@ -12,12 +12,12 @@ issue**. Instead:
    This lets us discuss and patch before disclosure.
 2. Alternative: email the maintainer at
    `42543015+P4suta@users.noreply.github.com` with the subject
-   `[afm security] <short summary>`.
+   `[aozora-flavored-markdown security] <short summary>`.
 
 Please include:
 
 - The shortest input or reproduction steps that trigger the issue.
-- The afm version / commit hash and the Rust toolchain version.
+- The aozora-flavored-markdown version / commit hash and the Rust toolchain version.
 - Whether the issue is reachable via untrusted input (e.g. rendering
   user-supplied markdown).
 - Your proposed CVSS severity, if you have one in mind.
@@ -36,7 +36,7 @@ In scope:
 - Crashes, panics, or non-termination on any UTF-8 or Shift_JIS input
   within 10 MiB.
 - HTML-escape bypass in the renderer (the splice surface in
-  `crates/afm-markdown/src/ast_splice.rs` and the upstream
+  `crates/aozora-flavored-markdown/src/ast_splice.rs` and the upstream
   per-node writer in sibling `aozora-render`), since rendered output
   is embedded in web pages.
 - CommonMark / GFM conformance regressions that enable a bypass.
@@ -49,7 +49,7 @@ Out of scope:
   <https://github.com/kivikakk/comrak>.
 - Denial-of-service via inputs that simply take a long time to parse
   without panicking (we track these as perf issues, not vulns).
-- Issues in dependencies with no afm-specific exploitation path —
+- Issues in dependencies with no aozora-md-specific exploitation path —
   cargo-deny's advisory check catches these at CI time.
 
 ## Vendored comrak advisory tracking
@@ -76,7 +76,7 @@ request instead.
 When the gate fails it prints the matching `RUSTSEC-…` id. The fix is
 normally to advance the vendored tree past the patched version with
 `just upstream-sync <tag>`. If — and only if — an advisory provably
-does not apply to how afm drives comrak (afm composes vanilla comrak as
+does not apply to how aozora-flavored-markdown drives comrak (aozora-flavored-markdown composes vanilla comrak as
 a black box and never enables its raw-HTML passthrough by default), the
 advisory id may be recorded as a documented `ignore` in the
 `audit-comrak` recipe with a one-line justification, mirroring the
@@ -89,12 +89,12 @@ advisory id may be recorded as a documented `ignore` in the
 The release profile builds with `panic = "abort"`. A panic that is
 nevertheless reached at runtime therefore **aborts the entire host
 process** (`SIGABRT`) — it does not unwind and cannot be caught with
-`std::panic::catch_unwind`. afm targets a panic-free rendering path on
+`std::panic::catch_unwind`. aozora-flavored-markdown targets a panic-free rendering path on
 untrusted input (enforced by the fuzz harnesses and the no-bare-`［＃`
 Tier-A invariant), but an embedder must treat any residual panic as a
 hard crash of its own process. **Pre-validate untrusted input** (cap
 length — the security scope above is bounded at 10 MiB — reject inputs
-you will not render) before calling into afm in a process whose
+you will not render) before calling into aozora-flavored-markdown in a process whose
 liveness matters, and isolate rendering of attacker-controlled content
 in a worker/subprocess if a single render must not be able to take the
 host down. Report any panic reachable from a well-formed call as a
@@ -102,7 +102,7 @@ vulnerability per the policy above.
 
 ## Supported versions
 
-afm is pre-1.0. Only the `main` branch is supported; security fixes
+aozora-flavored-markdown is pre-1.0. Only the `main` branch is supported; security fixes
 land there and in the next tagged release.
 
 | Version | Supported |

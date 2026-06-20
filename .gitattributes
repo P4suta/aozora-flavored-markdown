@@ -6,7 +6,7 @@
 spec/aozora/fixtures/**/*.txt  binary
 spec/aozora/fixtures/**/*.zip  binary
 
-# Vendored comrak — exclude from GitHub's language statistics so afm's
+# Vendored comrak — exclude from GitHub's language statistics so aozora-flavored-markdown's
 # actual Rust (and not the entire comrak codebase) is what shows up on
 # the repo page.
 upstream/comrak/**             linguist-vendored=true

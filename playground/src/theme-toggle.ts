@@ -1,14 +1,14 @@
 // Solid hook for the vertical/horizontal theme. Swaps `<link href>`
-// on a `#afm-theme` element (declared in `index.html`) and persists
+// on a `#aozora-md-theme` element (declared in `index.html`) and persists
 // the user preference to localStorage so reloads are sticky.
 
 import { createEffect, createSignal, type Accessor } from 'solid-js';
 
 import { THEME_URLS, type ThemeMode } from './styles/theme-urls';
 
-const STORAGE_KEY = 'afm-playground:theme-mode';
+const STORAGE_KEY = 'aozora-md-playground:theme-mode';
 const DEFAULT_MODE: ThemeMode = 'vertical';
-const LINK_ID = 'afm-theme';
+const LINK_ID = 'aozora-md-theme';
 
 function loadStored(): ThemeMode {
   try {
@@ -41,7 +41,7 @@ export function createTheme(): ThemeApi {
     if (link instanceof HTMLLinkElement) {
       link.href = THEME_URLS[m];
     }
-    document.documentElement.dataset['afmTheme'] = m;
+    document.documentElement.dataset['aozoraMdTheme'] = m;
     persist(m);
   });
 

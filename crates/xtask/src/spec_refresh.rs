@@ -1,7 +1,7 @@
 //! Convert a CommonMark- or GFM-style `spec.txt` into the JSON fixture format
-//! consumed by `afm-markdown`'s spec conformance tests
-//! (`crates/afm-markdown/tests/commonmark_spec.rs` and
-//! `crates/afm-markdown/tests/gfm_spec.rs`).
+//! consumed by `aozora-flavored-markdown`'s spec conformance tests
+//! (`crates/aozora-flavored-markdown/tests/commonmark_spec.rs` and
+//! `crates/aozora-flavored-markdown/tests/gfm_spec.rs`).
 //!
 //! Input format (cmark convention):
 //!
@@ -280,7 +280,7 @@ mod tests {
         static SEQ: AtomicU64 = AtomicU64::new(0);
         let id = SEQ.fetch_add(1, Ordering::SeqCst);
         let pid = process::id();
-        let dir = env::temp_dir().join(format!("afm-xtask-{pid}-{id}"));
+        let dir = env::temp_dir().join(format!("aozora-md-xtask-{pid}-{id}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

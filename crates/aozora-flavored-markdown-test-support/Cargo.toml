@@ -1,0 +1,26 @@
+[package]
+name        = "aozora-flavored-markdown-test-support"
+description = "Test predicates and invariant helpers for the aozora-flavored-markdown integration test suite"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+authors.workspace      = true
+readme.workspace       = true
+keywords.workspace     = true
+categories.workspace   = true
+publish              = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# The test-support library carves up aozora-flavored-markdown's emitted HTML
+# without parsing the source itself. Its one dependency is the umbrella
+# `aozora` crate — solely to single-source the PUA sentinel set
+# (`aozora::ALL_SENTINELS`) instead of re-hardcoding U+E001..U+E004.
+# aozora is already in aozora-flavored-markdown's build graph (aozora-flavored-markdown depends
+# on it), so this adds no new crate to compile; `default-features = false`
+# (via the workspace dep) keeps the surface minimal.
+aozora = { workspace = true }

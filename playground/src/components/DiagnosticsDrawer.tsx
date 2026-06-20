@@ -12,40 +12,40 @@ const DiagnosticsDrawer: Component<DiagnosticsDrawerProps> = (props) => {
   const count = (): number => props.diagnostics().length;
 
   return (
-    <div class="afm-pg-drawer">
+    <div class="aozora-md-pg-drawer">
       <button
         type="button"
-        class="afm-pg-drawer-toggle"
+        class="aozora-md-pg-drawer-toggle"
         aria-expanded={props.open() ? 'true' : 'false'}
         onClick={() => props.onToggle()}
       >
         <span>
           診断 (
-          <span class="afm-pg-drawer-count" data-empty={count() === 0 ? '1' : '0'}>
+          <span class="aozora-md-pg-drawer-count" data-empty={count() === 0 ? '1' : '0'}>
             {count()}
           </span>
           )
         </span>
-        <span class="afm-pg-drawer-arrow" aria-hidden="true">
+        <span class="aozora-md-pg-drawer-arrow" aria-hidden="true">
           ▾
         </span>
       </button>
-      <div class="afm-pg-drawer-body" hidden={!props.open()}>
+      <div class="aozora-md-pg-drawer-body" hidden={!props.open()}>
         <Show
           when={count() > 0}
           fallback={
-            <ul class="afm-pg-diagnostics-list">
-              <li class="afm-pg-diagnostics-empty">診断メッセージはありません</li>
+            <ul class="aozora-md-pg-diagnostics-list">
+              <li class="aozora-md-pg-diagnostics-empty">診断メッセージはありません</li>
             </ul>
           }
         >
-          <ul class="afm-pg-diagnostics-list">
+          <ul class="aozora-md-pg-diagnostics-list">
             <For each={props.diagnostics()}>
               {(d) => (
-                <li class="afm-pg-diagnostics-item" data-level={d.level}>
-                  <span class="afm-pg-diagnostics-level">{d.level}</span>
-                  <code class="afm-pg-diagnostics-code">{d.code}</code>
-                  <span class="afm-pg-diagnostics-message">{d.message}</span>
+                <li class="aozora-md-pg-diagnostics-item" data-level={d.level}>
+                  <span class="aozora-md-pg-diagnostics-level">{d.level}</span>
+                  <code class="aozora-md-pg-diagnostics-code">{d.code}</code>
+                  <span class="aozora-md-pg-diagnostics-message">{d.message}</span>
                 </li>
               )}
             </For>

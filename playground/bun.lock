@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "afm-playground",
+      "name": "aozora-md-playground",
       "dependencies": {
         "@codemirror/autocomplete": "^6.20.2",
         "@codemirror/commands": "^6.7.1",
@@ -14,7 +14,7 @@
         "@codemirror/state": "^6.5.0",
         "@codemirror/view": "^6.36.0",
         "@lezer/highlight": "^1.2.1",
-        "afm-wasm": "file:../crates/afm-wasm/pkg",
+        "aozora-flavored-markdown-wasm": "file:../crates/aozora-flavored-markdown-wasm/pkg",
         "codemirror": "^6.0.1",
         "lz-string": "^1.5.0",
         "marked": "^14.1.3",
@@ -165,7 +165,7 @@
 
     "@types/babel__traverse": ["@types/babel__traverse@7.28.0", "", { "dependencies": { "@babel/types": "^7.28.2" } }, "sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q=="],
 
-    "afm-wasm": ["afm-wasm@file:../crates/afm-wasm/pkg", {}],
+    "aozora-flavored-markdown-wasm": ["aozora-flavored-markdown-wasm@file:../crates/aozora-flavored-markdown-wasm/pkg", {}],
 
     "babel-plugin-jsx-dom-expressions": ["babel-plugin-jsx-dom-expressions@0.40.7", "", { "dependencies": { "@babel/helper-module-imports": "7.18.6", "@babel/plugin-syntax-jsx": "^7.18.6", "@babel/types": "^7.20.7", "html-entities": "2.3.3", "parse5": "^7.1.2" }, "peerDependencies": { "@babel/core": "^7.20.12" } }, "sha512-/O6JWUmjv03OI9lL2ry9bUjpD5S3PclM55RRJEyCdcFZ5W2SEA/59d+l2hNsk3gI6kiWRdRPdOtqZmsQzFN1pQ=="],
 
