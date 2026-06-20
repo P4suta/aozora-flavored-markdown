@@ -16,7 +16,7 @@ aozora-flavored-markdown [--encoding utf8|sjis] [--strict] [--color auto|always|
 | `--encoding <enc>`   | `utf8`  | Input encoding. `utf8` or `sjis`.                            |
 | `--strict`           | off     | Promote every lexer diagnostic to a hard error (exit 2).     |
 | `--color <when>`     | `auto`  | Colorize diagnostics: `auto`, `always`, or `never`.          |
-| `--format <fmt>`     | `human` | Diagnostic format: `human` or `json`.                        |
+| `--format <fmt>`     | `human` | Diagnostic format: graphical `human` or stable `json`.       |
 | `-v`, `--verbose`    | —       | Raise log verbosity (`-v` info, `-vv` debug, `-vvv` trace).  |
 | `-q`, `--quiet`      | —       | Lower log verbosity (`-q` errors only).                      |
 | `--help`             | —       | Print help and exit.                                         |
@@ -46,6 +46,26 @@ An explicit `--color always`/`never` wins over the environment.
 `-v`/`-q` set the default tracing level for the run (logs go to stderr).
 A `RUST_LOG` environment variable, when set, overrides `-v`/`-q`
 entirely.
+
+### Human diagnostics
+
+The default `--format human` renders each diagnostic as a graphical block
+(rustc/clippy style) on **stderr** — the severity, the stable `aozora::…`
+code, the message, and a source snippet with a caret under the offending
+span:
+
+```
+aozora::lex::unmatched_close
+
+  × unmatched Aozora Ruby close delimiter
+   ╭─[<stdin>:1:7]
+ 1 │ orphan》close
+   ·       ──
+   ╰────
+```
+
+Colorization follows [`--color`](#color). For machine consumption use
+`--format json` instead.
 
 ### JSON diagnostics
 

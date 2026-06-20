@@ -10,7 +10,9 @@
 
 #![forbid(unsafe_code)]
 
+use std::fmt::Display;
 use std::io::{self, IsTerminal, Read};
+use std::iter;
 use std::path::{Path, PathBuf};
 use std::{env, fs, process::ExitCode};
 
@@ -103,7 +105,7 @@ enum ColorChoice {
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
 enum DiagFormat {
-    /// `diagnostic [code]: message` lines for humans.
+    /// Graphical diagnostics (severity, code, message, source snippet) for humans.
     #[default]
     Human,
     /// A stable `aozora-md.diagnostics.v1` JSON envelope for tooling.
@@ -209,6 +211,74 @@ impl DiagnosticReport {
             schema: Self::SCHEMA,
             diagnostics,
         }
+    }
+}
+
+/// CLI-local adapter that renders an afm [`Diagnostic`] through miette's
+/// graphical handler. The orphan rule forbids `impl miette::Diagnostic` on the
+/// foreign afm type directly, so we carry the data miette needs here.
+#[derive(Debug, thiserror::Error)]
+#[error("{message}")]
+struct CliDiagnostic {
+    code: &'static str,
+    severity: Severity,
+    message: String,
+    /// The labelled source. `None` for `internal` diagnostics or when the span
+    /// is degenerate / out of bounds — those render as a header + message with
+    /// no snippet (and avoid materialising a huge source, e.g. `source_too_large`).
+    source_code: Option<miette::NamedSource<String>>,
+    /// `(start, len)` byte range of the caret, present iff `source_code` is.
+    label: Option<(usize, usize)>,
+}
+
+impl CliDiagnostic {
+    fn new(d: &Diagnostic, source: &str, name: &str) -> Self {
+        let (start, end) = (d.span.start as usize, d.span.end as usize);
+        // Only attach a snippet for in-bounds, non-degenerate user-source spans.
+        let snippet_ok =
+            matches!(d.source, DiagnosticSource::Source) && end > start && end <= source.len();
+        let (source_code, label) = if snippet_ok {
+            (
+                Some(miette::NamedSource::new(name, source.to_owned())),
+                Some((start, end - start)),
+            )
+        } else {
+            (None, None)
+        };
+        Self {
+            code: d.code,
+            severity: d.severity,
+            message: d.message.clone(),
+            source_code,
+            label,
+        }
+    }
+}
+
+impl miette::Diagnostic for CliDiagnostic {
+    fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        Some(Box::new(self.code))
+    }
+
+    fn severity(&self) -> Option<miette::Severity> {
+        // miette has no `Note`; its three levels are Advice / Warning / Error.
+        Some(match self.severity {
+            Severity::Error => miette::Severity::Error,
+            Severity::Warning => miette::Severity::Warning,
+            Severity::Note => miette::Severity::Advice,
+        })
+    }
+
+    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
+        self.source_code
+            .as_ref()
+            .map(|s| -> &dyn miette::SourceCode { s })
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
+        let (start, len) = self.label?;
+        let span = miette::LabeledSpan::new(None, start, len);
+        Some(Box::new(iter::once(span)))
     }
 }
 
@@ -342,7 +412,16 @@ fn run_pipeline(args: &PipelineArgs) -> Result<ExitCode> {
         DiagFormat::Json if !args.emit_html => DiagStream::Stdout,
         _ => DiagStream::Stderr,
     };
-    emit_diagnostics(&result.diagnostics, &source, args.format, stream);
+    let name = if args.input == Path::new("-") {
+        "<stdin>".to_owned()
+    } else {
+        args.input.display().to_string()
+    };
+    let input = Input {
+        name: &name,
+        text: &source,
+    };
+    emit_diagnostics(&result.diagnostics, input, args.format, stream);
 
     if args.strict && !result.diagnostics.is_empty() {
         // In JSON mode the envelope (and exit code 2) carry the failure; a
@@ -422,27 +501,41 @@ fn read_input(input: &Path, encoding: InputEncoding) -> Result<String> {
     }
 }
 
+/// The decoded source plus a display name, used to label diagnostics.
+#[derive(Copy, Clone, Debug)]
+struct Input<'a> {
+    /// Display name for the source (`<stdin>` or the file path).
+    name: &'a str,
+    /// The decoded source text.
+    text: &'a str,
+}
+
 /// Emit diagnostics in the requested format on the chosen stream.
 ///
-/// Human format prints one `diagnostic [code]: message` line each (nothing when
-/// there are none). JSON format always prints the stable `aozora-md.diagnostics.v1`
-/// envelope (an empty array on clean input) so tooling can rely on parseable
-/// output. Either way the stable `aozora::…` codes let language servers and CI
-/// gates key on identifiers rather than free-form messages.
+/// Human format renders each diagnostic graphically via miette (severity, code,
+/// message, and a source snippet with a caret), honoring the resolved `--color`
+/// choice; nothing is printed when there are none. JSON format always prints the
+/// stable `aozora-md.diagnostics.v1` envelope (an empty array on clean input) so
+/// tooling can rely on parseable output. Either way the stable `aozora::…` codes
+/// let language servers and CI gates key on identifiers rather than free-form
+/// messages.
 fn emit_diagnostics(
     diagnostics: &[Diagnostic],
-    source: &str,
+    input: Input<'_>,
     format: DiagFormat,
     stream: DiagStream,
 ) {
     match format {
         DiagFormat::Human => {
             for d in diagnostics {
-                stream.write_line(&format!("diagnostic [{}]: {}", d.code, d.message));
+                let report = miette::Report::new(CliDiagnostic::new(d, input.text, input.name));
+                // miette's renderer ends each report with a newline; `write_line`
+                // adds one too, so trim to avoid a blank line between diagnostics.
+                stream.write_line(format!("{report:?}").trim_end());
             }
         }
         DiagFormat::Json => {
-            let report = DiagnosticReport::build(diagnostics, source);
+            let report = DiagnosticReport::build(diagnostics, input.text);
             match serde_json::to_string(&report) {
                 Ok(json) => stream.write_line(&json),
                 Err(e) => eprintln!("診断を JSON 化できません: {e}"),

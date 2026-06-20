@@ -17,7 +17,7 @@ _aozora-flavored-markdown() {
     _arguments "${_arguments_options[@]}" : \
 '--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
 '--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
-'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"Graphical diagnostics (severity, code, message, source snippet) for humans"
 json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 '--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
 '*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
@@ -43,7 +43,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output=[Write HTML here instead of stdout. Use \`-\` for stdout]:OUTPUT:_files' \
 '--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
 '--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
-'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"Graphical diagnostics (severity, code, message, source snippet) for humans"
 json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 '--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
 '*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
@@ -59,7 +59,7 @@ json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 _arguments "${_arguments_options[@]}" : \
 '--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
 '--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
-'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"Graphical diagnostics (severity, code, message, source snippet) for humans"
 json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 '--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
 '*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
@@ -75,7 +75,7 @@ json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 _arguments "${_arguments_options[@]}" : \
 '--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
 '--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
-'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"Graphical diagnostics (severity, code, message, source snippet) for humans"
 json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 '--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
 '*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
@@ -91,7 +91,7 @@ json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 _arguments "${_arguments_options[@]}" : \
 '--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
 '--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
-'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"Graphical diagnostics (severity, code, message, source snippet) for humans"
 json\:"A stable \`aozora-md.diagnostics.v1\` JSON envelope for tooling"))' \
 '--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
 '*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
