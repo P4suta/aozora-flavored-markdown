@@ -31,6 +31,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path to read the document from standard input (`cat in.md | afm render
   -`), honouring `--encoding sjis` on the piped byte stream. The `-`
   placeholder was already documented but previously errored.
+- **`afm render -o <file>` / `--output`** — write HTML straight to a file
+  instead of redirecting stdout (`-` keeps stdout); strict failures write
+  nothing.
+- **`--color auto|always|never`** for error reports — `auto` honours
+  `NO_COLOR` and `CLICOLOR_FORCE` and otherwise follows the stderr TTY; an
+  explicit `always`/`never` wins over the environment.
+- **`-v`/`-q` verbosity flags** — set the default log level without
+  reaching for `RUST_LOG` (which still overrides them when set).
+- **`--format human|json` machine-readable diagnostics** — `json` emits a
+  stable `afm.diagnostics.v1` envelope (`code` / `severity` / `source` /
+  `message` / `span` / `line` / `column`) for editors, CI gates, and LSP
+  bridges. `check` writes it to stdout (pipe into `jq`); `render` keeps
+  stdout for HTML and writes JSON to stderr. Schema and stability are
+  pinned by [ADR-0012](docs/adr/0012-diagnostic-json-output-schema-and-stability.md).
+- **`afm completions <shell>`** — generate a completion script for bash,
+  zsh, fish, powershell, or elvish.
+- **`--help` now shows an `EXAMPLES` section** covering stdin, `-o`,
+  strict JSON checks, and completion install.
+- **Release archives now bundle the shell completions and the `afm.1`
+  man page** (under `completions/` and `man/`). Regenerate the committed
+  assets with `just dist-assets`; `just ci` drift-checks them.
 
 ### Changed
 

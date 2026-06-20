@@ -17,12 +17,14 @@
 //!   — each exits non-zero with a Japanese error message.
 
 use std::env;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Output, Stdio};
 use std::str;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde_json::Value;
 
 /// Absolute path to the freshly-built `afm` binary, provided by cargo
 /// for every integration test in this crate.
@@ -78,6 +80,34 @@ fn run_afm_stdin(args: &[&str], stdin: &[u8]) -> Output {
         .write_all(stdin)
         .expect("write child stdin");
     child.wait_with_output().expect("wait for afm binary")
+}
+
+/// Run `afm` with a hermetic environment: the colour-related vars that
+/// otherwise leak in from CI are cleared, then `envs` is applied. Lets the
+/// `--color` / `NO_COLOR` / `CLICOLOR_FORCE` tests assert on a known baseline.
+fn run_afm_env(args: &[&str], envs: &[(&str, &str)]) -> Output {
+    let mut cmd = Command::new(afm_bin());
+    cmd.args(args)
+        .env_remove("NO_COLOR")
+        .env_remove("CLICOLOR_FORCE")
+        .env_remove("RUST_LOG");
+    for (key, value) in envs {
+        cmd.env(key, value);
+    }
+    cmd.output().expect("spawn afm binary")
+}
+
+/// A unique, not-yet-created path under the temp dir — for `-o <file>` tests.
+fn unique_temp_path(suffix: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock went backward")
+        .subsec_nanos();
+    env::temp_dir().join(format!("afm_cli_out_{}_{nanos}{suffix}", process::id()))
+}
+
+fn parse_json(text: &str) -> Value {
+    serde_json::from_str(text).unwrap_or_else(|e| panic!("expected valid JSON, got {text:?}: {e}"))
 }
 
 fn stdout_of(out: &Output) -> &str {
@@ -520,5 +550,371 @@ fn diagnostics_print_to_stderr_with_aozora_code() {
     assert!(
         stderr.contains("diagnostic [aozora::"),
         "stderr must carry `diagnostic [aozora::…]` lines, got {stderr:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `--output` / `-o`
+// ---------------------------------------------------------------------------
+
+#[test]
+fn render_output_file_writes_html() {
+    let src = write_temp_utf8("Hello, world.");
+    let dst = unique_temp_path(".html");
+    let out = run_afm(&["render", src.to_str().unwrap(), "-o", dst.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "render -o must succeed, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).is_empty(),
+        "render -o <file> must not also print HTML to stdout, got {:?}",
+        stdout_of(&out)
+    );
+    let written = fs::read_to_string(&dst).expect("output file must exist");
+    assert!(
+        written.contains("<p>Hello, world.</p>"),
+        "output file must contain the rendered HTML, got {written:?}"
+    );
+}
+
+#[test]
+fn render_output_dash_is_stdout() {
+    let src = write_temp_utf8("Hello, world.");
+    let out = run_afm(&["render", src.to_str().unwrap(), "-o", "-"]);
+    assert!(out.status.success(), "render -o - must succeed");
+    assert!(
+        stdout_of(&out).contains("<p>Hello, world.</p>"),
+        "-o - must write HTML to stdout, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn render_output_to_unwritable_path_fails() {
+    let src = write_temp_utf8("Hello, world.");
+    // The parent directory does not exist, so the file cannot be created.
+    let out = run_afm(&[
+        "render",
+        src.to_str().unwrap(),
+        "-o",
+        "/tmp/afm_no_such_dir_xyz/out.html",
+    ]);
+    assert!(
+        !out.status.success(),
+        "unwritable -o path must exit non-zero"
+    );
+    assert!(
+        stderr_of(&out).contains("出力ファイル"),
+        "error must mention 出力ファイル, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `--color` / NO_COLOR / CLICOLOR_FORCE
+// ---------------------------------------------------------------------------
+
+/// A non-existent input drives the miette error report, which is where the
+/// colour choice is observable.
+const MISSING_INPUT: &str = "/tmp/this_path_does_not_exist_ever_afm_cli_color";
+
+/// ANSI escape introducer (ESC).
+const ESC: char = '\u{1b}';
+
+#[test]
+fn color_always_emits_ansi_even_when_piped() {
+    let out = run_afm_env(&["--color", "always", "render", MISSING_INPUT], &[]);
+    assert!(!out.status.success(), "missing file must still fail");
+    assert!(
+        stderr_of(&out).contains(ESC),
+        "--color always must emit ANSI, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn color_never_suppresses_ansi() {
+    let out = run_afm_env(&["--color", "never", "render", MISSING_INPUT], &[]);
+    assert!(!out.status.success());
+    assert!(
+        !stderr_of(&out).contains(ESC),
+        "--color never must not emit ANSI, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn no_color_env_disables_color() {
+    let out = run_afm_env(&["render", MISSING_INPUT], &[("NO_COLOR", "1")]);
+    assert!(!out.status.success());
+    assert!(
+        !stderr_of(&out).contains(ESC),
+        "NO_COLOR must disable ANSI under the default auto mode, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn clicolor_force_enables_color() {
+    let out = run_afm_env(&["render", MISSING_INPUT], &[("CLICOLOR_FORCE", "1")]);
+    assert!(!out.status.success());
+    assert!(
+        stderr_of(&out).contains(ESC),
+        "CLICOLOR_FORCE must enable ANSI even when stderr is piped, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `-v` / `-q` verbosity plumbing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn verbose_and_quiet_flags_parse_and_run() {
+    let src = write_temp_utf8("clean input");
+    let path = src.to_str().unwrap();
+    let cases: [&[&str]; 4] = [&["-v"], &["-vvv"], &["-q"], &["-qq"]];
+    for flag in cases {
+        let mut args: Vec<&str> = flag.to_vec();
+        args.push("render");
+        args.push(path);
+        let out = run_afm(&args);
+        assert!(
+            out.status.success(),
+            "{flag:?} render must exit 0, stderr = {:?}",
+            stderr_of(&out)
+        );
+        assert!(
+            stdout_of(&out).contains("<p>clean input</p>"),
+            "{flag:?} must still render to stdout, got {:?}",
+            stdout_of(&out)
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// `--format json` machine-readable diagnostics (afm.diagnostics.v1, ADR-0012)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_json_emits_valid_envelope_on_stdout() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "non-strict check --format json must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    let v = parse_json(stdout_of(&out));
+    assert_eq!(v["schema"], "afm.diagnostics.v1");
+    assert!(
+        !v["diagnostics"]
+            .as_array()
+            .expect("diagnostics array")
+            .is_empty(),
+        "expected at least one diagnostic, got {v}"
+    );
+}
+
+#[test]
+fn check_json_clean_input_is_empty_array() {
+    let path = write_temp_utf8("clean input");
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    let v = parse_json(stdout_of(&out));
+    assert_eq!(v["schema"], "afm.diagnostics.v1");
+    assert!(
+        v["diagnostics"].as_array().expect("array").is_empty(),
+        "clean input must yield an empty diagnostics array, got {v}"
+    );
+}
+
+#[test]
+fn check_json_schema_fields_present() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    let v = parse_json(stdout_of(&out));
+    let d = &v["diagnostics"][0];
+    for field in ["code", "severity", "source", "message", "line", "column"] {
+        assert!(
+            !d[field].is_null(),
+            "field {field} must be present, got {d}"
+        );
+    }
+    assert!(
+        !d["span"]["start"].is_null() && !d["span"]["end"].is_null(),
+        "span.start / span.end must be present, got {d}"
+    );
+    assert!(
+        d["code"].as_str().unwrap().starts_with("aozora::"),
+        "code must carry the aozora:: prefix, got {d}"
+    );
+    let severity = d["severity"].as_str().unwrap();
+    assert!(
+        matches!(severity, "error" | "warning" | "note"),
+        "severity must be a stable wire string, got {severity}"
+    );
+}
+
+#[test]
+fn json_stable_codes() {
+    // Pins the public contract: the canary input yields this exact code.
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    let v = parse_json(stdout_of(&out));
+    let d = &v["diagnostics"][0];
+    assert_eq!(d["code"], "aozora::lex::unmatched_close", "got {v}");
+    assert_eq!(d["severity"], "error");
+    assert_eq!(d["source"], "source");
+}
+
+#[test]
+fn render_json_diagnostics_go_to_stderr_html_to_stdout() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["render", "--format", "json", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    assert!(
+        stdout_of(&out).contains('<'),
+        "render stdout must stay HTML, got {:?}",
+        stdout_of(&out)
+    );
+    let v = parse_json(stderr_of(&out));
+    assert_eq!(v["schema"], "afm.diagnostics.v1");
+    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn check_json_strict_stdout_is_pure_json() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&[
+        "--strict",
+        "check",
+        "--format",
+        "json",
+        path.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "strict json must still exit 2, stderr = {:?}",
+        stderr_of(&out)
+    );
+    // No free-form Japanese line is allowed to corrupt the stdout JSON.
+    let v = parse_json(stdout_of(&out));
+    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn json_line_col_is_one_based() {
+    let path = write_temp_utf8("first line\norphan》close");
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    let v = parse_json(stdout_of(&out));
+    let d = &v["diagnostics"][0];
+    assert_eq!(
+        d["line"], 2,
+        "diagnostic on the 2nd line must report line 2, got {v}"
+    );
+    assert!(
+        d["column"].as_u64().unwrap() >= 1,
+        "column must be 1-based, got {d}"
+    );
+}
+
+#[test]
+fn human_format_unchanged() {
+    // Adding --format must not change the default human behaviour.
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    assert!(
+        stderr_of(&out).contains("diagnostic [aozora::"),
+        "default human format must still print stderr lines, got {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).is_empty(),
+        "human check must keep stdout empty, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `completions` / hidden `_man` / `--help` examples
+// ---------------------------------------------------------------------------
+
+#[test]
+fn completions_emit_per_shell_markers() {
+    // Each generator stamps a shell-specific marker we can key on without
+    // pinning the (large, version-sensitive) full script.
+    let cases = [
+        ("bash", "_afm()"),
+        ("zsh", "#compdef afm"),
+        ("fish", "complete -c afm"),
+        ("powershell", "Register-ArgumentCompleter"),
+        ("elvish", "edit:completion"),
+    ];
+    for (shell, marker) in cases {
+        let out = run_afm(&["completions", shell]);
+        assert!(
+            out.status.success(),
+            "completions {shell} must exit 0, stderr = {:?}",
+            stderr_of(&out)
+        );
+        assert!(
+            stdout_of(&out).contains(marker),
+            "completions {shell} must contain {marker:?}"
+        );
+    }
+}
+
+#[test]
+fn completions_unknown_shell_fails() {
+    let out = run_afm(&["completions", "tcsh"]);
+    assert!(
+        !out.status.success(),
+        "an unsupported shell must be rejected"
+    );
+}
+
+#[test]
+fn hidden_man_subcommand_renders_roff() {
+    let out = run_afm(&["_man"]);
+    assert!(
+        out.status.success(),
+        "_man must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).contains(".TH afm"),
+        "_man must render a roff man page (.TH afm), got {:.120}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn man_subcommand_is_hidden_from_help() {
+    let out = run_afm(&["--help"]);
+    assert!(out.status.success());
+    assert!(
+        !stdout_of(&out).contains("_man"),
+        "the _man helper must not appear in --help, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn help_shows_examples() {
+    let out = run_afm(&["--help"]);
+    assert!(out.status.success());
+    let stdout = stdout_of(&out);
+    assert!(
+        stdout.contains("EXAMPLES"),
+        "--help must show an EXAMPLES section, got {stdout:?}"
+    );
+    assert!(
+        stdout.contains("afm completions"),
+        "--help examples must mention completions, got {stdout:?}"
     );
 }

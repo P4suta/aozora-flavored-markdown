@@ -21,6 +21,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
@@ -84,6 +85,16 @@ enum Command {
     /// single source of truth for downstream TS consumers (playground,
     /// afm-obsidian); `types check` is the CI drift gate.
     Types(TypesArgs),
+    /// Generate (or, with `--check`, drift-check) the release assets bundled
+    /// into the dist archives: shell completions and the man page, written
+    /// under `dist/assets/`. Shells out to the built `afm` binary so the CLI
+    /// definition stays the single source of truth.
+    GenDistAssets {
+        /// Compare committed assets against fresh generation and exit non-zero
+        /// on drift, instead of rewriting them.
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -123,7 +134,105 @@ fn main() -> Result<()> {
         }
         Command::AozoraBump { sha } => aozora_bump(&sha),
         Command::Types(args) => types::dispatch(&args),
+        Command::GenDistAssets { check } => gen_dist_assets(check),
     }
+}
+
+/// Shells (`clap_complete`) we ship completions for, with their conventional
+/// install filenames.
+const COMPLETION_TARGETS: [(&str, &str); 5] = [
+    ("bash", "afm.bash"),
+    ("zsh", "_afm"),
+    ("fish", "afm.fish"),
+    ("powershell", "_afm.ps1"),
+    ("elvish", "afm.elv"),
+];
+
+/// Generate, or drift-check, the completion scripts and man page bundled into
+/// the release archives. Generation runs the built `afm` binary so the CLI
+/// definition is the single source of truth (afm-cli is a binary, not a
+/// library, so xtask cannot import its `Cli` directly).
+fn gen_dist_assets(check: bool) -> Result<()> {
+    let afm = afm_binary_path();
+    if !afm.is_file() {
+        bail!(
+            "gen-dist-assets: {} not found — build it first (`cargo build -p afm-cli`); \
+             `just dist-assets` does this for you",
+            afm.display()
+        );
+    }
+
+    let comp_dir = PathBuf::from("dist/assets/completions");
+    let man_path = PathBuf::from("dist/assets/man/afm.1");
+    let mut drift: Vec<String> = Vec::new();
+
+    for (shell, filename) in COMPLETION_TARGETS {
+        let script = run_afm_capture(&afm, &["completions", shell])?;
+        sync_or_check(&comp_dir.join(filename), &script, check, &mut drift)?;
+    }
+    let man = run_afm_capture(&afm, &["_man"])?;
+    sync_or_check(&man_path, &man, check, &mut drift)?;
+
+    if check {
+        if drift.is_empty() {
+            println!("gen-dist-assets: committed assets are up to date");
+            Ok(())
+        } else {
+            bail!(
+                "gen-dist-assets: {} asset(s) out of date ({}). \
+                 Run `just dist-assets` and commit the result.",
+                drift.len(),
+                drift.join(", ")
+            )
+        }
+    } else {
+        println!(
+            "gen-dist-assets: wrote {} completion script(s) + man page under dist/assets/",
+            COMPLETION_TARGETS.len()
+        );
+        Ok(())
+    }
+}
+
+/// Path to the debug `afm` binary, honoring `CARGO_TARGET_DIR`.
+fn afm_binary_path() -> PathBuf {
+    let target =
+        env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from);
+    target.join("debug").join("afm")
+}
+
+/// Run the built `afm` binary with `args` and return its stdout, or bail on a
+/// non-zero exit.
+fn run_afm_capture(afm: &Path, args: &[&str]) -> Result<Vec<u8>> {
+    let out = ProcessCommand::new(afm)
+        .args(args)
+        .output()
+        .with_context(|| format!("running {} {args:?}", afm.display()))?;
+    if !out.status.success() {
+        bail!(
+            "{} {args:?} failed: {}",
+            afm.display(),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    Ok(out.stdout)
+}
+
+/// Write `content` to `dest` (creating parents), or in check mode record `dest`
+/// as drifted when it differs.
+fn sync_or_check(dest: &Path, content: &[u8], check: bool, drift: &mut Vec<String>) -> Result<()> {
+    if check {
+        let existing = fs::read(dest).unwrap_or_default();
+        if existing != content {
+            drift.push(dest.display().to_string());
+        }
+    } else {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).with_context(|| format!("mkdir {}", parent.display()))?;
+        }
+        fs::write(dest, content).with_context(|| format!("writing {}", dest.display()))?;
+    }
+    Ok(())
 }
 
 /// Verify the ADR-0001 upstream-diff policy is in force.

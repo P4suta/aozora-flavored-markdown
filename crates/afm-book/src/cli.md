@@ -13,10 +13,11 @@ afm [--encoding utf8|sjis] [--strict] <subcommand>
 
 ## Examples
 
-Render a UTF-8 file:
+Render a UTF-8 file (redirect, or write straight to a file with `-o`):
 
 ```sh
 afm render input.md > out.html
+afm render input.md -o out.html
 ```
 
 Render a Shift_JIS Aozora Bunko text directly from its published form:
@@ -40,5 +41,19 @@ diagnostic fires:
 afm check --strict input.md
 ```
 
-See [CLI Reference](ref/cli.md) for the full flag listing and exit-code
-semantics.
+Diagnostics are colorized when stderr is a terminal; `--color never` or
+`NO_COLOR=1` turns that off, `--color always` forces it on:
+
+```sh
+NO_COLOR=1 afm check input.md
+```
+
+Generate a shell completion script (bash / zsh / fish / powershell /
+elvish):
+
+```sh
+afm completions zsh > ~/.zfunc/_afm
+```
+
+See [CLI Reference](ref/cli.md) for the full flag listing, color and
+verbosity rules, completion install paths, and exit-code semantics.
