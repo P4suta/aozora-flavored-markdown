@@ -27,6 +27,9 @@ x-common-env: &common-env
   RUST_BACKTRACE: "1"
   # Ride out transient crates.io blips (cargo's default retry is 3).
   CARGO_NET_RETRY: "10"
+  # Force HTTP/1: cargo's HTTP/2 multiplexing intermittently dies with an
+  # "Error in the HTTP2 framing layer" against crates.io on cold CI registries.
+  CARGO_HTTP_MULTIPLEXING: "false"
   # mold linker for the host triple. Driven by env (not config.toml, which
   # cargo skips under CARGO_HOME=/cargo/home) and scoped to the host triple:
   # a plain RUSTFLAGS=-fuse-ld=mold would leak into `wasm-pack` and break the

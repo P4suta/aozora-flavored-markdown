@@ -58,7 +58,14 @@ jobs:
               - 'playground/**'
               - '.github/**'
             book:
+              # The CI `book` job only rebuilds the book Docker image (target:
+              # book), so its inputs are the book crate, the Dockerfile (the book
+              # stage's toolchain → cargo-tools chain), and this workflow's own
+              # book job — NOT a pure rust source change. Keep in sync with the
+              # `book` job `if`.
               - 'crates/aozora-flavored-markdown-book/**'
+              - 'Dockerfile'
+              - '.github/workflows/ci.yml'
 
   msrv:
     # Verify that the pinned MSRV (1.96.0, see `rust-toolchain.toml`)
@@ -264,7 +271,7 @@ jobs:
   book:
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.book == 'true' || needs.changes.outputs.rust == 'true'
+    if: needs.changes.outputs.book == 'true'
     # Runs `docker compose run book` directly, so set root here: the book
     # image's non-root user can't write mdbook output into the runner checkout.
     env:
