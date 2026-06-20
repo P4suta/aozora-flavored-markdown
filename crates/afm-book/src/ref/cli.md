@@ -14,7 +14,7 @@ afm [--encoding utf8|sjis] [--strict] <subcommand> [<args>]
 | Flag                 | Default | Effect                                                       |
 |----------------------|---------|--------------------------------------------------------------|
 | `--encoding <enc>`   | `utf8`  | Input encoding. `utf8` or `sjis`.                            |
-| `--strict`           | off     | Promote every lexer diagnostic to a hard error.              |
+| `--strict`           | off     | Promote every lexer diagnostic to a hard error (exit 2).     |
 | `--help`             | —       | Print help and exit.                                         |
 | `--version`          | —       | Print version and exit.                                      |
 

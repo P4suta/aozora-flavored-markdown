@@ -27,6 +27,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **PR area auto-labeler** (`actions/labeler`) — tags a PR `area: cli` /
   `markdown` / `wasm` / `book` / `dev` / `ci` / `documentation` from the
   paths it touches. Non-blocking and not a required check.
+- **stdin input for `afm render` / `afm check`** — pass `-` as the input
+  path to read the document from standard input (`cat in.md | afm render
+  -`), honouring `--encoding sjis` on the piped byte stream. The `-`
+  placeholder was already documented but previously errored.
 
 ### Changed
 
@@ -47,6 +51,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`afm --strict` now exits with code 2**, distinct from generic
+  failures (code 1), matching the documented exit-code table; its
+  `--help` text now describes "any lexer diagnostic" instead of the
+  stale "unknown annotation" wording.
 - **Dead `CLAUDE.md` link in the README** (the file is personal and not
   committed); readers are pointed at `CONTRIBUTING.md` and `docs/adr/`.
 

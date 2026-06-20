@@ -20,7 +20,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{self, Command, Output};
+use std::process::{self, Command, Output, Stdio};
 use std::str;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -57,6 +57,27 @@ fn run_afm(args: &[&str]) -> Output {
         .args(args)
         .output()
         .expect("spawn afm binary")
+}
+
+/// Like `run_afm` but feeds `stdin` to the child's standard input, so we can
+/// exercise the `-` (read-from-stdin) input path. The piped `ChildStdin` is
+/// dropped right after the write, closing the pipe so the child sees EOF; our
+/// inputs are tiny, so writing before reading cannot deadlock the OS buffer.
+fn run_afm_stdin(args: &[&str], stdin: &[u8]) -> Output {
+    let mut child = Command::new(afm_bin())
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn afm binary");
+    child
+        .stdin
+        .take()
+        .expect("child stdin is piped")
+        .write_all(stdin)
+        .expect("write child stdin");
+    child.wait_with_output().expect("wait for afm binary")
 }
 
 fn stdout_of(out: &Output) -> &str {
@@ -97,6 +118,91 @@ fn version_flag_succeeds_and_emits_non_empty_output() {
     assert!(
         !stdout_of(&out).trim().is_empty(),
         "--version must print a non-empty version string"
+    );
+}
+
+#[test]
+fn help_strict_text_matches_behavior() {
+    // The `--strict` help once claimed it only fired on "unknown
+    // annotation", but the flag promotes *any* lexer diagnostic. Guard
+    // against the stale wording creeping back, and assert the corrected
+    // text mentions diagnostics.
+    let out = run_afm(&["--help"]);
+    assert!(out.status.success(), "--help must exit 0");
+    let stdout = stdout_of(&out);
+    assert!(
+        !stdout.contains("annotation"),
+        "--strict help must not claim 'unknown annotation', got {stdout:?}"
+    );
+    assert!(
+        stdout.contains("diagnostic"),
+        "--strict help must describe diagnostics, got {stdout:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// stdin (`-`) input path
+// ---------------------------------------------------------------------------
+
+#[test]
+fn render_reads_from_stdin_dash() {
+    let out = run_afm_stdin(&["render", "-"], b"Hello, world.");
+    assert!(
+        out.status.success(),
+        "render from stdin must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).contains("<p>Hello, world.</p>"),
+        "stdin body must render to <p>, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn render_stdin_sjis_decodes() {
+    // 「青空文庫」 in Shift_JIS — same bytes as the file-based SJIS test,
+    // proving `--encoding sjis` also applies to the stdin byte stream.
+    let bytes = &[0x90, 0xC2, 0x8B, 0xF3, 0x95, 0xB6, 0x8C, 0xC9];
+    let out = run_afm_stdin(&["--encoding", "sjis", "render", "-"], bytes);
+    assert!(
+        out.status.success(),
+        "SJIS stdin render must succeed, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).contains("青空文庫"),
+        "decoded stdin text must reach the HTML output, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn check_reads_from_stdin_dash() {
+    let out = run_afm_stdin(&["check", "-"], "｜青梅《おうめ》".as_bytes());
+    assert!(
+        out.status.success(),
+        "check from stdin must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).is_empty(),
+        "check must not emit on stdout, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn render_stdin_dash_undecodable_utf8_fails() {
+    let out = run_afm_stdin(&["render", "-"], &[0x80, 0x81]);
+    assert!(
+        !out.status.success(),
+        "invalid UTF-8 on stdin must exit non-zero"
+    );
+    assert!(
+        stderr_of(&out).contains("UTF-8"),
+        "error must mention UTF-8, got {:?}",
+        stderr_of(&out)
     );
 }
 
@@ -352,6 +458,49 @@ fn check_strict_on_diagnostic_input_fails() {
     assert!(
         !out.status.success(),
         "check --strict with lexer diagnostic must exit non-zero"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Exit-code contract: 0 success / 1 generic error / 2 strict diagnostic
+// ---------------------------------------------------------------------------
+
+#[test]
+fn strict_diagnostic_exits_with_code_two() {
+    // `ref/cli.md` promises exit code 2 specifically for a strict-mode
+    // diagnostic, distinct from generic failures (code 1).
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["--strict", "render", path.to_str().unwrap()]);
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "strict diagnostic must exit with code 2, stderr = {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn check_strict_diagnostic_exits_code_two() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["--strict", "check", path.to_str().unwrap()]);
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "check --strict diagnostic must exit with code 2, stderr = {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn generic_error_exits_with_code_one() {
+    // A plain I/O failure must stay code 1 so it is distinguishable from
+    // the strict-diagnostic code 2.
+    let out = run_afm(&["render", "/tmp/this_path_does_not_exist_ever_afm_cli_test"]);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "generic I/O error must exit with code 1, stderr = {:?}",
+        stderr_of(&out)
     );
 }
 
