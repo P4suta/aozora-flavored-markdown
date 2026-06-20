@@ -110,3 +110,18 @@ afm check --strict input.md
 
 Exits non-zero on parse errors or — under `--strict` — on any lexer
 diagnostic.
+
+## `afm completions <shell>`
+
+Print a shell completion script on stdout for `bash`, `zsh`, `fish`,
+`powershell`, or `elvish`. Install it wherever your shell looks for
+completions, for example:
+
+```sh
+# bash
+afm completions bash | sudo tee /etc/bash_completion.d/afm > /dev/null
+# zsh (a directory on your $fpath)
+afm completions zsh > ~/.zfunc/_afm
+# fish
+afm completions fish > ~/.config/fish/completions/afm.fish
+```

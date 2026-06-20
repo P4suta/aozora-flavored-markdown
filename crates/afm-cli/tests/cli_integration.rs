@@ -839,3 +839,82 @@ fn human_format_unchanged() {
         stdout_of(&out)
     );
 }
+
+// ---------------------------------------------------------------------------
+// `completions` / hidden `_man` / `--help` examples
+// ---------------------------------------------------------------------------
+
+#[test]
+fn completions_emit_per_shell_markers() {
+    // Each generator stamps a shell-specific marker we can key on without
+    // pinning the (large, version-sensitive) full script.
+    let cases = [
+        ("bash", "_afm()"),
+        ("zsh", "#compdef afm"),
+        ("fish", "complete -c afm"),
+        ("powershell", "Register-ArgumentCompleter"),
+        ("elvish", "edit:completion"),
+    ];
+    for (shell, marker) in cases {
+        let out = run_afm(&["completions", shell]);
+        assert!(
+            out.status.success(),
+            "completions {shell} must exit 0, stderr = {:?}",
+            stderr_of(&out)
+        );
+        assert!(
+            stdout_of(&out).contains(marker),
+            "completions {shell} must contain {marker:?}"
+        );
+    }
+}
+
+#[test]
+fn completions_unknown_shell_fails() {
+    let out = run_afm(&["completions", "tcsh"]);
+    assert!(
+        !out.status.success(),
+        "an unsupported shell must be rejected"
+    );
+}
+
+#[test]
+fn hidden_man_subcommand_renders_roff() {
+    let out = run_afm(&["_man"]);
+    assert!(
+        out.status.success(),
+        "_man must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).contains(".TH afm"),
+        "_man must render a roff man page (.TH afm), got {:.120}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn man_subcommand_is_hidden_from_help() {
+    let out = run_afm(&["--help"]);
+    assert!(out.status.success());
+    assert!(
+        !stdout_of(&out).contains("_man"),
+        "the _man helper must not appear in --help, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn help_shows_examples() {
+    let out = run_afm(&["--help"]);
+    assert!(out.status.success());
+    let stdout = stdout_of(&out);
+    assert!(
+        stdout.contains("EXAMPLES"),
+        "--help must show an EXAMPLES section, got {stdout:?}"
+    );
+    assert!(
+        stdout.contains("afm completions"),
+        "--help examples must mention completions, got {stdout:?}"
+    );
+}

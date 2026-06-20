@@ -45,6 +45,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bridges. `check` writes it to stdout (pipe into `jq`); `render` keeps
   stdout for HTML and writes JSON to stderr. Schema and stability are
   pinned by [ADR-0012](docs/adr/0012-diagnostic-json-output-schema-and-stability.md).
+- **`afm completions <shell>`** — generate a completion script for bash,
+  zsh, fish, powershell, or elvish.
+- **`--help` now shows an `EXAMPLES` section** covering stdin, `-o`,
+  strict JSON checks, and completion install.
 
 ### Changed
 
