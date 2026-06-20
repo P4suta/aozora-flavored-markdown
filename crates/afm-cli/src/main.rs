@@ -16,7 +16,7 @@ use std::{env, fs, process::ExitCode};
 
 use afm_markdown::{Options, render_to_string};
 use aozora::encoding::decode_sjis;
-use clap::{ArgAction, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
 #[derive(Parser, Debug)]
@@ -25,6 +25,12 @@ use miette::{IntoDiagnostic, Result, WrapErr};
     version,
     about = "aozora-flavored-markdown CLI",
     long_about = None,
+    after_long_help = "EXAMPLES:\n  \
+        afm render input.md > out.html\n  \
+        afm render input.md -o out.html\n  \
+        cat input.md | afm render -\n  \
+        afm check --strict --format json input.md\n  \
+        afm completions zsh > _afm",
 )]
 struct Cli {
     #[command(subcommand)]
@@ -71,6 +77,15 @@ enum Command {
         /// Path to the afm source. Use `-` for stdin.
         input: PathBuf,
     },
+    /// Generate a shell completion script on stdout.
+    Completions {
+        /// Target shell.
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+    /// Render the man page (roff) on stdout. Hidden; used by packaging.
+    #[command(hide = true, name = "_man")]
+    Man,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
@@ -240,8 +255,28 @@ fn run() -> Result<ExitCode> {
             output: OutputSink::Stdout,
             format: cli.format,
         },
+        Command::Completions { shell } => return Ok(generate_completions(shell)),
+        Command::Man => return render_man(),
     };
     run_pipeline(&args)
+}
+
+/// Write a shell completion script for `shell` to stdout. The script is
+/// generated from the canonical `Cli` definition, so it never drifts.
+fn generate_completions(shell: clap_complete::Shell) -> ExitCode {
+    let mut cmd = Cli::command();
+    clap_complete::generate(shell, &mut cmd, "afm", &mut io::stdout());
+    ExitCode::SUCCESS
+}
+
+/// Write the roff man page to stdout. Driven by the canonical `Cli` so the
+/// packaging step (`cargo xtask gen-man`) renders from a single source.
+fn render_man() -> Result<ExitCode> {
+    clap_mangen::Man::new(Cli::command())
+        .render(&mut io::stdout())
+        .into_diagnostic()
+        .wrap_err("man ページを生成できません")?;
+    Ok(ExitCode::SUCCESS)
 }
 
 /// Configure the tracing subscriber. An explicit `RUST_LOG` always wins;

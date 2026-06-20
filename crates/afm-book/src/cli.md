@@ -48,5 +48,12 @@ Diagnostics are colorized when stderr is a terminal; `--color never` or
 NO_COLOR=1 afm check input.md
 ```
 
+Generate a shell completion script (bash / zsh / fish / powershell /
+elvish):
+
+```sh
+afm completions zsh > ~/.zfunc/_afm
+```
+
 See [CLI Reference](ref/cli.md) for the full flag listing, color and
-verbosity rules, and exit-code semantics.
+verbosity rules, completion install paths, and exit-code semantics.
