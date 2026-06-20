@@ -31,6 +31,12 @@ confidence-threshold = 0.9
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Path-only internal dev-deps (e.g. afm-markdown-test-support) resolve as
+# `*` version requirements. This keeps `wildcards = "deny"` rejecting real
+# registry wildcards while permitting the in-workspace path form — the
+# idiomatic cargo-deny handling, matching aozora, and required once
+# crates.io publish strips placeholder versions from path deps.
+allow-wildcard-paths = true
 highlight = "all"
 
 [sources]

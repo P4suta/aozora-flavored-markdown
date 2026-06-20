@@ -380,10 +380,45 @@ strict-code:
     failed=0
 
     # ---- Warning suppression -----------------------------------------------
-    # #[allow] / cfg_attr(allow) accumulate dead rules that hide bugs;
-    # refactor the code instead.
-    check 'warning suppression (#[allow] / cfg_attr+allow)' \
-        '^\s*(#!?\[allow\(|#!?\[cfg_attr\([^)]*allow\()' || failed=1
+    # `#[allow(... reason = "...")]` (Rust 1.81+ stable) is the documented
+    # "I considered this lint and overrode it deliberately" idiom and is
+    # allowed; a bare `#[allow(...)]` without a reason is forbidden — it
+    # rots into a dead rule that hides bugs. This matches our own
+    # `clippy::allow_attributes_without_reason` lint (see Cargo.toml): a
+    # blanket text ban here would contradict that lint by also rejecting
+    # the reasoned form it explicitly blesses. We grep with -A 5 to catch a
+    # reason clause on a continuation line, then drop hits whose attribute
+    # window contains `reason = "..."`.
+    #
+    # `build.rs` files are excluded: their string literals can embed
+    # `#[allow(...)]` snippets emitted as generated code, which are not real
+    # attributes under strict-code's purview. (afm has no build.rs today;
+    # the carve-out keeps parity with aozora and is future-proof.)
+    src_files=()
+    for f in "${files[@]}"; do
+        case "$f" in
+            */build.rs) ;;
+            *) src_files+=("$f") ;;
+        esac
+    done
+    bare_allow=$(grep -nE -A 5 '^\s*#!?\[allow\(' "${src_files[@]}" 2>/dev/null \
+        | awk -F: '
+            /#!?\[allow\(/      { capture = 1; window = ""; head = $0 }
+            capture              { window = window $0 "\n" }
+            capture && /\)\]/    {
+                if (window !~ /reason[[:space:]]*=[[:space:]]*"/) {
+                    print head
+                }
+                capture = 0
+            }
+        ' || true)
+    if [[ -n "$bare_allow" ]]; then
+        echo '==> forbidden: warning suppression (#[allow] without reason="...")' >&2
+        echo "$bare_allow" >&2
+        failed=1
+    fi
+    check 'cfg_attr-wrapped warning suppression' \
+        '^\s*#!?\[cfg_attr\([^)]*allow\(' || failed=1
 
     # ---- Nightly / unstable feature gates ----------------------------------
     # We ship on Rust stable only. Feature gates silently tie us to nightly
@@ -450,12 +485,34 @@ strict-code:
         failed=1
     fi
 
+    # ---- expect() regression gate (afm-markdown library source) ------------
+    # Coarse tripwire: counts every `.expect(` under
+    # `crates/afm-markdown/src/**` (test modules included — this is a
+    # no-regression ratchet, not a precise audit). The current baseline is
+    # all locally-justified: `String`/`fmt::Write` sinks that cannot fail,
+    # a `u32::try_from` bounded by the Phase-0 cap, and the forward-range
+    # `sourcepos_to_range`. A NEW state-assertion-style `expect` in a
+    # production path should be lifted into the type system or pinned by a
+    # property test instead of pushed to runtime. Mirrors aozora-pipeline's
+    # baseline tripwire; bump the baseline only when you remove an expect.
+    expect_files=(crates/afm-markdown/src/**/*.rs)
+    expect_count=$(grep -hcE '\.expect\(' "${expect_files[@]}" 2>/dev/null \
+        | awk '{s+=$1} END {print s+0}')
+    expect_baseline=8
+    if [[ "$expect_count" -gt "$expect_baseline" ]]; then
+        echo "==> forbidden: expect() count in afm-markdown source grew" >&2
+        echo "    baseline: $expect_baseline, found: $expect_count" >&2
+        echo "    Lift the invariant into the type system or a property test" >&2
+        echo "    instead of pushing it to runtime." >&2
+        failed=1
+    fi
+
     if [[ $failed -ne 0 ]]; then
         echo "" >&2
         echo "strict-code check failed. Refactor the offending sites; do not silence." >&2
         exit 1
     fi
-    echo "strict-code: clean"
+    echo "strict-code: clean (expect-count $expect_count / baseline $expect_baseline)"
 
 # Format check (no-write)
 [group('lint')]
