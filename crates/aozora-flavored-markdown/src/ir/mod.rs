@@ -77,8 +77,8 @@ mod projection;
 mod types;
 
 pub use types::{
-    IrBlock, IrDiagnostic, IrDocument, IrInline, IrListItem, IrTableAlign, IrTableRow, Position,
-    Range,
+    AnnotationKind, BoutenPosition, BoutenStyle, ContainerSubtype, IrBlock, IrDocument, IrInline,
+    IrListItem, IrTableAlign, IrTableRow, Position, Range, SectionSubtype,
 };
 
 use core::mem;
@@ -117,7 +117,6 @@ pub(crate) fn build_ir<'a>(
     walker.walk_root(root);
     IrDocument {
         blocks: walker.finish(),
-        diagnostics: Vec::new(),
     }
 }
 
@@ -640,7 +639,7 @@ fn place_in(open: &mut [OpenContainer], top: &mut Vec<IrBlock>, block: IrBlock) 
 impl OpenContainer {
     fn into_block(self) -> IrBlock {
         IrBlock::Container {
-            subtype: container_subtype(self.kind).to_owned(),
+            subtype: container_subtype(self.kind),
             children: self.children,
             indent_level: container_indent_level(self.kind),
             source_line: self.source_line,
