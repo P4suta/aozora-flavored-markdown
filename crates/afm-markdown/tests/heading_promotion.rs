@@ -1,24 +1,13 @@
 //! Integration tests for the forward-reference heading-hint path.
 //!
 //! Covers the end-to-end rendering contract for
-//! `［＃「X」は(大|中|小)見出し］`:
+//! `［＃「X」は(大|中|小)見出し］`: the bracket is classified as a heading hint,
+//! the host paragraph is promoted to a heading, and the renderer emits
+//! `<h1>/<h2>/<h3>` with the extracted target as the body.
 //!
-//! * Lexer classifies the bracket as an `AozoraNode::HeadingHint`.
-//! * `post_process::splice_heading_hint` promotes the host paragraph
-//!   to `comrak::NodeValue::Heading { level, setext: false }` and
-//!   replaces its content with the extracted target.
-//! * Renderer emits `<h1>/<h2>/<h3>` native HTML tags.
-//!
-//! Also covers the adjacent sanitize rule (phase0):
-//!
-//! * Lines consisting of ≥ 10 repeats of `-`/`=`/`_` are isolated
-//!   from the preceding paragraph so CommonMark does not promote
-//!   that paragraph to a setext heading (`<h2>`).
-//!
-//! These tests sit above the unit tests in
-//! `afm-lexer::phase3_classify`, `afm-lexer::phase0_sanitize`, and
-//! `afm-parser::post_process` — they verify the three layers
-//! compose as documented, not any single layer in isolation.
+//! Also covers the adjacent sanitize rule: a line of ≥ 10 repeats of
+//! `-`/`=`/`_` is isolated from the preceding paragraph so CommonMark does not
+//! promote it to a setext heading (`<h2>`).
 
 use afm_markdown::html;
 

@@ -1,19 +1,14 @@
-# Composite action: install `just` on the runner, wire sccache to the
-# GitHub Actions cache backend, and provision the afm dev image
-# (pulled from GHCR or, if pull fails, built locally from the in-tree
-# Dockerfile).
+# Composite action: install `just`, wire sccache to the GitHub Actions
+# cache backend, and provision the afm dev image (pulled from GHCR, or
+# built locally from the in-tree Dockerfile if the pull fails).
 #
-# Used by every ci.yml job that invokes `just <target>`. Pulling the
-# pre-built image from ghcr.io/p4suta/afm-dev cuts ~30 minutes off the
-# wall-clock relative to building the image inline; falling back to
-# `docker compose build` keeps CI self-bootstrapping when GHCR is
-# unavailable (first push, registry outage, fork PR without packages
-# read).
+# The pull saves ~30 min over an inline build; the fallback keeps CI
+# self-bootstrapping when GHCR is unavailable (first push, registry
+# outage, fork PR without packages read).
 #
-# After the Dockerfile fuzz/ci split, the GHCR image is the `ci` stage
-# (a superset of dev → fuzz → ci), so tagging it as all three
-# `afm-{dev,fuzz,ci}:local` keeps every compose service satisfiable
-# from the single pulled image.
+# The GHCR image is the `ci` stage (a superset of dev -> fuzz -> ci), so
+# it's tagged as all three `afm-{dev,fuzz,ci}:local` to satisfy every
+# compose service from the single pulled image.
 
 name: setup-dev-image
 description: Pull (or build) the afm dev image, install `just`, and enable sccache GHA backend.
@@ -25,18 +20,15 @@ runs:
       with:
         tool: just
 
-    # Provision sccache against the GitHub Actions cache backend. This
-    # action only configures the host; the sccache binary itself lives
-    # inside the dev image. Setting the three env vars below routes
-    # container-side `sccache` calls through the GHA cache via the
-    # runner's ACTIONS_CACHE_URL + ACTIONS_RUNTIME_TOKEN.
+    # Configures the host for sccache against the GHA cache backend; the
+    # sccache binary itself lives inside the dev image. The env vars set
+    # below route container-side sccache through the GHA cache.
     - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
 
     # Forward the GHA cache env into the compose services. Without these
-    # the container sccache silently falls back to the disk volume at
-    # /workspace/.sccache — the local-dev behaviour, which on an
-    # ephemeral runner means a cold cache every job. Setting them here
-    # turns every matrix job's sccache into a hot, cross-run cache.
+    # the container sccache falls back to the disk volume at
+    # /workspace/.sccache, which on an ephemeral runner is a cold cache
+    # every job.
     - name: Enable GHA-backend sccache for compose services
       shell: bash
       run: |
@@ -46,14 +38,11 @@ runs:
           echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}"
         } >> "$GITHUB_ENV"
 
-    # Run the compose containers as root on CI. The image defaults to a
-    # non-root user (UID 1000) so local bind-mount writes are host-owned, but
-    # the runner's checkout is owned by a *different* UID — a non-root
-    # container can't create files (wasm pkg/, mdbook book/, dist/) inside
-    # runner-owned tree directories. Ownership is throwaway on the ephemeral
-    # runner, so root is the simplest correct choice and matches the
-    # historical (proven-green) CI behaviour. Read by `user:` in
-    # docker-compose.yml via the AFM_UID/AFM_GID defaults.
+    # Run compose containers as root on CI. The image defaults to non-root
+    # (UID 1000) for host-owned bind-mount writes in local dev, but the
+    # runner's checkout is owned by a different UID, so a non-root container
+    # can't write generated files (wasm pkg/, mdbook book/, dist/) into it.
+    # Read by `user:` in docker-compose.yml via the AFM_UID/AFM_GID defaults.
     - name: Run compose containers as root on CI
       shell: bash
       run: |
@@ -62,10 +51,8 @@ runs:
           echo "AFM_GID=0"
         } >> "$GITHUB_ENV"
 
-    # docker/login-action authenticates the runner against GHCR using
-    # the standard GITHUB_TOKEN. Skipped on fork PRs where the token
-    # lacks `packages: read` — those runs go through the build
-    # fallback below. Same-repo runs always log in.
+    # Log in to GHCR with GITHUB_TOKEN. Skipped on fork PRs (token lacks
+    # `packages: read`); those runs take the build fallback below.
     - name: Log in to GHCR (same-repo runs only)
       if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
       uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3

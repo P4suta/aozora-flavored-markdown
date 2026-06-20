@@ -261,12 +261,12 @@ const fn source_within_span_budget(input: &str) -> bool {
 /// 1. [`aozora::lex_into_arena`] turns the source into a normalized
 ///    text (with PUA sentinels at every Aozora construct) plus a
 ///    borrowed `Registry`.
-/// 2. `comrak::parse_document` + `comrak::format_html` runs against
-///    the normalized text — sentinels flow through as plain text since
-///    they are not in CommonMark's escape set (`<`/`>`/`&`/`"`).
-/// 3. The internal `post_process` module sweeps the produced HTML,
-///    substituting each sentinel with the matching
-///    `aozora::render::render_node` output.
+/// 2. `comrak::parse_document` parses the normalized text — sentinels flow
+///    through as plain text since they are not in CommonMark's escape set
+///    (`<`/`>`/`&`/`"`).
+/// 3. `ast_splice::splice_into_ast` replaces each sentinel in the comrak AST
+///    with the matching `aozora::render::render_node` output, then
+///    `comrak::format_html` renders the spliced AST.
 ///
 /// # Oversized input
 ///

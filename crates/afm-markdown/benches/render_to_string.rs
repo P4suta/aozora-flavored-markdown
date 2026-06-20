@@ -1,10 +1,8 @@
 //! Criterion benchmark for the afm render pipeline.
 //!
-//! afm previously had **no benches** — this is the measurement
-//! foundation for the data-driven DS/algorithm optimization program. It
-//! tracks throughput (MB/s) on representative + pathological corpora and
-//! the small-document latency distribution, plus a `render_to_ir` group
-//! so the IR-projection / splice cross-path is observable.
+//! Tracks throughput (MB/s) on representative + pathological corpora and the
+//! small-document latency distribution, plus a `render_to_ir` group so the
+//! IR-projection / splice cross-path is observable.
 //!
 //! Corpora are generated inline (deterministic, self-contained) so a
 //! fresh checkout produces numbers without any external corpus. The

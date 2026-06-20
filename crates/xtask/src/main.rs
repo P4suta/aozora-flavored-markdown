@@ -7,8 +7,8 @@
 //!   pinned to the recorded SHA and that the ADR-0001 0-line diff
 //!   budget is documented in `upstream/comrak/UPSTREAM_DIFF.md`.
 //! - `upstream-sync` — replace `upstream/comrak/` with the source
-//!   tree at a given upstream tag. Pure tree-replace per ADR-0001
-//!   v0.2.4: no patches to re-apply since the diff budget is 0.
+//!   tree at a given upstream tag. Pure tree-replace (ADR-0001): the
+//!   diff budget is 0, so there are no patches to re-apply.
 //! - `new-adr` — scaffold a new MADR file under `docs/adr/`.
 //! - `spec-refresh` — regenerate `spec/commonmark-*.json` /
 //!   `spec/gfm-*.json` from cmark-format `spec.txt` inputs. Network
@@ -16,10 +16,8 @@
 //!   (shell-side `curl`); this xtask only transforms
 //!   already-downloaded spec files into fixture JSON.
 //!
-//! Aozora corpus refresh / Tier-A/B/C runs were once stubbed as
-//! deferred sub-commands here. ADR-0010 (v0.2.0) moved every Aozora
-//! parser / corpus concern into the sibling `P4suta/aozora` repo, so
-//! those sub-commands now live there.
+//! Aozora parser / corpus concerns live in the sibling `P4suta/aozora`
+//! repo (ADR-0010), along with their refresh sub-commands.
 
 #![forbid(unsafe_code)]
 
@@ -33,11 +31,8 @@ use clap::{Args, Parser, Subcommand};
 mod spec_refresh;
 mod types;
 
-/// ADR-0001 upstream diff budget, in lines. Changing this requires
-/// a new ADR. Held at 200 from v0.1 through v0.2.3; collapsed to 0
-/// in v0.2.4 (2026-04-30) — the historical patch surface was
-/// removed once afm switched to HTML-sentinel post-processing
-/// (ADR-0008). The budget value below tracks the v0.2.4 status.
+/// ADR-0001 upstream diff budget, in lines. The vendored tree is verbatim
+/// (no hooks), so the budget is 0; changing it requires a new ADR.
 const UPSTREAM_DIFF_BUDGET_LINES: usize = 0;
 
 /// Upstream comrak repository URL. `upstream-sync` shallow-clones a
@@ -56,7 +51,7 @@ enum Command {
     /// Verify the ADR-0001 upstream-diff policy is in force.
     UpstreamDiff,
     /// Replace `upstream/comrak/` with the source tree at the given
-    /// upstream tag. Pure tree-replace (ADR-0001 v0.2.4).
+    /// upstream tag. Pure tree-replace (ADR-0001).
     UpstreamSync {
         /// Upstream tag name (e.g. `v0.53.0`).
         tag: String,
@@ -139,8 +134,8 @@ fn main() -> Result<()> {
 ///
 /// Byte-level enforcement against the upstream remote (network
 /// fetch + diff) is **not** part of this gate: developers run
-/// `cargo xtask upstream-sync <tag>` (a pure tree replace per ADR-0001
-/// v0.2.4) to refresh the vendored tree, and any local modification
+/// `cargo xtask upstream-sync <tag>` (a pure tree replace per ADR-0001)
+/// to refresh the vendored tree, and any local modification
 /// has to pass code review. The gate here catches accidental drift
 /// in the policy file itself.
 fn upstream_diff() -> Result<()> {
@@ -190,8 +185,8 @@ fn upstream_diff() -> Result<()> {
 
 /// Replace `upstream/comrak/` with the source tree at `tag`.
 ///
-/// Pure tree-replace per ADR-0001 v0.2.4: there are no afm patches
-/// to re-apply because the diff budget is 0. We preserve the two
+/// Pure tree-replace (ADR-0001): there are no afm patches to re-apply
+/// because the diff budget is 0. We preserve the two
 /// afm-side metadata files (`COMRAK_SHA` and `UPSTREAM_DIFF.md`)
 /// across the wipe, then rewrite `COMRAK_SHA` with the new pin.
 ///

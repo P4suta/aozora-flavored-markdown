@@ -15,7 +15,7 @@ lands in the sibling repo, not here. afm-side work falls into:
 
 1. **Markdown ↔ Aozora glue** — `crates/afm-markdown/`
    (`render_to_string`, `render_to_ir`, `serialize`,
-   `post_process::splice_aozora_html`, the `IrDocument` projection).
+   `ast_splice::splice_into_ast`, the `IrDocument` projection).
 2. **CLI** — `crates/afm-cli/` (`afm render` / `afm check`).
 3. **WASM bridge** — `crates/afm-wasm/` (afm-obsidian / browser
    hosts).
@@ -35,7 +35,7 @@ per ADR-0009.
 2. **Vendored comrak is hands-off** (ADR-0001). The fork sits at
    `upstream/comrak/` with a **0-line diff budget** — any change
    would be a fork divergence and needs its own ADR. Composition
-   happens in `afm-markdown::post_process` (HTML sentinel splice),
+   happens in `afm-markdown::ast_splice` (AST sentinel splice),
    never inside `upstream/comrak/`.
 3. **No warning suppressions.** `#[allow(...)]`, `#![allow(...)]`,
    `#[cfg_attr(..., allow(...))]`, `continue-on-error` in
@@ -86,16 +86,16 @@ from there.
 
 Most afm-side changes are one of:
 
-- **HTML post-process edge case** — landing in
-  `crates/afm-markdown/src/post_process.rs`. Add a unit test in the
+- **Aozora splice edge case** — landing in
+  `crates/afm-markdown/src/ast_splice.rs`. Add a unit test in the
   same module's `#[cfg(test)] mod tests` and a property-test ping
   in `tests/post_process_invariants.rs` if the change has
   cross-input semantics. Predicates that codify "must-never-be"
-  HTML shapes live in `crates/afm-markdown/src/test_support.rs` —
+  HTML shapes live in the `afm-markdown-test-support` crate —
   add new ones there with both the predicate and a unit pin
   (`invariant_unit_check_X_passes_on_clean_input`,
   `invariant_unit_check_X_fires_on_<shape>`).
-- **IR projection** — `crates/afm-markdown/src/ir.rs`. Each
+- **IR projection** — `crates/afm-markdown/src/ir/`. Each
   Aozora node maps via `project_inline` / `project_block_leaf`;
   paragraph dispatch flows through `IrWalker::walk_top` →
   `classify_paragraph`. Streaming-mode behaviour goes through
@@ -103,7 +103,7 @@ Most afm-side changes are one of:
   `crates/afm-markdown/tests/ir_aozora.rs`.
 - **CSS class contract drift** — when the sibling renderer adds a
   new `aozora-*` class, update
-  `crates/afm-markdown/src/test_support.rs::AFM_CLASSES` (the brand
+  `afm-markdown-test-support`'s `AFM_CLASSES` (the brand
   is rewritten to `afm-*` per ADR-0011) and the corresponding rule
   in `crates/afm-book/theme/afm-{horizontal,vertical}.css`.
 - **Public API drift** — `Options::afm_default` defaults, new

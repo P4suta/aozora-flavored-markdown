@@ -36,7 +36,7 @@ In scope:
 - Crashes, panics, or non-termination on any UTF-8 or Shift_JIS input
   within 10 MiB.
 - HTML-escape bypass in the renderer (the splice surface in
-  `crates/afm-markdown/src/post_process.rs` and the upstream
+  `crates/afm-markdown/src/ast_splice.rs` and the upstream
   per-node writer in sibling `aozora-render`), since rendered output
   is embedded in web pages.
 - CommonMark / GFM conformance regressions that enable a bypass.

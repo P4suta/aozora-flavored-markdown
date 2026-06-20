@@ -1,7 +1,6 @@
 name: afm CodeQL config
 
-# upstream/comrak is a verbatim vendored fork with a 0-line diff budget
-# (ADR-0001) — it is not afm's code, so exclude it from analysis to keep
-# results focused on the in-tree crates.
+# upstream/comrak is a verbatim vendored fork, not afm's code; exclude it
+# so results stay focused on the in-tree crates.
 paths-ignore:
   - upstream/comrak

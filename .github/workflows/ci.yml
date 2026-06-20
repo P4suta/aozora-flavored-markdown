@@ -1,22 +1,7 @@
-# afm CI
-#
-# Architecture:
-#   - The dev container image is built and published by `dev-image.yml`
-#     to ghcr.io/p4suta/afm-dev:latest on Dockerfile / compose changes.
-#   - This workflow PULLS that image (via the `setup-dev-image`
-#     composite action) and invokes `just <target>` on the runner host.
-#     `just` recipes wrap each command in `docker compose run dev cargo
-#     ...` (Justfile policy: never invoke cargo on the host directly).
-#     Running `just` on the runner — instead of `docker compose run ci
-#     just <target>` — avoids Docker-in-Docker: the previous nested
-#     pattern hit `bash: docker: command not found` because the `ci`
-#     container has no docker client.
-#   - If the GHCR image is unavailable (first run before dev-image.yml
-#     publishes, or transient registry outage), the composite action
-#     falls back to `docker compose build` against the local Dockerfile.
-#     Slower path but the same correctness guarantee.
-#
-# Action SHAs are pinned; Dependabot bumps weekly.
+# afm CI. The `setup-dev-image` composite action pulls the dev image published
+# by dev-image.yml (or falls back to a local build), then `just <target>` runs
+# on the runner host — each recipe wraps cargo in `docker compose run` itself,
+# so this avoids Docker-in-Docker. Action SHAs are pinned; Dependabot bumps weekly.
 
 name: ci
 
@@ -81,11 +66,8 @@ jobs:
         if: github.actor != 'dependabot[bot]'
         run: committed "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
 
-  # Phase-1 fast gate. `just check` runs `cargo check` workspace-wide
-  # (no codegen, no link) — with the GHA-backed sccache wired in via
-  # setup-dev-image, this is typically under 60 s on a warm cache and
-  # 2-3 min cold. Slow Phase-2 jobs gate on this so a compile error
-  # surfaces in minutes instead of after a 10-min build+test cycle.
+  # Phase-1 fast gate (`cargo check`, no codegen). Phase-2 jobs gate on this
+  # so a compile error surfaces in minutes, not after a full build+test.
   check:
     runs-on: ubuntu-latest
     steps:
@@ -93,11 +75,9 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just check
 
-  # Phase-2 (needs check). `cargo doc` is the only build pass that runs
-  # `broken_intra_doc_links = "deny"` (the lint applies to rustdoc only —
-  # `cargo check` / clippy skip it). Without this job, a broken link
-  # escapes ci.yml entirely and surfaces post-merge in docs.yml,
-  # blocking the Pages deploy. Cheap on a warm sccache: typically 20-40 s.
+  # Phase-2 (needs check). `cargo doc` is the only pass that runs
+  # `broken_intra_doc_links = "deny"`; without it a broken link escapes to
+  # docs.yml post-merge and blocks the Pages deploy.
   doc:
     runs-on: ubuntu-latest
     needs: check
@@ -106,11 +86,8 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just doc
 
-  # Phase-2 (needs check). IR→TS codegen drift gate: re-renders
-  # crates/afm-wasm/types/afm_types.d.ts from the live Rust IR + wasm
-  # envelope types and byte-compares against the committed artefact
-  # (`xtask types check`). A forgotten regen after an IR change fails
-  # here at PR time rather than silently shipping stale TS.
+  # Phase-2 (needs check). IR→TS codegen drift gate (`xtask types check`):
+  # fails if afm_types.d.ts wasn't regenerated after an IR change.
   types-check:
     runs-on: ubuntu-latest
     needs: check
@@ -119,12 +96,8 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just types-check
 
-  # Phase-2 (needs check). afm-wasm + the Vite playground were previously
-  # built only post-merge in docs.yml, so a wasm-pack or playground break
-  # stayed invisible until it blocked the Pages deploy. Build them here at
-  # PR time too. `just wasm-build` produces crates/afm-wasm/pkg/;
-  # `just playground-build` then runs the Vite build against it. Mirrors
-  # the sibling aozora repo's PR-time wasm-build job.
+  # Phase-2 (needs check). Build afm-wasm + the Vite playground at PR time so
+  # a wasm-pack or playground break fails here, not post-merge in docs.yml.
   wasm-build:
     runs-on: ubuntu-latest
     needs: check
@@ -134,9 +107,7 @@ jobs:
       - run: just wasm-build
       - run: just playground-build
 
-  # Phase-1 (parallel with `check`). Style + grep checks have no compile
-  # dependency, so they run independently and surface formatter/typo
-  # complaints in the first minute regardless of whether `check` passes.
+  # Phase-1 (parallel with `check`). Style + grep checks, no compile dependency.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -153,10 +124,8 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just upstream-diff
 
-  # Phase-1 (parallel). Pure grep — no docker image needed, runs in
-  # ~5 s on the bare runner. Catches version-pin drift between
-  # Dockerfile / playground/package.json / docs.yml that would
-  # otherwise let dev and CI silently resolve different tool versions.
+  # Phase-1 (parallel). Pure grep on the bare runner; catches tool-version
+  # pin drift across Dockerfile / playground/package.json / docs.yml.
   verify-version-pins:
     runs-on: ubuntu-latest
     steps:
@@ -166,9 +135,7 @@ jobs:
           tool: just
       - run: just verify-version-pins
 
-  # Phase-2 (needs check). Full build + test cycle. Doesn't start until
-  # `check` has proved the workspace at least typechecks — saves 10 min
-  # of wasted compile when a syntax error would have caught it earlier.
+  # Phase-2 (needs check). Full build + test cycle.
   build-and-test:
     runs-on: ubuntu-latest
     needs: check
@@ -178,11 +145,8 @@ jobs:
       - run: just build
       - run: just test
 
-  # Phase-2 (needs check). CommonMark + GFM conformance.
-  # spec-aozora and spec-golden-56656 moved to the aozora sibling repo
-  # as part of the v0.2.0 split (see aozora/Justfile). The Aozora
-  # notation pipeline is exercised end-to-end through the
-  # `aozora_parity` test in afm-markdown's integration suite.
+  # Phase-2 (needs check). CommonMark + GFM conformance. (Aozora-layer specs
+  # live in the aozora repo; afm exercises the pipeline via `aozora_parity`.)
   spec:
     runs-on: ubuntu-latest
     needs: check
@@ -206,19 +170,9 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just coverage
 
-  # Phase-1 partial (deny, audit gate cheaply on Cargo.lock alone), but
-  # `udeps` is nightly-bound and needs the dep graph compiled — so the
-  # job gates on check to skip wasted work when typecheck has already
-  # failed. `fail-fast: false` keeps one leg's failure from masking the
-  # others.
-  #
-  # `audit-comrak` (C1/F4) is its own matrix leg so a RUSTSEC advisory
-  # against the vendored path-dep comrak (which `cargo audit`/`cargo deny`
-  # can't see — it's absent from the registry dep graph) surfaces as a
-  # distinctly-named failing check. It also runs transitively as a
-  # dependency of the `audit` leg, so local `just ci` is covered too; the
-  # standalone leg just sharpens the CI signal. No scheduled workflow is
-  # used (user preference: no cron) — this runs per-PR.
+  # Phase-2 (needs check; `udeps` is nightly and needs the dep graph compiled).
+  # `audit-comrak` is its own leg so a RUSTSEC advisory against the vendored
+  # path-dep comrak (invisible to `cargo audit`/`deny`) gets a named check.
   audit:
     runs-on: ubuntu-latest
     needs: check
@@ -233,10 +187,8 @@ jobs:
 
   book:
     runs-on: ubuntu-latest
-    # This job invokes `docker compose run book` directly (not via the
-    # setup-dev-image action), so set the root override here too — the book
-    # image defaults to a non-root user that can't write mdbook output into
-    # the runner-owned checkout. See docker-compose.yml `user:`.
+    # Runs `docker compose run book` directly, so set root here: the book
+    # image's non-root user can't write mdbook output into the runner checkout.
     env:
       AFM_UID: "0"
       AFM_GID: "0"

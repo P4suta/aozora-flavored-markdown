@@ -10,11 +10,9 @@ extend-ignore-identifiers-re = [
 [default.extend-words]
 # Intentional. Japanese transliteration shouldn't trigger English typo heuristics.
 afm = "afm"
-# French fragments embedded in Aozora accent-decomposition examples.
-# "fune`bre" (funèbre) and siblings appear in doc comments + ADR prose.
+# French fragments in Aozora accent-decomposition examples (e.g. funèbre).
 bre = "bre"
-# Proper names surfaced in NOTICE / docs. Listed here rather than
-# suppressed so typos still catches typos *around* them.
+# Proper names from NOTICE / docs (listed, not suppressed, so nearby typos still catch).
 kivikakk    = "kivikakk"
 Asherah     = "Asherah"
 Connor      = "Connor"

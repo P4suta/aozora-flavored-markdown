@@ -1,8 +1,8 @@
 //! End-to-end HTML invariants for `afm_markdown::render_to_string`.
 //!
-//! `post_process` runs as a string-level sentinel substitution after
-//! vanilla `comrak::format_html`. The invariants asserted here are
-//! expressed against the rendered HTML:
+//! The splicer (`ast_splice`) replaces the lexer's sentinels in the comrak
+//! AST before `comrak::format_html`. The invariants asserted here are
+//! expressed against the final rendered HTML:
 //!
 //! - **Tier-A invariant**: no bare `［＃` ever leaks into rendered HTML
 //!   outside an `afm-annotation` wrapper, for arbitrary inputs.

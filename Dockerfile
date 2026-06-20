@@ -1,21 +1,12 @@
 # syntax=docker/dockerfile:1.7
-# afm development / CI container
-# Every developer and CI job runs inside this image. Host toolchain is never invoked.
+# afm development / CI container. Every developer and CI job runs inside this
+# image; the host toolchain is never invoked. Layered so upstream-sync /
+# dependency bumps rebuild a minimal surface.
 #
-# Layered so upstream-sync / dependency bumps rebuild minimal surface.
-#
-# External base images (rust, playwright) are pinned by immutable
-# manifest-list digest (supply-chain hardening, C2/F9): a floating tag
-# like `rust:1.95.0-bookworm` can be re-pushed, so we pin the sha256 and
-# keep the human-readable tag inline. Dependabot's `docker` ecosystem
-# (.github/dependabot.yml) bumps the tag AND the digest together on its
-# weekly sweep, so the pin stays current without a human resolving the
-# sha by hand. Resolve a fresh digest with
-# `docker buildx imagetools inspect rust:1.95.0-bookworm`.
-#
-# NODE_VERSION stays an ARG: it parameterises an apt source URL in the
-# node-base stage (deb.nodesource.com/setup_<N>.x), not a FROM line, so
-# there is no base-image digest to pin for it.
+# Base images (rust, playwright) are pinned by immutable digest; Dependabot
+# bumps tag + digest together weekly. Refresh by hand with
+# `docker buildx imagetools inspect <tag>`. NODE_VERSION is an ARG, not a
+# pinned FROM — it only parameterises an apt source URL in the node-base stage.
 ARG NODE_VERSION=22
 
 ########################################################################
@@ -59,58 +50,42 @@ RUN mkdir -p /root/.cargo && printf '%s\n' \
 ########################################################################
 FROM toolchain AS cargo-tools
 
-# cargo-binstall fetches prebuilt GitHub Release binaries for every
-# subsequent tool, avoiding the 30-min source compile that the previous
-# monolithic `cargo install --locked` layer cost. Only binstall itself
-# is built from source (~30 s, one bin).
+# cargo-binstall fetches prebuilt release binaries for the tools below; only
+# binstall itself is built from source.
 ARG BINSTALL_VERSION=1.19.1
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/tmp/cargo-build \
     CARGO_TARGET_DIR=/tmp/cargo-build \
     cargo install --locked --version "${BINSTALL_VERSION}" --root /usr/local cargo-binstall
 
-# Tier A — yearly-churn tools. Cached for the longest; bumping any one
-# of these is rare enough to be worth its own dedicated invalidation.
+# Tier A — yearly-churn tools (longest-cached layer).
 RUN cargo binstall --no-confirm --locked --root /usr/local \
         mdbook \
         mdbook-linkcheck \
         typos-cli
 
-# Tier B — quarterly-churn tools. Test infrastructure that moves at a
-# moderate cadence.
+# Tier B — quarterly-churn test infrastructure.
 RUN cargo binstall --no-confirm --locked --root /usr/local \
         cargo-nextest \
         cargo-deny \
         cargo-audit \
         cargo-insta
 
-# Tier C — monthly-churn tools. Heavier upstream churn — these used to
-# dominate the old monolithic install's cold-build time. sccache is
-# pinned to 0.10.0: 0.15+ introduces a GHA-backend probe that errors
-# inside cargo's rustc-wrapper invocation path with "SCCACHE_GHA_ENABLED
-# must be 'true', 'on', '1', 'false', 'off' or '0'" even when the env
-# is unset and we're nowhere near GHA. Hold the pin until upstream fixes.
+# Tier C — monthly-churn tools. sccache pinned to 0.10.0: 0.15+ runs a
+# GHA-backend probe that errors inside cargo's rustc-wrapper even when
+# SCCACHE_GHA_ENABLED is unset. Hold the pin until upstream fixes it.
 RUN cargo binstall --no-confirm --locked --root /usr/local \
         cargo-llvm-cov \
         cargo-semver-checks \
         sccache@0.10.0
 
-# Tier D — as-needed release helpers. Split so a bump here doesn't
-# touch the test-cycle tier.
+# Tier D — as-needed release helpers (split off the test-cycle tier).
 RUN cargo binstall --no-confirm --locked --root /usr/local \
         cargo-edit \
         cargo-release
 
-# bacon (the background compiler behind `just watch`) ships NO prebuilt
-# binaries on its GitHub releases — it is crates.io-source-only. Every
-# binstall line above resolves a tool that *does* publish prebuilts; bacon
-# would only ever land via binstall's implicit `compile` fallback (the last
-# link in its default strategy chain). Install it explicitly from source
-# instead, so the source build is a deliberate, visible choice rather than a
-# silent fallback a future binstall default-strategy change could drop. Kept
-# in its own layer (separate churn axis from the test/lint tiers). Mirrors
-# aozora #55, which made the same crate explicit after its binstall batch
-# dropped `compile` from `--strategies`.
+# bacon (behind `just watch`) ships no prebuilt binaries, so install it from
+# source explicitly rather than relying on binstall's `compile` fallback.
 RUN cargo install --locked bacon
 
 # git-cliff for CHANGELOG generation — kept separate for the same reason.
@@ -171,13 +146,9 @@ FROM node-base AS dev
 COPY --from=cargo-tools /usr/local/cargo/bin/ /usr/local/cargo/bin/
 COPY --from=cargo-tools /usr/local/bin/ /usr/local/bin/
 
-# Pre-install the components `rust-toolchain.toml` requires (rustfmt,
-# clippy, rust-src). Without this, the first `cargo` invocation from
-# inside /workspace triggers an automatic `rustup` channel sync that
-# spawns subprocesses with a scrubbed env — `SCCACHE_GHA_ENABLED`
-# arrives empty and sccache 0.15+ aborts with "must be 'true', 'on',
-# '1', 'false', 'off' or '0'". Installing them at image build time
-# means the sync never fires.
+# Pre-install the components `rust-toolchain.toml` requires so the first
+# in-workspace `cargo` call doesn't trigger a rustup channel sync (which
+# scrubs the env and trips the sccache pin above).
 RUN rustup component add rustfmt clippy rust-src
 
 ENV CARGO_HOME=/cargo/home \
@@ -186,25 +157,17 @@ ENV CARGO_HOME=/cargo/home \
     SCCACHE_DIR=/cargo/sccache \
     RUST_BACKTRACE=1
 
-# Pre-create the cache mount targets at /cargo/* so the named volume
-# mounts attach cleanly. These live OUTSIDE the /workspace bind mount
-# on purpose (see docker-compose.yml): nesting them under /workspace
-# made the daemon create root-owned ./target / ./.cargo / ./.sccache
-# on the host, littering the working tree and breaking host-side cargo.
+# Pre-create the /cargo/* cache mount targets. They live OUTSIDE the
+# /workspace bind mount on purpose: nesting them under /workspace makes the
+# daemon create root-owned ./target / ./.cargo on the host.
 RUN mkdir -p /cargo/target /cargo/home/registry /cargo/home/git /cargo/sccache \
     /workspace/playground/node_modules
 
-# Run as a non-root user so files written into the /workspace bind mount
-# (generated artefacts, wasm pkg/, mdbook output, node_modules) are owned
-# by the host developer, not root. UID/GID default to the conventional
-# first-user 1000; override with `--build-arg UID=$(id -u) --build-arg
-# GID=$(id -g)` on hosts that differ. Debian bookworm's base leaves 1000
-# free, so the create is unconditional (and fails loudly if it ever isn't).
-# The cache dirs at /cargo/* and the playground node_modules mountpoint are
-# chowned so a *fresh* named volume initialises dev-owned. CI flips the
-# runtime UID back to root via `user:` in docker-compose.yml (AFM_UID=0):
-# the ephemeral runner's checkout is owned by a different UID and ownership
-# is throwaway there, so root sidesteps cross-UID write failures.
+# Run as non-root so files written into the /workspace bind mount are
+# host-owned, not root. UID/GID default to 1000; override with
+# `--build-arg UID=$(id -u) --build-arg GID=$(id -g)`. CI flips back to root
+# via `user:` in docker-compose.yml (AFM_UID=0) — its checkout UID is
+# throwaway, so root sidesteps cross-UID write failures.
 ARG UID=1000
 ARG GID=1000
 RUN groupadd --gid "${GID}" dev \
@@ -219,14 +182,10 @@ USER dev
 CMD ["bash"]
 
 ########################################################################
-# Stage: fuzz — dev superset adding nightly + cargo-fuzz + cargo-udeps
-#
-# Only `just udeps` / `just fuzz*` / `just coverage-branch` need nightly.
-# Splitting them here means a plain `target: dev` image (used by the
-# `dev` and `playground` compose services) skips a 90 s + 400 MB
-# nightly install. ADR-0002 is preserved because everything still runs
-# in a container; `strict-code`'s ban on nightly in `rust-toolchain.toml`
-# is preserved because nightly is only an opt-in `cargo +nightly` here.
+# Stage: fuzz — dev superset adding nightly + cargo-fuzz + cargo-udeps.
+# Only `just udeps` / `fuzz*` / `coverage-branch` need nightly, so the plain
+# `dev` image skips the nightly install. nightly is opt-in `cargo +nightly`
+# here, so the rust-toolchain.toml stable pin is unaffected.
 ########################################################################
 FROM dev AS fuzz
 
@@ -235,14 +194,9 @@ FROM dev AS fuzz
 # for the install layers and drop to dev again at the end.
 USER root
 
-# `rustup toolchain install` tries to self-update by looking for the
-# rustup binary at $CARGO_HOME/bin/rustup. The inherited
-# `CARGO_HOME=/cargo/home` (set in the dev stage for runtime
-# volume mounts) is empty at image-build time, so the self-update step
-# bails with "rustup is not installed at '/cargo/home'". Override
-# the env for this one RUN so rustup finds itself at the parent rust
-# image's `/usr/local/cargo` location; the runtime CARGO_HOME setting
-# is unaffected.
+# Override CARGO_HOME for this RUN only: the runtime `/cargo/home` is empty at
+# build time, so rustup can't find itself there. Point it at the base image's
+# `/usr/local/cargo`; the runtime setting is unaffected.
 RUN CARGO_HOME=/usr/local/cargo \
     rustup toolchain install nightly --component rust-src --profile minimal
 
@@ -266,9 +220,8 @@ FROM node-base AS book
 COPY --from=cargo-tools /usr/local/bin/mdbook /usr/local/bin/mdbook
 COPY --from=cargo-tools /usr/local/bin/mdbook-linkcheck /usr/local/bin/mdbook-linkcheck
 
-# Match the dev stage's non-root user so mdbook output written into the
-# /workspace bind mount is host-owned, not root. `book` is FROM node-base
-# (not dev), so it creates its own identical `dev` user.
+# Non-root `dev` user (book is FROM node-base, so it recreates it) — keeps
+# mdbook output in the bind mount host-owned.
 ARG UID=1000
 ARG GID=1000
 RUN groupadd --gid "${GID}" dev \
@@ -281,11 +234,7 @@ EXPOSE 3000
 CMD ["mdbook", "serve", "--hostname", "0.0.0.0", "--port", "3000"]
 
 ########################################################################
-# Stage: browser — Playwright with Chromium + WebKit for M3 onward
-#
-# Pinned by digest (see the toolchain-stage note at the top); Dependabot
-# bumps the tag + sha together. Refresh via
-# `docker buildx imagetools inspect mcr.microsoft.com/playwright:v1.60.0-jammy`.
+# Stage: browser — Playwright with Chromium + WebKit. Digest-pinned (see header).
 ########################################################################
 # mcr.microsoft.com/playwright:v1.60.0-jammy (digest pinned; tag kept for humans / Dependabot)
 FROM mcr.microsoft.com/playwright:v1.60.0-jammy@sha256:e1529a04087193966ea15d4a1617345bdaa0791690a24ab2c42b65f9ce5b2cdc AS browser

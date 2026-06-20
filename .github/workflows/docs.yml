@@ -1,28 +1,12 @@
 # Publish the afm book + rustdoc to GitHub Pages.
 #
-# afm does not currently publish to crates.io, so docs.rs is not an
-# option for the API reference. Instead we build rustdoc locally,
-# layer it under the mdbook site at `/afm/api/`, and deploy the whole
-# thing to GitHub Pages.
+# afm is not on crates.io, so there is no docs.rs; build rustdoc locally
+# and layer it under the mdbook site at `/afm/api/`.
 #
-# Layout produced:
-#   https://p4suta.github.io/afm/            ← mdbook (Welcome, Getting Started, …)
-#   https://p4suta.github.io/afm/api/        ← cargo doc --workspace --no-deps
-#   https://p4suta.github.io/afm/playground/ ← Solid + Vite browser playground
-#
-# ADR-0002 scope exception (matching release.yml): docs builds use the
-# native runner toolchain rather than the dev Docker image, because the
-# Pages deploy actions expect artefacts on the runner filesystem. The
-# wasm-pack pin (jetli action `version:` below) matches the Dockerfile
-# WASM_PACK_VERSION arg so dev and CI agree on the wasm-bindgen-cli
-# that gets auto-fetched.
-#
-# Action pinning: every third-party action below is pinned to a full
-# commit SHA (the `# vX.Y.Z` trailer is the tag it resolved to).
-# Dependabot's github-actions ecosystem keeps those SHAs current.
-# `dtolnay/rust-toolchain@stable` is the deliberate exception — its ref
-# is the moving `stable` branch (we want the newest stable rustc), and
-# dependabot.yml ignores it.
+# Docs builds use the native runner toolchain, not the dev Docker image:
+# the Pages deploy actions expect artefacts on the runner filesystem.
+# `dtolnay/rust-toolchain@stable` tracks the moving `stable` branch on
+# purpose (newest stable rustc); dependabot.yml ignores it.
 
 name: docs
 
@@ -36,8 +20,8 @@ permissions:
   pages: write
   id-token: write
 
-# Only one deploy in flight at a time; queue the rest so we never
-# partially overwrite the Pages bucket.
+# One deploy at a time; queue the rest so we never partially overwrite
+# the Pages bucket.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -61,10 +45,8 @@ jobs:
 
       - name: Build rustdoc
         env:
-          # Defense-in-depth: the ci.yml `doc` job is the primary rustdoc
-          # gate, but harden the deploy build too so a doc regression can't
-          # ship even if that job is ever weakened. The workspace denies all
-          # rustdoc lints; `-D warnings` turns any escapee into a hard fail.
+          # Fail the deploy build on any rustdoc warning so a doc
+          # regression can't ship even if ci.yml's `doc` gate is weakened.
           RUSTDOCFLAGS: "-D warnings"
         run: cargo doc --workspace --no-deps --document-private-items
 
@@ -74,13 +56,13 @@ jobs:
       - name: Install bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
-          # Pinned alongside the Dockerfile BUN_VERSION arg.
+          # Keep in sync with the Dockerfile BUN_VERSION arg.
           bun-version: '1.3.14'
 
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
         with:
-          # Pinned alongside the Dockerfile WASM_PACK_VERSION arg.
+          # Keep in sync with the Dockerfile WASM_PACK_VERSION arg.
           version: 'v0.15.0'
 
       - name: Build afm-wasm package
@@ -101,7 +83,7 @@ jobs:
           cp -r target/doc/. site/api/
           mkdir -p site/playground
           cp -r playground/dist/. site/playground/
-          # GitHub Pages otherwise runs Jekyll and hides paths like `_sources`.
+          # Without this, Pages runs Jekyll and hides paths like `_sources`.
           touch site/.nojekyll
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
