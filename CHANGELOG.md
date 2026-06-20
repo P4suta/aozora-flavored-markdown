@@ -57,6 +57,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `serialize`, `Options::afm_default`, `html::render_to_string`) now
   carries a compiled, asserted example. `just test-doc` is wired into
   `just ci` and a CI job so the examples can never silently rot.
+- **crates.io publication readiness** — `afm-markdown` and `afm-cli` are now
+  publishable to crates.io (verified via `cargo publish --dry-run`). A manual
+  `publish-crates.yml` workflow publishes the two-crate ladder
+  (`afm-markdown` → `afm-cli`). Policy is captured in
+  [ADR-0014](docs/adr/0014-comrak-vendoring-upgrade-policy.md) and
+  [ADR-0015](docs/adr/0015-crates-io-publication-and-semver.md).
 
 ### Changed
 
@@ -95,6 +101,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Rust `match`es. The serde/JSON contract is unchanged; the variant-
   completeness witnesses moved into `afm-markdown` (the owning crate). The
   ADR index now also lists the previously-missing ADR-0012.
+- **`aozora` is now a crates.io registry dependency** (`0.4.1`) instead of a
+  git-rev pin — required for afm-markdown to be publishable. `comrak` keeps its
+  vendored path locally but publishes against the identical registry `0.52.0`.
+  `cargo xtask new-adr` now renders `docs/adr/0000-template.md` (full MADR
+  section set) instead of a hard-coded subset.
 
 ### Fixed
 

@@ -124,16 +124,20 @@ redundant_pub_crate     = "allow" # conflicts with rustc's `unreachable_pub` (ou
 
 [workspace.dependencies]
 afm-markdown = { version = "0.4.0", path = "crates/afm-markdown" }
-# Test-only; `publish = false`, so the version is a cargo-deny placeholder.
-afm-markdown-test-support = { version = "0.4.0", path = "crates/afm-markdown-test-support" }
+# Test-only dev-dependency; `publish = false`. Path-only (no version) so
+# `cargo publish` strips it from the published manifest — it is never on
+# crates.io. The resulting `*` path requirement is permitted by deny.toml's
+# `allow-wildcard-paths` (ADR-0015).
+afm-markdown-test-support = { path = "crates/afm-markdown-test-support" }
 
 # Sibling 青空文庫記法 parser. Depend on the umbrella `aozora` crate only, not
 # its internal build-block crates, so afm is insulated from its decomposition.
-# Pinned by commit SHA so `cargo update` can't advance it; bump = one PR per
-# intentional sync (replace `rev` with the new aozora HEAD, then
-# `cargo update -p aozora`). `default-features = false` keeps cst / query /
-# wire / proptest / schema out of the build graph.
-aozora = { version = "0.4.0", git = "https://github.com/P4suta/aozora.git", rev = "a53c632b1d1be4bfcbce7de010ab5b0843e98cc0", default-features = false }
+# Registry dependency (crates.io) so afm-markdown can itself be published — a
+# git source would make `cargo publish` reject the crate (ADR-0015). v0.4.1 is
+# the published cut of the former `rev = a53c632…` pin; an intentional sync is
+# now one PR per `cargo update -p aozora` + version bump. `default-features =
+# false` keeps cst / query / wire / proptest / schema out of the build graph.
+aozora = { version = "0.4.1", default-features = false }
 
 # Vendored comrak fork (path, not crates.io). `default-features = false` drops
 # the comrak CLI (`cli` / `syntect` / `bon`); afm-cli is our own binary.

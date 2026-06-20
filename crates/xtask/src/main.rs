@@ -457,16 +457,21 @@ fn new_adr(title: &str) -> Result<()> {
     }
 
     let today = today_yyyy_mm_dd()?;
-    let content = format!(
-        "# {title}\n\
-         \n\
-         - **Status:** Proposed\n\
-         - **Date:** {today}\n\
-         \n\
-         ## Context\n\n\
-         ## Decision\n\n\
-         ## Consequences\n",
-    );
+    // Render `0000-template.md` rather than hard-coding a divergent subset, so
+    // a scaffolded ADR carries the same section set (Status / Date / Deciders /
+    // Tags + Context / Decision / Consequences / Alternatives / References) the
+    // committed ADRs use. The author fills Tags and the section bodies.
+    let template_path = adr_dir.join("0000-template.md");
+    let template = fs::read_to_string(&template_path)
+        .with_context(|| format!("reading ADR template {}", template_path.display()))?;
+    let content = template
+        .replace("{{ADR NUMBER}}", &format!("{next_num:04}"))
+        .replace("{{TITLE}}", title)
+        .replace(
+            "{proposed | accepted | deprecated | superseded by ADR-XXXX}",
+            "proposed",
+        )
+        .replace("YYYY-MM-DD", &today);
 
     fs::write(&path, content).with_context(|| format!("writing {}", path.display()))?;
     println!("created {}", path.display());
