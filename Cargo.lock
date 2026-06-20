@@ -25,6 +25,8 @@ dependencies = [
  "aozora",
  "clap",
  "miette",
+ "serde",
+ "serde_json",
  "thiserror",
  "tracing",
  "tracing-subscriber",

@@ -49,6 +49,10 @@ struct Cli {
     /// Decrease log verbosity (-q errors only). `RUST_LOG` overrides.
     #[arg(short, long, global = true, action = ArgAction::Count)]
     quiet: u8,
+
+    /// Diagnostic output format: human-readable lines, or stable JSON for tooling.
+    #[arg(long, global = true, value_enum, default_value_t = DiagFormat::Human)]
+    format: DiagFormat,
 }
 
 #[derive(Subcommand, Debug)]
@@ -82,6 +86,33 @@ enum ColorChoice {
     Never,
 }
 
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+enum DiagFormat {
+    /// `diagnostic [code]: message` lines for humans.
+    #[default]
+    Human,
+    /// A stable `afm.diagnostics.v1` JSON envelope for tooling.
+    Json,
+}
+
+/// Where a stream of diagnostics is written. `render` owns stdout (HTML), so
+/// its JSON diagnostics go to stderr; `check` has no stdout payload, so its
+/// JSON goes to stdout where `jq` can reach it. Human-format always uses stderr.
+#[derive(Copy, Clone, Debug)]
+enum DiagStream {
+    Stdout,
+    Stderr,
+}
+
+impl DiagStream {
+    fn write_line(self, line: &str) {
+        match self {
+            Self::Stdout => println!("{line}"),
+            Self::Stderr => eprintln!("{line}"),
+        }
+    }
+}
+
 /// Where rendered HTML goes. Resolved from `--output`; `None` and `-` both
 /// mean stdout.
 #[derive(Debug)]
@@ -110,6 +141,70 @@ struct PipelineArgs {
     /// `render` prints HTML on success; `check` parses only.
     emit_html: bool,
     output: OutputSink,
+    format: DiagFormat,
+}
+
+/// The `afm.diagnostics.v1` envelope — the stable JSON contract for tooling.
+/// See ADR-0012. Fields are additive-only within `v1`; a breaking change bumps
+/// the `schema` discriminant.
+#[derive(Debug, serde::Serialize)]
+struct DiagnosticReport {
+    schema: &'static str,
+    diagnostics: Vec<DiagnosticJson>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct DiagnosticJson {
+    /// Stable `aozora::…` code string.
+    code: &'static str,
+    /// `error` / `warning` / `note`.
+    severity: &'static str,
+    /// `source` (user input) / `internal` (pipeline bug).
+    source: &'static str,
+    /// Human-readable message (Display). Not part of the stability contract.
+    message: String,
+    span: SpanJson,
+    /// 1-based line of `span.start`.
+    line: u32,
+    /// 1-based character column of `span.start`.
+    column: u32,
+}
+
+/// Byte-offset span into the (decoded) source.
+#[derive(Debug, serde::Serialize)]
+struct SpanJson {
+    start: u32,
+    end: u32,
+}
+
+impl DiagnosticReport {
+    const SCHEMA: &'static str = "afm.diagnostics.v1";
+
+    fn build(diagnostics: &[afm_markdown::Diagnostic], source: &str) -> Self {
+        let diagnostics = diagnostics
+            .iter()
+            .map(|d| {
+                let span = d.span();
+                let (line, column) = byte_offset_to_line_col(source, span.start);
+                DiagnosticJson {
+                    code: d.code(),
+                    severity: d.severity().as_wire_str(),
+                    source: d.source().as_wire_str(),
+                    message: d.to_string(),
+                    span: SpanJson {
+                        start: span.start,
+                        end: span.end,
+                    },
+                    line,
+                    column,
+                }
+            })
+            .collect();
+        Self {
+            schema: Self::SCHEMA,
+            diagnostics,
+        }
+    }
 }
 
 fn main() -> ExitCode {
@@ -135,6 +230,7 @@ fn run() -> Result<ExitCode> {
             strict: cli.strict,
             emit_html: true,
             output: OutputSink::from_arg(output),
+            format: cli.format,
         },
         Command::Check { input } => PipelineArgs {
             input,
@@ -142,6 +238,7 @@ fn run() -> Result<ExitCode> {
             strict: cli.strict,
             emit_html: false,
             output: OutputSink::Stdout,
+            format: cli.format,
         },
     };
     run_pipeline(&args)
@@ -208,13 +305,24 @@ fn run_pipeline(args: &PipelineArgs) -> Result<ExitCode> {
     let source = read_input(&args.input, args.encoding)?;
     let options = Options::afm_default();
     let result = render_to_string(&source, &options);
-    emit_diagnostics(&result.diagnostics);
+
+    // JSON diagnostics for `check` go to stdout (pipe into `jq`); for `render`
+    // they go to stderr so stdout stays pure HTML. Human format always stderr.
+    let stream = match args.format {
+        DiagFormat::Json if !args.emit_html => DiagStream::Stdout,
+        _ => DiagStream::Stderr,
+    };
+    emit_diagnostics(&result.diagnostics, &source, args.format, stream);
 
     if args.strict && !result.diagnostics.is_empty() {
-        eprintln!(
-            "lexer が {} 件の診断を報告しました (--strict)",
-            result.diagnostics.len()
-        );
+        // In JSON mode the envelope (and exit code 2) carry the failure; a
+        // free-form line would corrupt a stdout JSON stream.
+        if matches!(args.format, DiagFormat::Human) {
+            eprintln!(
+                "lexer が {} 件の診断を報告しました (--strict)",
+                result.diagnostics.len()
+            );
+        }
         return Ok(ExitCode::from(2));
     }
 
@@ -222,6 +330,25 @@ fn run_pipeline(args: &PipelineArgs) -> Result<ExitCode> {
         write_html(&args.output, &result.html)?;
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Map a byte offset into `source` to a 1-based (line, character-column) pair.
+fn byte_offset_to_line_col(source: &str, offset: u32) -> (u32, u32) {
+    let offset = offset as usize;
+    let mut line = 1u32;
+    let mut column = 1u32;
+    for (idx, ch) in source.char_indices() {
+        if idx >= offset {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+    (line, column)
 }
 
 /// Emit rendered HTML to stdout or a file, with a trailing newline either way.
@@ -265,12 +392,31 @@ fn read_input(input: &Path, encoding: InputEncoding) -> Result<String> {
     }
 }
 
-/// Print every diagnostic on stderr with its miette-derived code so
-/// downstream tooling (language servers, CI gates, LSP JSON bridges)
-/// can key on the stable `afm::…` strings rather than free-form
-/// messages.
-fn emit_diagnostics(diagnostics: &[afm_markdown::Diagnostic]) {
-    for d in diagnostics {
-        eprintln!("diagnostic [{}]: {d}", d.code());
+/// Emit diagnostics in the requested format on the chosen stream.
+///
+/// Human format prints one `diagnostic [code]: message` line each (nothing when
+/// there are none). JSON format always prints the stable `afm.diagnostics.v1`
+/// envelope (an empty array on clean input) so tooling can rely on parseable
+/// output. Either way the stable `aozora::…` codes let language servers and CI
+/// gates key on identifiers rather than free-form messages.
+fn emit_diagnostics(
+    diagnostics: &[afm_markdown::Diagnostic],
+    source: &str,
+    format: DiagFormat,
+    stream: DiagStream,
+) {
+    match format {
+        DiagFormat::Human => {
+            for d in diagnostics {
+                stream.write_line(&format!("diagnostic [{}]: {d}", d.code()));
+            }
+        }
+        DiagFormat::Json => {
+            let report = DiagnosticReport::build(diagnostics, source);
+            match serde_json::to_string(&report) {
+                Ok(json) => stream.write_line(&json),
+                Err(e) => eprintln!("診断を JSON 化できません: {e}"),
+            }
+        }
     }
 }

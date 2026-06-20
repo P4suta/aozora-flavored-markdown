@@ -16,6 +16,7 @@ afm [--encoding utf8|sjis] [--strict] [--color auto|always|never] [-v|-q] <subco
 | `--encoding <enc>`   | `utf8`  | Input encoding. `utf8` or `sjis`.                            |
 | `--strict`           | off     | Promote every lexer diagnostic to a hard error (exit 2).     |
 | `--color <when>`     | `auto`  | Colorize diagnostics: `auto`, `always`, or `never`.          |
+| `--format <fmt>`     | `human` | Diagnostic format: `human` or `json`.                        |
 | `-v`, `--verbose`    | —       | Raise log verbosity (`-v` info, `-vv` debug, `-vvv` trace).  |
 | `-q`, `--quiet`      | —       | Lower log verbosity (`-q` errors only).                      |
 | `--help`             | —       | Print help and exit.                                         |
@@ -45,6 +46,44 @@ An explicit `--color always`/`never` wins over the environment.
 `-v`/`-q` set the default tracing level for the run (logs go to stderr).
 A `RUST_LOG` environment variable, when set, overrides `-v`/`-q`
 entirely.
+
+### JSON diagnostics
+
+`--format json` emits diagnostics as a stable `afm.diagnostics.v1`
+envelope for tooling (editors, CI gates, LSP bridges):
+
+```json
+{
+  "schema": "afm.diagnostics.v1",
+  "diagnostics": [
+    {
+      "code": "aozora::lex::unmatched_close",
+      "severity": "error",
+      "source": "source",
+      "message": "…",
+      "span": { "start": 6, "end": 9 },
+      "line": 1,
+      "column": 7
+    }
+  ]
+}
+```
+
+- `code`, `severity` (`error`/`warning`/`note`), and `source`
+  (`source`/`internal`) are stable identifiers — key on these.
+- `span` holds byte offsets; `line`/`column` are 1-based (column counts
+  characters).
+- `message` is human text and is **not** part of the contract.
+- The envelope is emitted even when there are no diagnostics.
+
+`check --format json` writes to **stdout** (so it pipes into `jq`);
+`render --format json` keeps stdout for HTML and writes the JSON to
+**stderr**. Stability is additive-only within `v1`; see
+[ADR-0012](https://github.com/P4suta/afm/blob/main/docs/adr/0012-diagnostic-json-output-schema-and-stability.md).
+
+```sh
+afm check --format json input.md | jq '.diagnostics[].code'
+```
 
 ## `afm render <input>`
 

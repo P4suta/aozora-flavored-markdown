@@ -24,6 +24,8 @@ use std::process::{self, Command, Output, Stdio};
 use std::str;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde_json::Value;
+
 /// Absolute path to the freshly-built `afm` binary, provided by cargo
 /// for every integration test in this crate.
 fn afm_bin() -> PathBuf {
@@ -102,6 +104,10 @@ fn unique_temp_path(suffix: &str) -> PathBuf {
         .expect("clock went backward")
         .subsec_nanos();
     env::temp_dir().join(format!("afm_cli_out_{}_{nanos}{suffix}", process::id()))
+}
+
+fn parse_json(text: &str) -> Value {
+    serde_json::from_str(text).unwrap_or_else(|e| panic!("expected valid JSON, got {text:?}: {e}"))
 }
 
 fn stdout_of(out: &Output) -> &str {
@@ -686,4 +692,150 @@ fn verbose_and_quiet_flags_parse_and_run() {
             stdout_of(&out)
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// `--format json` machine-readable diagnostics (afm.diagnostics.v1, ADR-0012)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_json_emits_valid_envelope_on_stdout() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "non-strict check --format json must exit 0, stderr = {:?}",
+        stderr_of(&out)
+    );
+    let v = parse_json(stdout_of(&out));
+    assert_eq!(v["schema"], "afm.diagnostics.v1");
+    assert!(
+        !v["diagnostics"]
+            .as_array()
+            .expect("diagnostics array")
+            .is_empty(),
+        "expected at least one diagnostic, got {v}"
+    );
+}
+
+#[test]
+fn check_json_clean_input_is_empty_array() {
+    let path = write_temp_utf8("clean input");
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    let v = parse_json(stdout_of(&out));
+    assert_eq!(v["schema"], "afm.diagnostics.v1");
+    assert!(
+        v["diagnostics"].as_array().expect("array").is_empty(),
+        "clean input must yield an empty diagnostics array, got {v}"
+    );
+}
+
+#[test]
+fn check_json_schema_fields_present() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    let v = parse_json(stdout_of(&out));
+    let d = &v["diagnostics"][0];
+    for field in ["code", "severity", "source", "message", "line", "column"] {
+        assert!(
+            !d[field].is_null(),
+            "field {field} must be present, got {d}"
+        );
+    }
+    assert!(
+        !d["span"]["start"].is_null() && !d["span"]["end"].is_null(),
+        "span.start / span.end must be present, got {d}"
+    );
+    assert!(
+        d["code"].as_str().unwrap().starts_with("aozora::"),
+        "code must carry the aozora:: prefix, got {d}"
+    );
+    let severity = d["severity"].as_str().unwrap();
+    assert!(
+        matches!(severity, "error" | "warning" | "note"),
+        "severity must be a stable wire string, got {severity}"
+    );
+}
+
+#[test]
+fn json_stable_codes() {
+    // Pins the public contract: the canary input yields this exact code.
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    let v = parse_json(stdout_of(&out));
+    let d = &v["diagnostics"][0];
+    assert_eq!(d["code"], "aozora::lex::unmatched_close", "got {v}");
+    assert_eq!(d["severity"], "error");
+    assert_eq!(d["source"], "source");
+}
+
+#[test]
+fn render_json_diagnostics_go_to_stderr_html_to_stdout() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["render", "--format", "json", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    assert!(
+        stdout_of(&out).contains('<'),
+        "render stdout must stay HTML, got {:?}",
+        stdout_of(&out)
+    );
+    let v = parse_json(stderr_of(&out));
+    assert_eq!(v["schema"], "afm.diagnostics.v1");
+    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn check_json_strict_stdout_is_pure_json() {
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&[
+        "--strict",
+        "check",
+        "--format",
+        "json",
+        path.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "strict json must still exit 2, stderr = {:?}",
+        stderr_of(&out)
+    );
+    // No free-form Japanese line is allowed to corrupt the stdout JSON.
+    let v = parse_json(stdout_of(&out));
+    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn json_line_col_is_one_based() {
+    let path = write_temp_utf8("first line\norphan》close");
+    let out = run_afm(&["check", "--format", "json", path.to_str().unwrap()]);
+    let v = parse_json(stdout_of(&out));
+    let d = &v["diagnostics"][0];
+    assert_eq!(
+        d["line"], 2,
+        "diagnostic on the 2nd line must report line 2, got {v}"
+    );
+    assert!(
+        d["column"].as_u64().unwrap() >= 1,
+        "column must be 1-based, got {d}"
+    );
+}
+
+#[test]
+fn human_format_unchanged() {
+    // Adding --format must not change the default human behaviour.
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_afm(&["check", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    assert!(
+        stderr_of(&out).contains("diagnostic [aozora::"),
+        "default human format must still print stderr lines, got {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).is_empty(),
+        "human check must keep stdout empty, got {:?}",
+        stdout_of(&out)
+    );
 }
