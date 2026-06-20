@@ -648,6 +648,24 @@ types-check:
 changelog:
     {{_dev}} git-cliff -o CHANGELOG.md
 
+# --- release assets ----------------------------------------------------------
+
+# Regenerate the shell completions + man page bundled into the release
+# archives (under dist/assets/, shipped via dist-workspace.toml `include`).
+# Built from the live `afm` CLI, so re-run after changing flags/subcommands
+# (and on a version bump — the man page embeds the version). Commit the diff.
+[group('release')]
+dist-assets:
+    {{_dev}} cargo build --package afm-cli --quiet
+    {{_dev}} cargo run --package xtask --quiet -- gen-dist-assets
+
+# Drift gate: fail if the committed dist assets differ from fresh generation.
+# Wired into `just ci` (mirrors `types-check`); run `just dist-assets` to fix.
+[group('release')]
+dist-assets-check:
+    {{_dev}} cargo build --package afm-cli --quiet
+    {{_dev}} cargo run --package xtask --quiet -- gen-dist-assets --check
+
 # --- end-to-end (M3 onward) --------------------------------------------------
 
 # Playwright browser tests (Chromium + WebKit)
@@ -772,7 +790,7 @@ ci:
     # --- foreground lane: instant text gates first (fail-fast in seconds),
     # --- then the compile pipeline (sequential — shared target dir). ---------
     fg_steps=(typos fmt-check strict-code verify-version-pins \
-              upstream-diff types-check clippy build test prop \
+              upstream-diff types-check clippy build dist-assets-check test prop \
               spec-commonmark spec-gfm doc coverage udeps)
     halted=""
     for step in "${fg_steps[@]}"; do

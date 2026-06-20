@@ -18,7 +18,8 @@ Pre-built binaries for the following targets are published to
 | `x86_64-pc-windows-msvc`          | `.zip`     |
 
 Each archive bundles the `afm` binary alongside `LICENSE-MIT`,
-`LICENSE-APACHE`, `NOTICE`, and `README.md`. A release-wide
+`LICENSE-APACHE`, `README.md`, `CHANGELOG.md`, the shell completions
+(`completions/`), and the man page (`man/afm.1`). A release-wide
 `SHA256SUMS` file is attached to the release for bulk verification:
 
 ```sh
@@ -28,6 +29,23 @@ sha256sum --check --ignore-missing SHA256SUMS
 tar xzf afm-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz
 afm-vX.Y.Z-x86_64-unknown-linux-gnu/afm --version
 ```
+
+### Shell completions and man page
+
+The archive's `completions/` directory holds scripts for bash (`afm.bash`),
+zsh (`_afm`), fish (`afm.fish`), powershell (`_afm.ps1`), and elvish
+(`afm.elv`); install the one for your shell where it looks for
+completions. The man page is `man/afm.1`:
+
+```sh
+# zsh: copy `_afm` to a directory on your $fpath
+cp completions/_afm ~/.zfunc/_afm
+# man page
+sudo cp man/afm.1 /usr/local/share/man/man1/afm.1 && man afm
+```
+
+You can also print a completion script on demand without the archive —
+`afm completions <shell>` (see the [CLI Reference](ref/cli.md)).
 
 ## From source
 

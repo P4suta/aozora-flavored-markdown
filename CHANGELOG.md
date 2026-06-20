@@ -49,6 +49,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   zsh, fish, powershell, or elvish.
 - **`--help` now shows an `EXAMPLES` section** covering stdin, `-o`,
   strict JSON checks, and completion install.
+- **Release archives now bundle the shell completions and the `afm.1`
+  man page** (under `completions/` and `man/`). Regenerate the committed
+  assets with `just dist-assets`; `just ci` drift-checks them.
 
 ### Changed
 
