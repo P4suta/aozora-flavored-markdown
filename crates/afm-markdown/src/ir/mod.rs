@@ -7,6 +7,27 @@
 //! `serde-wasm-bindgen` round-trip a pass-through, no shape adapters
 //! needed.
 //!
+//! # Examples
+//!
+//! ```
+//! use afm_markdown::ir::{IrBlock, IrInline};
+//! use afm_markdown::{Options, render_to_ir};
+//!
+//! let rendered = render_to_ir("｜青梅《おうめ》", &Options::afm_default());
+//! let ruby_spans = rendered
+//!     .ir
+//!     .blocks
+//!     .iter()
+//!     .filter_map(|block| match block {
+//!         IrBlock::Paragraph { children, .. } => Some(children),
+//!         _ => None,
+//!     })
+//!     .flatten()
+//!     .filter(|inline| matches!(inline, IrInline::Ruby { .. }))
+//!     .count();
+//! assert_eq!(ruby_spans, 1);
+//! ```
+//!
 //! # Coverage
 //!
 //! - **Markdown side**: paragraphs, headings, lists, blockquotes,

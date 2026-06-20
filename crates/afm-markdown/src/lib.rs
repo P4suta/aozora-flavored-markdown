@@ -10,6 +10,13 @@
 //! - [`Options`] — configuration; [`Options::afm_default`] enables
 //!   the GFM extensions afm uses on top of CommonMark.
 //!
+//! ```
+//! use afm_markdown::{Options, render_to_string};
+//!
+//! let rendered = render_to_string("彼は｜青梅《おうめ》に行った。", &Options::afm_default());
+//! assert!(rendered.html.contains("<ruby>"));
+//! ```
+//!
 //! ## Pipeline
 //!
 //! ```text
@@ -104,6 +111,17 @@ impl Options {
     /// table, autolink, tasklist), hardbreaks on so each Aozora source
     /// newline becomes a `<br>` (verse / dialogue boundaries are
     /// load-bearing in 青空文庫 source).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use afm_markdown::Options;
+    ///
+    /// let opts = Options::afm_default();
+    /// assert!(opts.aozora_enabled);
+    /// assert!(opts.comrak.extension.table);
+    /// assert!(!opts.source_line_anchors);
+    /// ```
     #[must_use]
     pub fn afm_default() -> Self {
         let mut comrak = comrak::Options::default();
@@ -268,6 +286,16 @@ const fn source_within_span_budget(input: &str) -> bool {
 ///    with the matching `aozora::render::render_node` output, then
 ///    `comrak::format_html` renders the spliced AST.
 ///
+/// # Examples
+///
+/// ```
+/// use afm_markdown::{Options, render_to_string};
+///
+/// let rendered = render_to_string("彼は｜青梅《おうめ》に行った。", &Options::afm_default());
+/// assert!(rendered.html.contains("<ruby>"));
+/// assert!(rendered.diagnostics.is_empty());
+/// ```
+///
 /// # Oversized input
 ///
 /// If `input` exceeds `MAX_SOURCE_BYTES` (4 GiB − 1, the lexer's `u32`
@@ -306,6 +334,16 @@ pub fn render_to_string(input: &str, options: &Options) -> Rendered {
 /// `Container`); heading hints (`［＃「X」は大見出し］`) promote
 /// their host paragraph to `IrBlock::Heading` so the IR shape
 /// matches the rendered HTML one-for-one.
+///
+/// # Examples
+///
+/// ```
+/// use afm_markdown::ir::IrBlock;
+/// use afm_markdown::{Options, render_to_ir};
+///
+/// let rendered = render_to_ir("# 第一章\n\n本文", &Options::afm_default());
+/// assert!(matches!(rendered.ir.blocks.first(), Some(IrBlock::Heading { .. })));
+/// ```
 ///
 /// # Oversized input
 ///
@@ -448,6 +486,17 @@ pub struct RenderedBlock {
 /// re-assembling them. The whole-document `render_to_ir` path
 /// preserves cross-block structure if you need it.
 ///
+/// # Examples
+///
+/// ```
+/// use afm_markdown::{Options, render_blocks_to_ir};
+///
+/// let (blocks, diagnostics) =
+///     render_blocks_to_ir("first paragraph\n\n｜second《せかんど》paragraph", &Options::afm_default());
+/// assert_eq!(blocks.len(), 2);
+/// assert!(diagnostics.is_empty());
+/// ```
+///
 /// # Oversized input
 ///
 /// If `input` exceeds `MAX_SOURCE_BYTES` this returns
@@ -534,6 +583,15 @@ fn collect_rendered_blocks<'a>(
 /// borrowed-AST inverse of `lex_into_arena`. Plain CommonMark portions
 /// of the input pass through verbatim because the lexer leaves them
 /// untouched.
+///
+/// # Examples
+///
+/// ```
+/// use afm_markdown::serialize;
+///
+/// let source = "彼は｜青梅《おうめ》に行った。";
+/// assert_eq!(serialize(source), source);
+/// ```
 ///
 /// # Oversized input
 ///
