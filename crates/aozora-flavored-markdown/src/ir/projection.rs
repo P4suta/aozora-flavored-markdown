@@ -26,12 +26,18 @@ use aozora::syntax::borrowed::{
     Annotation as AozoraAnnotation, AozoraNode, Bouten as AozoraBouten, Content,
     DoubleRuby as AozoraDoubleRuby, Gaiji as AozoraGaiji, Ruby as AozoraRuby, Segment, TateChuYoko,
 };
-use aozora::syntax::{AnnotationKind, BoutenKind, BoutenPosition, ContainerKind, SectionKind};
+use aozora::syntax::{
+    AnnotationKind as AozoraAnnotationKind, BoutenKind, BoutenPosition as AozoraBoutenPosition,
+    ContainerKind, SectionKind,
+};
 use comrak::nodes::{Sourcepos, TableAlignment};
 
 use crate::sentinel_stream::saturating_u32;
 
-use super::types::{IrBlock, IrInline, IrTableAlign, Position, Range};
+use super::types::{
+    AnnotationKind, BoutenPosition, BoutenStyle, ContainerSubtype, IrBlock, IrInline, IrTableAlign,
+    Position, Range, SectionSubtype,
+};
 
 pub(super) fn project_inline(node: AozoraNode<'_>) -> Option<IrInline> {
     match node {
@@ -57,7 +63,7 @@ pub(super) fn project_block_leaf(node: AozoraNode<'_>, source_line: u32) -> Opti
             range: None,
         }),
         AozoraNode::SectionBreak(kind) => Some(IrBlock::SectionBreak {
-            subtype: section_kind_subtype(kind).to_owned(),
+            subtype: section_subtype(kind),
             source_line: Some(source_line),
             range: None,
         }),
@@ -86,8 +92,8 @@ fn project_double_ruby(d: &AozoraDoubleRuby<'_>) -> IrInline {
 fn project_bouten(b: &AozoraBouten<'_>) -> IrInline {
     IrInline::Bouten {
         children: project_content_inlines(b.target.get()),
-        style: bouten_kind_str(b.kind).to_owned(),
-        position: bouten_position_str(b.position).to_owned(),
+        style: bouten_style(b.kind),
+        position: bouten_position(b.position),
         range: None,
     }
 }
@@ -111,7 +117,7 @@ fn project_gaiji(g: &AozoraGaiji<'_>) -> IrInline {
 fn project_annotation(a: &AozoraAnnotation<'_>) -> IrInline {
     IrInline::Annotation {
         payload: a.raw.as_str().to_owned(),
-        resolved: annotation_kind_resolved(a.kind).map(str::to_owned),
+        resolved: annotation_resolved(a.kind),
         range: None,
     }
 }
@@ -168,47 +174,47 @@ pub(super) fn resolved_to_string(r: Resolved) -> String {
     }
 }
 
-pub(super) const fn bouten_kind_str(k: BoutenKind) -> &'static str {
+pub(super) const fn bouten_style(k: BoutenKind) -> BoutenStyle {
     match k {
-        BoutenKind::Goma => "goma",
-        BoutenKind::WhiteSesame => "whiteSesame",
-        BoutenKind::Circle => "circle",
-        BoutenKind::WhiteCircle => "whiteCircle",
-        BoutenKind::DoubleCircle => "doubleCircle",
-        BoutenKind::Janome => "janome",
-        BoutenKind::Cross => "cross",
-        BoutenKind::WhiteTriangle => "whiteTriangle",
-        BoutenKind::WavyLine => "wavyLine",
-        BoutenKind::UnderLine => "underLine",
-        BoutenKind::DoubleUnderLine => "doubleUnderLine",
-        _ => "unknown",
+        BoutenKind::Goma => BoutenStyle::Goma,
+        BoutenKind::WhiteSesame => BoutenStyle::WhiteSesame,
+        BoutenKind::Circle => BoutenStyle::Circle,
+        BoutenKind::WhiteCircle => BoutenStyle::WhiteCircle,
+        BoutenKind::DoubleCircle => BoutenStyle::DoubleCircle,
+        BoutenKind::Janome => BoutenStyle::Janome,
+        BoutenKind::Cross => BoutenStyle::Cross,
+        BoutenKind::WhiteTriangle => BoutenStyle::WhiteTriangle,
+        BoutenKind::WavyLine => BoutenStyle::WavyLine,
+        BoutenKind::UnderLine => BoutenStyle::UnderLine,
+        BoutenKind::DoubleUnderLine => BoutenStyle::DoubleUnderLine,
+        _ => BoutenStyle::Unknown,
     }
 }
 
-pub(super) const fn bouten_position_str(p: BoutenPosition) -> &'static str {
+pub(super) const fn bouten_position(p: AozoraBoutenPosition) -> BoutenPosition {
     match p {
-        BoutenPosition::Right => "right",
-        BoutenPosition::Left => "left",
-        _ => "unknown",
+        AozoraBoutenPosition::Right => BoutenPosition::Right,
+        AozoraBoutenPosition::Left => BoutenPosition::Left,
+        _ => BoutenPosition::Unknown,
     }
 }
 
-pub(super) const fn section_kind_subtype(kind: SectionKind) -> &'static str {
+pub(super) const fn section_subtype(kind: SectionKind) -> SectionSubtype {
     match kind {
-        SectionKind::Choho => "choho",
-        SectionKind::Dan => "dan",
-        SectionKind::Spread => "spread",
-        _ => "unknown",
+        SectionKind::Choho => SectionSubtype::Choho,
+        SectionKind::Dan => SectionSubtype::Dan,
+        SectionKind::Spread => SectionSubtype::Spread,
+        _ => SectionSubtype::Unknown,
     }
 }
 
-pub(super) const fn container_subtype(kind: ContainerKind) -> &'static str {
+pub(super) const fn container_subtype(kind: ContainerKind) -> ContainerSubtype {
     match kind {
-        ContainerKind::Indent { .. } => "indent",
-        ContainerKind::Warichu => "warichu",
-        ContainerKind::Keigakomi => "keigakomi",
-        ContainerKind::AlignEnd { .. } => "alignEnd",
-        _ => "unknown",
+        ContainerKind::Indent { .. } => ContainerSubtype::Indent,
+        ContainerKind::Warichu => ContainerSubtype::Warichu,
+        ContainerKind::Keigakomi => ContainerSubtype::Keigakomi,
+        ContainerKind::AlignEnd { .. } => ContainerSubtype::AlignEnd,
+        _ => ContainerSubtype::Unknown,
     }
 }
 
@@ -223,19 +229,19 @@ pub(super) const fn container_indent_level(kind: ContainerKind) -> Option<u32> {
     }
 }
 
-pub(super) const fn annotation_kind_resolved(k: AnnotationKind) -> Option<&'static str> {
-    // Named annotation kinds project to their camelCase tag.
+pub(super) const fn annotation_resolved(k: AozoraAnnotationKind) -> Option<AnnotationKind> {
+    // Named annotation kinds project to their afm `AnnotationKind`.
     // `Unknown` deliberately differs from a future-variant hit:
-    // `Some("unknown")` says the upstream classifier saw the
-    // annotation but couldn't classify it, whereas `None` says aozora-flavored-markdown
-    // doesn't know about this variant of `AnnotationKind` yet.
+    // `Some(Unknown)` says the upstream classifier saw the annotation but
+    // couldn't classify it, whereas `None` says aozora-flavored-markdown doesn't
+    // know about this variant of upstream `AnnotationKind` yet.
     match k {
-        AnnotationKind::Unknown => Some("unknown"),
-        AnnotationKind::AsIs => Some("asIs"),
-        AnnotationKind::TextualNote => Some("textualNote"),
-        AnnotationKind::InvalidRubySpan => Some("invalidRubySpan"),
-        AnnotationKind::WarichuOpen => Some("warichuOpen"),
-        AnnotationKind::WarichuClose => Some("warichuClose"),
+        AozoraAnnotationKind::Unknown => Some(AnnotationKind::Unknown),
+        AozoraAnnotationKind::AsIs => Some(AnnotationKind::AsIs),
+        AozoraAnnotationKind::TextualNote => Some(AnnotationKind::TextualNote),
+        AozoraAnnotationKind::InvalidRubySpan => Some(AnnotationKind::InvalidRubySpan),
+        AozoraAnnotationKind::WarichuOpen => Some(AnnotationKind::WarichuOpen),
+        AozoraAnnotationKind::WarichuClose => Some(AnnotationKind::WarichuClose),
         _ => None,
     }
 }
@@ -284,81 +290,96 @@ mod tests {
     use comrak::nodes::{LineColumn, Sourcepos};
 
     #[test]
-    fn bouten_kind_str_covers_every_upstream_variant() {
+    fn bouten_style_covers_every_upstream_variant() {
         let cases = [
-            (BoutenKind::Goma, "goma"),
-            (BoutenKind::WhiteSesame, "whiteSesame"),
-            (BoutenKind::Circle, "circle"),
-            (BoutenKind::WhiteCircle, "whiteCircle"),
-            (BoutenKind::DoubleCircle, "doubleCircle"),
-            (BoutenKind::Janome, "janome"),
-            (BoutenKind::Cross, "cross"),
-            (BoutenKind::WhiteTriangle, "whiteTriangle"),
-            (BoutenKind::WavyLine, "wavyLine"),
-            (BoutenKind::UnderLine, "underLine"),
-            (BoutenKind::DoubleUnderLine, "doubleUnderLine"),
+            (BoutenKind::Goma, BoutenStyle::Goma),
+            (BoutenKind::WhiteSesame, BoutenStyle::WhiteSesame),
+            (BoutenKind::Circle, BoutenStyle::Circle),
+            (BoutenKind::WhiteCircle, BoutenStyle::WhiteCircle),
+            (BoutenKind::DoubleCircle, BoutenStyle::DoubleCircle),
+            (BoutenKind::Janome, BoutenStyle::Janome),
+            (BoutenKind::Cross, BoutenStyle::Cross),
+            (BoutenKind::WhiteTriangle, BoutenStyle::WhiteTriangle),
+            (BoutenKind::WavyLine, BoutenStyle::WavyLine),
+            (BoutenKind::UnderLine, BoutenStyle::UnderLine),
+            (BoutenKind::DoubleUnderLine, BoutenStyle::DoubleUnderLine),
         ];
         for (kind, expected) in cases {
-            assert_eq!(bouten_kind_str(kind), expected);
+            assert_eq!(bouten_style(kind), expected);
         }
     }
 
     #[test]
-    fn bouten_position_str_covers_left_and_right() {
-        assert_eq!(bouten_position_str(BoutenPosition::Right), "right");
-        assert_eq!(bouten_position_str(BoutenPosition::Left), "left");
+    fn bouten_position_covers_left_and_right() {
+        assert_eq!(
+            bouten_position(AozoraBoutenPosition::Right),
+            BoutenPosition::Right
+        );
+        assert_eq!(
+            bouten_position(AozoraBoutenPosition::Left),
+            BoutenPosition::Left
+        );
     }
 
     #[test]
-    fn section_kind_subtype_covers_every_upstream_variant() {
-        assert_eq!(section_kind_subtype(SectionKind::Choho), "choho");
-        assert_eq!(section_kind_subtype(SectionKind::Dan), "dan");
-        assert_eq!(section_kind_subtype(SectionKind::Spread), "spread");
+    fn section_subtype_covers_every_upstream_variant() {
+        assert_eq!(section_subtype(SectionKind::Choho), SectionSubtype::Choho);
+        assert_eq!(section_subtype(SectionKind::Dan), SectionSubtype::Dan);
+        assert_eq!(section_subtype(SectionKind::Spread), SectionSubtype::Spread);
     }
 
     #[test]
     fn container_subtype_and_indent_level_round_trip_each_variant() {
         let indent = ContainerKind::Indent { amount: 3 };
-        assert_eq!(container_subtype(indent), "indent");
+        assert_eq!(container_subtype(indent), ContainerSubtype::Indent);
         assert_eq!(container_indent_level(indent), Some(3));
 
         let align = ContainerKind::AlignEnd {
             offset: AlignEnd { offset: 1 }.offset,
         };
-        assert_eq!(container_subtype(align), "alignEnd");
+        assert_eq!(container_subtype(align), ContainerSubtype::AlignEnd);
         assert_eq!(container_indent_level(align), Some(1));
 
-        assert_eq!(container_subtype(ContainerKind::Warichu), "warichu");
+        assert_eq!(
+            container_subtype(ContainerKind::Warichu),
+            ContainerSubtype::Warichu
+        );
         assert!(container_indent_level(ContainerKind::Warichu).is_none());
-        assert_eq!(container_subtype(ContainerKind::Keigakomi), "keigakomi");
+        assert_eq!(
+            container_subtype(ContainerKind::Keigakomi),
+            ContainerSubtype::Keigakomi
+        );
         assert!(container_indent_level(ContainerKind::Keigakomi).is_none());
     }
 
     #[test]
-    fn annotation_kind_resolved_covers_every_named_variant() {
-        // `Unknown` is the upstream classifier's "tried, gave up"
-        // outcome; we surface it as `Some("unknown")` so consumers
+    fn annotation_resolved_covers_every_named_variant() {
+        // Upstream `Unknown` is the classifier's "tried, gave up" outcome;
+        // we surface it as `Some(AnnotationKind::Unknown)` so consumers
         // distinguish it from a future-variant hit (`None`).
         assert_eq!(
-            annotation_kind_resolved(AnnotationKind::Unknown),
-            Some("unknown")
-        );
-        assert_eq!(annotation_kind_resolved(AnnotationKind::AsIs), Some("asIs"));
-        assert_eq!(
-            annotation_kind_resolved(AnnotationKind::TextualNote),
-            Some("textualNote")
+            annotation_resolved(AozoraAnnotationKind::Unknown),
+            Some(AnnotationKind::Unknown)
         );
         assert_eq!(
-            annotation_kind_resolved(AnnotationKind::InvalidRubySpan),
-            Some("invalidRubySpan")
+            annotation_resolved(AozoraAnnotationKind::AsIs),
+            Some(AnnotationKind::AsIs)
         );
         assert_eq!(
-            annotation_kind_resolved(AnnotationKind::WarichuOpen),
-            Some("warichuOpen")
+            annotation_resolved(AozoraAnnotationKind::TextualNote),
+            Some(AnnotationKind::TextualNote)
         );
         assert_eq!(
-            annotation_kind_resolved(AnnotationKind::WarichuClose),
-            Some("warichuClose")
+            annotation_resolved(AozoraAnnotationKind::InvalidRubySpan),
+            Some(AnnotationKind::InvalidRubySpan)
+        );
+        assert_eq!(
+            annotation_resolved(AozoraAnnotationKind::WarichuOpen),
+            Some(AnnotationKind::WarichuOpen)
+        );
+        assert_eq!(
+            annotation_resolved(AozoraAnnotationKind::WarichuClose),
+            Some(AnnotationKind::WarichuClose)
         );
     }
 

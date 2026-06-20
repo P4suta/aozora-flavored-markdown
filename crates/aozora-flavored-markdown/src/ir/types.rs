@@ -13,7 +13,6 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct IrDocument {
     pub blocks: Vec<IrBlock>,
-    pub diagnostics: Vec<IrDiagnostic>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,12 +82,11 @@ pub enum IrBlock {
         range: Option<Range>,
     },
     // ----- Aozora-specific block variants -----
-    /// Paired-container wrapper. `subtype` is one of `"indent"`,
-    /// `"alignEnd"`, `"keigakomi"`, `"warichu"`. `indent_level` is set
-    /// to `Some(n)` for `"indent"` (字下げ amount) and `"alignEnd"`
-    /// (地上げ offset); `None` otherwise.
+    /// Paired-container wrapper. `indent_level` is set to `Some(n)` for
+    /// [`ContainerSubtype::Indent`] (字下げ amount) and
+    /// [`ContainerSubtype::AlignEnd`] (地上げ offset); `None` otherwise.
     Container {
-        subtype: String,
+        subtype: ContainerSubtype,
         children: Vec<Self>,
         #[serde(skip_serializing_if = "Option::is_none")]
         indent_level: Option<u32>,
@@ -103,12 +101,10 @@ pub enum IrBlock {
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
-    /// `［＃改丁／改段／改見開き］`. `subtype` is one of `"choho"`,
-    /// `"dan"`, `"spread"` (camelCase tags matching upstream
-    /// `aozora::syntax::SectionKind`). `［＃改ページ］` is its own block — see
-    /// [`IrBlock::PageBreak`].
+    /// `［＃改丁／改段／改見開き］`. See [`SectionSubtype`]. `［＃改ページ］` is
+    /// its own block — see [`IrBlock::PageBreak`].
     SectionBreak {
-        subtype: String,
+        subtype: SectionSubtype,
         #[serde(skip_serializing_if = "Option::is_none")]
         source_line: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -215,15 +211,11 @@ pub enum IrInline {
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
-    /// Emphasis dots / sidelines. `style` is one of `"goma"`,
-    /// `"whiteSesame"`, `"circle"`, `"whiteCircle"`, `"doubleCircle"`,
-    /// `"janome"`, `"cross"`, `"whiteTriangle"`, `"wavyLine"`,
-    /// `"underLine"`, `"doubleUnderLine"`. `position` is `"right"` or
-    /// `"left"`.
+    /// Emphasis dots / sidelines. See [`BoutenStyle`] and [`BoutenPosition`].
     Bouten {
         children: Vec<Self>,
-        style: String,
-        position: String,
+        style: BoutenStyle,
+        position: BoutenPosition,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
@@ -242,30 +234,131 @@ pub enum IrInline {
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
-    /// Generic annotation. `payload` is the raw bytes between
-    /// `［＃` and `］`. `resolved` carries the
-    /// `aozora::syntax::AnnotationKind` camelCase tag (`"unknown"`,
-    /// `"asIs"`, `"textualNote"`, `"invalidRubySpan"`, `"warichuOpen"`,
-    /// `"warichuClose"`) when the upstream lexer classified the
-    /// annotation; `None` for future non-exhaustive variants aozora-flavored-markdown
-    /// hasn't seen yet.
+    /// Generic annotation. `payload` is the raw bytes between `［＃` and
+    /// `］`. `resolved` carries the [`AnnotationKind`] classification when
+    /// the upstream lexer recognised the annotation; `None` for future
+    /// non-exhaustive variants aozora-flavored-markdown hasn't seen yet.
     Annotation {
         payload: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        resolved: Option<String>,
+        resolved: Option<AnnotationKind>,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct IrDiagnostic {
-    pub level: String,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub code: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub range: Option<Range>,
+// ---------------------------------------------------------------------
+// Aozora classification enums
+//
+// These mirror the upstream `aozora::syntax::*` enums but are owned by
+// aozora-flavored-markdown so the public IR surface is decoupled from upstream's
+// semver. Each `#[serde(rename_all = "camelCase")]` variant serializes to
+// the exact wire string the previous stringly-typed fields produced, so
+// the JSON is byte-identical. `#[non_exhaustive]` keeps them additive
+// (ADR-0013); `Unknown` is the wire value emitted when the upstream lexer
+// produces a variant aozora-flavored-markdown does not classify yet.
+
+/// Paired-container subtype, mirroring `aozora::syntax::ContainerKind`
+/// (minus the numeric payload, which rides in
+/// [`IrBlock::Container`]'s `indent_level`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum ContainerSubtype {
+    /// 字下げ — left indent.
+    Indent,
+    /// 地上げ — right-aligned (trailing) block.
+    AlignEnd,
+    /// 罫囲み — ruled box.
+    Keigakomi,
+    /// 割り注 — interlinear note.
+    Warichu,
+    /// An upstream variant aozora-flavored-markdown does not classify yet.
+    Unknown,
+}
+
+/// Section-break subtype, mirroring `aozora::syntax::SectionKind`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum SectionSubtype {
+    /// 改丁.
+    Choho,
+    /// 改段.
+    Dan,
+    /// 改見開き.
+    Spread,
+    /// An upstream variant aozora-flavored-markdown does not classify yet.
+    Unknown,
+}
+
+/// Emphasis-dot / sideline style, mirroring `aozora::syntax::BoutenKind`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum BoutenStyle {
+    /// ゴマ点.
+    Goma,
+    /// 白ゴマ点.
+    WhiteSesame,
+    /// 丸.
+    Circle,
+    /// 白丸.
+    WhiteCircle,
+    /// 二重丸.
+    DoubleCircle,
+    /// 蛇の目.
+    Janome,
+    /// ばつ.
+    Cross,
+    /// 白三角.
+    WhiteTriangle,
+    /// 波線（脇線）.
+    WavyLine,
+    /// 傍線.
+    UnderLine,
+    /// 二重傍線.
+    DoubleUnderLine,
+    /// An upstream variant aozora-flavored-markdown does not classify yet.
+    Unknown,
+}
+
+/// Which side of the text a bouten sits on, mirroring
+/// `aozora::syntax::BoutenPosition`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum BoutenPosition {
+    /// Right side (vertical) / above (horizontal) — the default.
+    Right,
+    /// Left side (vertical) / below (horizontal).
+    Left,
+    /// An upstream variant aozora-flavored-markdown does not classify yet.
+    Unknown,
+}
+
+/// Resolved annotation classification, mirroring
+/// `aozora::syntax::AnnotationKind`.
+///
+/// Carried as `Option` on [`IrInline::Annotation`]'s `resolved`: `None`
+/// means the upstream lexer produced a variant aozora-flavored-markdown
+/// hasn't seen yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum AnnotationKind {
+    /// The lexer saw the annotation but could not classify it.
+    Unknown,
+    /// `［＃「…」はママ］` — leave as-is.
+    AsIs,
+    /// A textual editorial note.
+    TextualNote,
+    /// A ruby span the lexer flagged as invalid.
+    InvalidRubySpan,
+    /// 割り注 open marker.
+    WarichuOpen,
+    /// 割り注 close marker.
+    WarichuClose,
 }
 
 /// Source-position range, end-exclusive.
@@ -295,17 +388,24 @@ pub struct Position {
 // ---------------------------------------------------------------------
 // Variant-completeness witnesses
 //
-// `IrBlock` / `IrInline` are `#[non_exhaustive]` (ADR-0013), so an
+// `IrBlock` / `IrInline` and the Aozora classification enums
+// (`ContainerSubtype`, `SectionSubtype`, `BoutenStyle`, `BoutenPosition`,
+// `AnnotationKind`) are all `#[non_exhaustive]` (ADR-0013), so an
 // exhaustive `match` is impossible from another crate — which is exactly
 // why these witnesses live here, in the owning crate, where an exhaustive
 // match is still allowed. Adding a variant makes them a *compile* error
 // until it is listed below; that is the reminder to also extend the
-// hand-written TypeScript union and its field/tag samples in
-// `crates/xtask/src/types.rs` (the `.d.ts` drift gate). The
+// hand-written TypeScript union / string-literal alias and its field/tag
+// samples in `crates/xtask/src/types.rs` (the `.d.ts` drift gate). The
 // `const _: fn(...) = ...` coercions reference the functions so they are
 // not dead code.
 const _: fn(&IrBlock) = assert_block_variants;
 const _: fn(&IrInline) = assert_inline_variants;
+const _: fn(ContainerSubtype) = assert_container_subtype_variants;
+const _: fn(SectionSubtype) = assert_section_subtype_variants;
+const _: fn(BoutenStyle) = assert_bouten_style_variants;
+const _: fn(BoutenPosition) = assert_bouten_position_variants;
+const _: fn(AnnotationKind) = assert_annotation_kind_variants;
 
 fn assert_block_variants(block: &IrBlock) {
     match block {
@@ -337,5 +437,144 @@ fn assert_inline_variants(inline: &IrInline) {
         | IrInline::Gaiji { .. }
         | IrInline::Tcy { .. }
         | IrInline::Annotation { .. } => {}
+    }
+}
+
+fn assert_container_subtype_variants(subtype: ContainerSubtype) {
+    match subtype {
+        ContainerSubtype::Indent
+        | ContainerSubtype::AlignEnd
+        | ContainerSubtype::Keigakomi
+        | ContainerSubtype::Warichu
+        | ContainerSubtype::Unknown => {}
+    }
+}
+
+fn assert_section_subtype_variants(subtype: SectionSubtype) {
+    match subtype {
+        SectionSubtype::Choho
+        | SectionSubtype::Dan
+        | SectionSubtype::Spread
+        | SectionSubtype::Unknown => {}
+    }
+}
+
+fn assert_bouten_style_variants(style: BoutenStyle) {
+    match style {
+        BoutenStyle::Goma
+        | BoutenStyle::WhiteSesame
+        | BoutenStyle::Circle
+        | BoutenStyle::WhiteCircle
+        | BoutenStyle::DoubleCircle
+        | BoutenStyle::Janome
+        | BoutenStyle::Cross
+        | BoutenStyle::WhiteTriangle
+        | BoutenStyle::WavyLine
+        | BoutenStyle::UnderLine
+        | BoutenStyle::DoubleUnderLine
+        | BoutenStyle::Unknown => {}
+    }
+}
+
+fn assert_bouten_position_variants(position: BoutenPosition) {
+    match position {
+        BoutenPosition::Right | BoutenPosition::Left | BoutenPosition::Unknown => {}
+    }
+}
+
+fn assert_annotation_kind_variants(kind: AnnotationKind) {
+    match kind {
+        AnnotationKind::Unknown
+        | AnnotationKind::AsIs
+        | AnnotationKind::TextualNote
+        | AnnotationKind::InvalidRubySpan
+        | AnnotationKind::WarichuOpen
+        | AnnotationKind::WarichuClose => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Exercise the compile-time exhaustiveness witnesses at runtime too,
+    /// so a future no-op regression is caught and coverage sees them.
+    #[test]
+    fn variant_witnesses_are_callable() {
+        assert_block_variants(&IrBlock::PageBreak {
+            source_line: None,
+            range: None,
+        });
+        assert_inline_variants(&IrInline::Text {
+            value: String::new(),
+            range: None,
+        });
+        assert_container_subtype_variants(ContainerSubtype::Indent);
+        assert_section_subtype_variants(SectionSubtype::Choho);
+        assert_bouten_style_variants(BoutenStyle::Goma);
+        assert_bouten_position_variants(BoutenPosition::Right);
+        assert_annotation_kind_variants(AnnotationKind::Unknown);
+    }
+
+    /// Lock the camelCase wire strings the stringly-typed fields used to
+    /// produce, so the enum migration stays byte-identical on the JSON side.
+    #[test]
+    fn classification_enums_serialize_to_stable_wire_strings() {
+        use serde_json::to_value;
+
+        for (style, wire) in [
+            (BoutenStyle::Goma, "goma"),
+            (BoutenStyle::WhiteSesame, "whiteSesame"),
+            (BoutenStyle::Circle, "circle"),
+            (BoutenStyle::WhiteCircle, "whiteCircle"),
+            (BoutenStyle::DoubleCircle, "doubleCircle"),
+            (BoutenStyle::Janome, "janome"),
+            (BoutenStyle::Cross, "cross"),
+            (BoutenStyle::WhiteTriangle, "whiteTriangle"),
+            (BoutenStyle::WavyLine, "wavyLine"),
+            (BoutenStyle::UnderLine, "underLine"),
+            (BoutenStyle::DoubleUnderLine, "doubleUnderLine"),
+            (BoutenStyle::Unknown, "unknown"),
+        ] {
+            assert_eq!(to_value(style).unwrap(), wire);
+        }
+
+        for (position, wire) in [
+            (BoutenPosition::Right, "right"),
+            (BoutenPosition::Left, "left"),
+            (BoutenPosition::Unknown, "unknown"),
+        ] {
+            assert_eq!(to_value(position).unwrap(), wire);
+        }
+
+        for (subtype, wire) in [
+            (ContainerSubtype::Indent, "indent"),
+            (ContainerSubtype::AlignEnd, "alignEnd"),
+            (ContainerSubtype::Keigakomi, "keigakomi"),
+            (ContainerSubtype::Warichu, "warichu"),
+            (ContainerSubtype::Unknown, "unknown"),
+        ] {
+            assert_eq!(to_value(subtype).unwrap(), wire);
+        }
+
+        for (subtype, wire) in [
+            (SectionSubtype::Choho, "choho"),
+            (SectionSubtype::Dan, "dan"),
+            (SectionSubtype::Spread, "spread"),
+            (SectionSubtype::Unknown, "unknown"),
+        ] {
+            assert_eq!(to_value(subtype).unwrap(), wire);
+        }
+
+        for (kind, wire) in [
+            (AnnotationKind::Unknown, "unknown"),
+            (AnnotationKind::AsIs, "asIs"),
+            (AnnotationKind::TextualNote, "textualNote"),
+            (AnnotationKind::InvalidRubySpan, "invalidRubySpan"),
+            (AnnotationKind::WarichuOpen, "warichuOpen"),
+            (AnnotationKind::WarichuClose, "warichuClose"),
+        ] {
+            assert_eq!(to_value(kind).unwrap(), wire);
+        }
     }
 }

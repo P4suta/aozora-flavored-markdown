@@ -26,6 +26,33 @@ export interface Range {
 // Inline nodes (discriminated on `kind`)
 // =========================================================
 
+/** Emphasis-dot / sideline style (mirrors aozora BoutenKind). */
+export type BoutenStyle =
+  | "goma"
+  | "whiteSesame"
+  | "circle"
+  | "whiteCircle"
+  | "doubleCircle"
+  | "janome"
+  | "cross"
+  | "whiteTriangle"
+  | "wavyLine"
+  | "underLine"
+  | "doubleUnderLine"
+  | "unknown";
+
+/** Which side of the text a bouten sits on. */
+export type BoutenPosition = "right" | "left" | "unknown";
+
+/** Resolved annotation classification (mirrors aozora AnnotationKind). */
+export type AnnotationKind =
+  | "unknown"
+  | "asIs"
+  | "textualNote"
+  | "invalidRubySpan"
+  | "warichuOpen"
+  | "warichuClose";
+
 export type IrInline =
   | { kind: "text"; value: string; range?: Range }
   | { kind: "code"; value: string; range?: Range }
@@ -36,10 +63,10 @@ export type IrInline =
   | { kind: "lineBreak"; hard: boolean; range?: Range }
   | { kind: "ruby"; base: IrInline[]; reading: string; explicit: boolean; range?: Range }
   | { kind: "doubleRuby"; base: IrInline[]; range?: Range }
-  | { kind: "bouten"; children: IrInline[]; style: string; position: string; range?: Range }
+  | { kind: "bouten"; children: IrInline[]; style: BoutenStyle; position: BoutenPosition; range?: Range }
   | { kind: "gaiji"; codepoint?: string; description?: string; fallbackText?: string; range?: Range }
   | { kind: "tcy"; text: string; range?: Range }
-  | { kind: "annotation"; payload: string; resolved?: string; range?: Range };
+  | { kind: "annotation"; payload: string; resolved?: AnnotationKind; range?: Range };
 
 // =========================================================
 // Block nodes (discriminated on `kind`)
@@ -47,6 +74,12 @@ export type IrInline =
 
 /** Table cell alignment (GFM). */
 export type IrTableAlign = "left" | "center" | "right" | "default";
+
+/** Paired-container subtype (mirrors aozora ContainerKind). */
+export type ContainerSubtype = "indent" | "alignEnd" | "keigakomi" | "warichu" | "unknown";
+
+/** Section-break subtype (mirrors aozora SectionKind). */
+export type SectionSubtype = "choho" | "dan" | "spread" | "unknown";
 
 /** One table row: a list of cells, each a list of inline runs. */
 export interface IrTableRow {
@@ -68,26 +101,17 @@ export type IrBlock =
   | { kind: "codeBlock"; lang?: string; value: string; sourceLine?: number; range?: Range }
   | { kind: "thematicBreak"; sourceLine?: number; range?: Range }
   | { kind: "table"; header: IrTableRow; rows: IrTableRow[]; align: IrTableAlign[]; sourceLine?: number; range?: Range }
-  | { kind: "container"; subtype: string; children: IrBlock[]; indentLevel?: number; sourceLine?: number; range?: Range }
+  | { kind: "container"; subtype: ContainerSubtype; children: IrBlock[]; indentLevel?: number; sourceLine?: number; range?: Range }
   | { kind: "pageBreak"; sourceLine?: number; range?: Range }
-  | { kind: "sectionBreak"; subtype: string; sourceLine?: number; range?: Range };
+  | { kind: "sectionBreak"; subtype: SectionSubtype; sourceLine?: number; range?: Range };
 
 // =========================================================
 // Document root
 // =========================================================
 
-/** One diagnostic emitted by the IR walk (distinct from the wire `Diagnostic`). */
-export interface IrDiagnostic {
-  level: string;
-  message: string;
-  code?: string;
-  range?: Range;
-}
-
 /** Structured IR document — root of the `kind`-discriminated tree. */
 export interface IrDocument {
   blocks: IrBlock[];
-  diagnostics: IrDiagnostic[];
 }
 
 // =========================================================

@@ -8,7 +8,10 @@
 //! right shape, and registry-driven sentinel-stream consumption stays
 //! in lockstep with the HTML splicer.
 
-use aozora_flavored_markdown::ir::{IrBlock, IrInline};
+use aozora_flavored_markdown::ir::{
+    AnnotationKind, BoutenPosition, BoutenStyle, ContainerSubtype, IrBlock, IrInline,
+    SectionSubtype,
+};
 use aozora_flavored_markdown::{Options, render_to_ir};
 
 fn ir(src: &str) -> Vec<IrBlock> {
@@ -106,8 +109,8 @@ fn bouten_carries_style_position_and_target_children() {
     else {
         unreachable!()
     };
-    assert_eq!(style, "goma", "default 傍点 style is ゴマ");
-    assert_eq!(position, "right");
+    assert_eq!(*style, BoutenStyle::Goma, "default 傍点 style is ゴマ");
+    assert_eq!(*position, BoutenPosition::Right);
     assert!(matches!(
         children.as_slice(),
         [IrInline::Text { value, .. }] if value == "対象"
@@ -132,7 +135,10 @@ fn section_break_projects_with_subtype() {
     let saw_choho = blocks.iter().any(|b| {
         matches!(
             b,
-            IrBlock::SectionBreak { subtype, .. } if subtype == "choho"
+            IrBlock::SectionBreak {
+                subtype: SectionSubtype::Choho,
+                ..
+            }
         )
     });
     assert!(saw_choho, "expected SectionBreak choho, got: {blocks:#?}");
@@ -182,7 +188,7 @@ fn unknown_annotation_projects_with_payload_and_unknown_tag() {
         matches!(
             c,
             IrInline::Annotation { payload, resolved, .. }
-                if payload.contains("ほげふが") && resolved.as_deref() == Some("unknown")
+                if payload.contains("ほげふが") && *resolved == Some(AnnotationKind::Unknown)
         )
     });
     assert!(
@@ -208,7 +214,7 @@ fn indent_container_wraps_children() {
     else {
         unreachable!()
     };
-    assert_eq!(subtype, "indent");
+    assert_eq!(*subtype, ContainerSubtype::Indent);
     assert_eq!(*indent_level, Some(2));
     assert!(
         children
@@ -228,8 +234,8 @@ fn keigakomi_container_subtype_carries_through() {
     let saw_keigakomi = blocks.iter().any(|b| {
         matches!(
             b,
-            IrBlock::Container { subtype, indent_level, .. }
-                if subtype == "keigakomi" && indent_level.is_none()
+            IrBlock::Container { subtype: ContainerSubtype::Keigakomi, indent_level, .. }
+                if indent_level.is_none()
         )
     });
     assert!(
@@ -455,9 +461,15 @@ fn align_end_container_subtype_carries_indent_offset() {
     // since both encode a 1-byte size).
     let src = "前\n\n［＃ここから地から２字上げ］\n本文\n\n［＃ここで地から２字上げ終わり］\n\n後";
     let blocks = ir(src);
-    let aligned = blocks
-        .iter()
-        .find(|b| matches!(b, IrBlock::Container { subtype, .. } if subtype == "alignEnd"));
+    let aligned = blocks.iter().find(|b| {
+        matches!(
+            b,
+            IrBlock::Container {
+                subtype: ContainerSubtype::AlignEnd,
+                ..
+            }
+        )
+    });
     if let Some(IrBlock::Container { indent_level, .. }) = aligned {
         assert_eq!(*indent_level, Some(2));
     } else {
@@ -575,14 +587,22 @@ fn nested_containers_round_trip_through_walker() {
         .iter()
         .find_map(|b| match b {
             IrBlock::Container {
-                subtype, children, ..
-            } if subtype == "indent" => Some(children),
+                subtype: ContainerSubtype::Indent,
+                children,
+                ..
+            } => Some(children),
             _ => None,
         })
         .expect("expected outer indent container");
-    let saw_inner = outer
-        .iter()
-        .any(|b| matches!(b, IrBlock::Container { subtype, .. } if subtype == "keigakomi"));
+    let saw_inner = outer.iter().any(|b| {
+        matches!(
+            b,
+            IrBlock::Container {
+                subtype: ContainerSubtype::Keigakomi,
+                ..
+            }
+        )
+    });
     assert!(
         saw_inner,
         "expected keigakomi nested inside indent, got: {outer:#?}"
