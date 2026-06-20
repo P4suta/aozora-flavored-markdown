@@ -25,8 +25,16 @@ Render a Shift_JIS Aozora Bunko text directly from its published form:
 afm render --encoding sjis tsumito_batsu.txt > tsumito_batsu.html
 ```
 
+Pipe a document straight in from another process — `-` reads stdin
+(and `--encoding sjis` applies to the piped bytes too):
+
+```sh
+cat input.md | afm render -
+```
+
 Validate a document under strict mode (treat every lexer diagnostic as
-an error — useful in CI pre-flight):
+an error — useful in CI pre-flight). `--strict` exits with code 2 when a
+diagnostic fires:
 
 ```sh
 afm check --strict input.md
