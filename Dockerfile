@@ -242,7 +242,7 @@ CMD ["mdbook", "serve", "--hostname", "0.0.0.0", "--port", "3000"]
 # Stage: browser — Playwright with Chromium + WebKit. Digest-pinned (see header).
 ########################################################################
 # mcr.microsoft.com/playwright:v1.60.0-jammy (digest pinned; tag kept for humans / Dependabot)
-FROM mcr.microsoft.com/playwright:v1.60.0-jammy@sha256:e1529a04087193966ea15d4a1617345bdaa0791690a24ab2c42b65f9ce5b2cdc AS browser
+FROM mcr.microsoft.com/playwright:v1.61.0-jammy@sha256:264136758e43332108f6420f82c47f639f619ca65301065ceade677763f477ec AS browser
 
 WORKDIR /workspace
 CMD ["bash"]
