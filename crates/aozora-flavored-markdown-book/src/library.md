@@ -26,10 +26,10 @@ aozora-encoding = { git = "https://github.com/P4suta/aozora" }
 ## Render to HTML — the simple path
 
 ```rust
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 
 fn main() {
-    let rendered = render_to_string(
+    let rendered = render(
         "彼は｜青梅《おうめ》に行った。",
         &Options::default(),
     );
@@ -123,14 +123,14 @@ exposes a transparent decoder so your pipeline doesn't need to know
 the encoding ahead of time:
 
 ```rust
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 use aozora_encoding::decode_sjis;
 
 fn main() -> std::io::Result<()> {
     let bytes = std::fs::read("tsumito_batsu.txt")?;
     let utf8 = decode_sjis(&bytes).expect("decoded");
 
-    let rendered = render_to_string(&utf8, &Options::default());
+    let rendered = render(&utf8, &Options::default());
     std::fs::write("tsumito_batsu.html", rendered.html)?;
     Ok(())
 }

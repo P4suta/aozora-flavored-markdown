@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs, process::ExitCode};
 
 use aozora::encoding::decode_sjis;
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -344,7 +344,7 @@ fn install_diagnostic_hook(color: bool) -> Result<()> {
 fn run_pipeline(args: &PipelineArgs) -> Result<ExitCode> {
     let source = read_input(&args.input, args.encoding)?;
     let options = Options::default();
-    let result = render_to_string(&source, &options);
+    let result = render(&source, &options);
 
     // JSON diagnostics for `check` go to stdout (pipe into `jq`); for `render`
     // they go to stderr so stdout stays pure HTML. Human format always stderr.

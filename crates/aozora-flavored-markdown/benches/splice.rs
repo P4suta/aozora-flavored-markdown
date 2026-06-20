@@ -6,7 +6,7 @@
 //! `aozora` workspace and is benched there (`aozora-pipeline`'s
 //! `tokenize_compare` / `classify_kaeriten`).
 //!
-//! Both arms call the public [`aozora_flavored_markdown::render_to_string`] on the
+//! Both arms call the public [`aozora_flavored_markdown::render`] on the
 //! *same* aozora-flavored-markdown source. They differ only in `Options`:
 //!
 //! * `aozora-flavored-markdown` arm — [`Options::default`]: the lexer pre-pass runs, the
@@ -31,7 +31,7 @@
 
 use std::hint::black_box;
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 
 /// Sentinel-free GFM prose — the splice walk traverses the AST and
@@ -80,7 +80,7 @@ fn bench_splice(c: &mut Criterion) {
         // glue gets slower.
         g.bench_function("aozora-flavored-markdown", |b| {
             b.iter(|| {
-                let out = render_to_string(black_box(sample.as_str()), &opts);
+                let out = render(black_box(sample.as_str()), &opts);
                 black_box(out);
             });
         });
@@ -89,7 +89,7 @@ fn bench_splice(c: &mut Criterion) {
         // the `aozora-flavored-markdown` arm to read the aozora-md-specific overhead.
         g.bench_function("comrak_only", |b| {
             b.iter(|| {
-                let out = render_to_string(black_box(sample.as_str()), &comrak_only);
+                let out = render(black_box(sample.as_str()), &comrak_only);
                 black_box(out);
             });
         });

@@ -33,7 +33,7 @@ use std::path::{Path, PathBuf};
 use std::str;
 
 use aozora::encoding::decode_sjis;
-use aozora_flavored_markdown::{Options, render_to_string, serialize};
+use aozora_flavored_markdown::{Options, render, serialize};
 use aozora_flavored_markdown_test_support::assert_html_invariants;
 
 #[test]
@@ -41,7 +41,7 @@ fn parse_render_regressions_replay_cleanly() {
     replay_each(
         "parse_render",
         |src| {
-            let html = render_to_string(src, &Options::default()).html;
+            let html = render(src, &Options::default()).html;
             assert_html_invariants(src, &html);
         },
         ReplayInput::Utf8,
@@ -71,7 +71,7 @@ fn sjis_decode_regressions_replay_cleanly() {
     replay_each(
         "sjis_decode",
         |text| {
-            let html = render_to_string(text, &Options::default()).html;
+            let html = render(text, &Options::default()).html;
             assert_html_invariants(text, &html);
         },
         ReplayInput::Sjis,

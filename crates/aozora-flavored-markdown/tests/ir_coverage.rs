@@ -258,8 +258,7 @@ fn image_without_title_omits_title_field() {
 
 #[test]
 fn aozora_disabled_render_to_ir_runs_commonmark_path() {
-    let mut opts = Options::commonmark_only();
-    opts.source_line_anchors = true;
+    let opts = Options::commonmark_only().with_source_line_anchors(true);
     let result = render_to_ir("# Heading\n\nbody\n", &opts);
     assert_eq!(result.ir.blocks.len(), 2);
     assert!(matches!(result.ir.blocks[0], IrBlock::Heading { .. }));
@@ -293,7 +292,7 @@ fn render_blocks_to_ir_paragraph_carries_source_line() {
 #[test]
 fn options_with_source_line_anchors_builder_toggles_field() {
     let opts = Options::default().with_source_line_anchors(true);
-    assert!(opts.source_line_anchors);
+    assert!(opts.source_line_anchors());
     let off = Options::default().with_source_line_anchors(false);
-    assert!(!off.source_line_anchors);
+    assert!(!off.source_line_anchors());
 }

@@ -77,7 +77,7 @@ entries. The shared abstraction is `SentinelCursor` in
 Both walkers consume entries linearly via `cursor.next()`, peek
 ahead via `cursor.peek(offset)`, and maintain their own
 container-stack so paired open / close markers nest correctly. They
-never interfere because each `render_to_string` / `render_to_ir`
+never interfere because each `render` / `render_to_ir`
 call materialises its own cursor over its own flattened slice.
 
 The streaming path (`render_blocks_to_ir`) reuses this design: the

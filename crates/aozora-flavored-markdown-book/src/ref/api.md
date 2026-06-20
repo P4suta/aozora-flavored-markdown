@@ -12,7 +12,7 @@ compose the sibling `aozora-*` parser into a Markdown integration
 layer.
 
 - [`aozora_flavored_markdown`](../api/aozora_flavored_markdown/index.html) — public entry
-  points: `render_to_string`, `render_to_ir`, `render_blocks_to_ir`,
+  points: `render`, `render_to_ir`, `render_blocks_to_ir`,
   `serialize`, plus `Options` (with `default` / `commonmark_only`
   / `gfm_only` factories) and the `IrDocument` / `IrBlock` /
   `IrInline` tree under `aozora_flavored_markdown::ir`.

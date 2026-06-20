@@ -12,7 +12,7 @@
 //!   default, post-process HTML splice) inadvertently mutated CommonMark
 //!   behaviour — a regression that breaks the 100 % compat guarantee.
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 use pretty_assertions::assert_eq;
 use serde::Deserialize;
 
@@ -43,7 +43,7 @@ fn commonmark_0_31_2_full_pass() {
     let mut failures: Vec<String> = Vec::new();
 
     for ex in &examples {
-        let actual = render_to_string(&ex.markdown, &opts).html;
+        let actual = render(&ex.markdown, &opts).html;
         if actual != ex.html {
             failures.push(format!(
                 "example {} (section {:?}):\n  markdown: {:?}\n  expected: {:?}\n  actual:   {:?}",

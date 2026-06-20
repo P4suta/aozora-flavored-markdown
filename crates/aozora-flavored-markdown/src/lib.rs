@@ -1,19 +1,19 @@
 //! Aozora Flavored Markdown — CommonMark + GFM + 青空文庫記法.
 //!
 //! Layers `aozora-pipeline` (青空文庫記法 borrowed-AST lexer) onto a
-//! vendored verbatim comrak so a single [`render_to_string`] call
+//! vendored verbatim comrak so a single [`render`] call
 //! turns aozora-flavored-markdown source into HTML. Public entry points:
 //!
-//! - [`render_to_string`] — render aozora-flavored-markdown source straight to HTML.
+//! - [`render`] — render aozora-flavored-markdown source straight to HTML.
 //! - [`serialize`] — aozora-md-source round-trip (delegates to
 //!   [`aozora::render::serialize::serialize`]).
 //! - [`Options`] — configuration; [`Options::default`] enables
 //!   the GFM extensions aozora-flavored-markdown uses on top of CommonMark.
 //!
 //! ```
-//! use aozora_flavored_markdown::{Options, render_to_string};
+//! use aozora_flavored_markdown::{Options, render};
 //!
-//! let rendered = render_to_string("彼は｜青梅《おうめ》に行った。", &Options::default());
+//! let rendered = render("彼は｜青梅《おうめ》に行った。", &Options::default());
 //! assert!(rendered.html.contains("<ruby>"));
 //! ```
 //!
@@ -79,21 +79,25 @@ use aozora::render::serialize as aozora_serialize;
 use aozora::syntax::borrowed::Arena;
 use comrak::nodes::AstNode;
 
-/// Parse-time configuration for [`render_to_string`] and friends.
+/// Parse-time configuration for [`render`] and friends.
 ///
 /// `comrak::Options` is held with a `'static` lifetime: aozora-flavored-markdown doesn't
 /// install URL rewriters or broken-link callbacks (which are the
 /// only comrak fields that need a non-`'static` lifetime), so the
 /// borrow parameter would be dead weight in our public API.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Options {
-    pub comrak: comrak::Options<'static>,
+    comrak: comrak::Options<'static>,
     /// When `true`, run the aozora lex pre-pass and HTML
     /// post-processing. When `false`, the input flows straight into
     /// vanilla `comrak::parse_document` + `format_html` — used by the
     /// CommonMark / GFM spec conformance runners to verify the wrapper
     /// does not perturb upstream behaviour.
-    pub aozora_enabled: bool,
+    ///
+    /// Private: read via [`Options::aozora_enabled`], set via
+    /// [`Options::with_aozora_enabled`].
+    aozora_enabled: bool,
     /// When `true`, the HTML renderer adds `data-aozora-md-source-line="N"`
     /// (1-based) to every top-level block element it emits. The
     /// aozora-flavored-markdown-obsidian document-mode adapter (Pillar 6 of the plan)
@@ -103,7 +107,10 @@ pub struct Options {
     /// Defaults to `false`. Cost when enabled: one extra walk over
     /// comrak's top-level AST children + a streaming insert pass on
     /// the produced HTML. Both are O(blocks).
-    pub source_line_anchors: bool,
+    ///
+    /// Private: read via [`Options::source_line_anchors`], set via
+    /// [`Options::with_source_line_anchors`].
+    source_line_anchors: bool,
 }
 
 impl Default for Options {
@@ -120,9 +127,9 @@ impl Default for Options {
     /// use aozora_flavored_markdown::Options;
     ///
     /// let opts = Options::default();
-    /// assert!(opts.aozora_enabled);
-    /// assert!(opts.comrak.extension.table);
-    /// assert!(!opts.source_line_anchors);
+    /// assert!(opts.aozora_enabled());
+    /// assert!(opts.comrak().extension.table);
+    /// assert!(!opts.source_line_anchors());
     /// ```
     fn default() -> Self {
         let mut comrak = comrak::Options::default();
@@ -213,17 +220,70 @@ impl Options {
     /// ```
     /// use aozora_flavored_markdown::Options;
     /// let opts = Options::default().with_source_line_anchors(true);
-    /// assert!(opts.source_line_anchors);
+    /// assert!(opts.source_line_anchors());
     /// ```
     #[must_use]
     pub fn with_source_line_anchors(mut self, on: bool) -> Self {
         self.source_line_anchors = on;
         self
     }
+
+    /// Builder-style toggle for the Aozora pre-pass. Returns a new
+    /// `Options` with `aozora_enabled = on`. When `false`, the input
+    /// flows straight through comrak with no Aozora lexing or HTML
+    /// post-processing.
+    ///
+    /// ```
+    /// use aozora_flavored_markdown::Options;
+    /// let opts = Options::default().with_aozora_enabled(false);
+    /// assert!(!opts.aozora_enabled());
+    /// ```
+    #[must_use]
+    pub fn with_aozora_enabled(mut self, on: bool) -> Self {
+        self.aozora_enabled = on;
+        self
+    }
+
+    /// Whether the Aozora lex pre-pass / HTML post-pass is enabled
+    /// (see [`Options::with_aozora_enabled`]).
+    #[must_use]
+    pub fn aozora_enabled(&self) -> bool {
+        self.aozora_enabled
+    }
+
+    /// Whether the renderer tags top-level blocks with
+    /// `data-aozora-md-source-line` anchors
+    /// (see [`Options::with_source_line_anchors`]).
+    #[must_use]
+    pub fn source_line_anchors(&self) -> bool {
+        self.source_line_anchors
+    }
+
+    /// Read access to the underlying [`comrak::Options`]. The standard
+    /// dialect configuration is set by [`Options::default`]; reach for
+    /// this only to inspect a comrak knob directly.
+    #[must_use]
+    pub fn comrak(&self) -> &comrak::Options<'static> {
+        &self.comrak
+    }
+
+    /// Mutable escape hatch to the underlying [`comrak::Options`] for
+    /// advanced comrak tuning beyond what the first-class builders cover.
+    ///
+    /// # Stability
+    ///
+    /// This re-exposes comrak's own option surface, which is **not**
+    /// covered by aozora-flavored-markdown's `SemVer` guarantee: a comrak
+    /// major bump may change these fields. Prefer the `with_*` builders
+    /// for anything they already cover.
+    pub fn comrak_mut(&mut self) -> &mut comrak::Options<'static> {
+        &mut self.comrak
+    }
 }
 
-/// Output of [`render_to_string`].
+/// Output of [`render`].
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Rendered {
     /// HTML output, with every Aozora sentinel substituted.
     pub html: String,
@@ -239,6 +299,7 @@ pub struct Rendered {
 /// target (DOM fragment, `CodeMirror` `RangeSet`, semantic tokens, …)
 /// from a single source.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct RenderedIr {
     pub ir: ir::IrDocument,
     pub html: String,
@@ -292,9 +353,9 @@ const fn source_within_span_budget(input: &str) -> bool {
 /// # Examples
 ///
 /// ```
-/// use aozora_flavored_markdown::{Options, render_to_string};
+/// use aozora_flavored_markdown::{Options, render};
 ///
-/// let rendered = render_to_string("彼は｜青梅《おうめ》に行った。", &Options::default());
+/// let rendered = render("彼は｜青梅《おうめ》に行った。", &Options::default());
 /// assert!(rendered.html.contains("<ruby>"));
 /// assert!(rendered.diagnostics.is_empty());
 /// ```
@@ -313,7 +374,7 @@ const fn source_within_span_budget(input: &str) -> bool {
 /// `String` sink — `String` cannot fail as a `fmt::Write`, so this
 /// branch is unreachable in normal use.
 #[must_use]
-pub fn render_to_string(input: &str, options: &Options) -> Rendered {
+pub fn render(input: &str, options: &Options) -> Rendered {
     if !source_within_span_budget(input) {
         return Rendered {
             html: String::new(),
@@ -326,7 +387,7 @@ pub fn render_to_string(input: &str, options: &Options) -> Rendered {
 
 /// Render aozora-flavored-markdown source to a structured IR + HTML + diagnostics.
 ///
-/// Mirrors [`render_to_string`] but additionally walks comrak's AST
+/// Mirrors [`render`] but additionally walks comrak's AST
 /// to emit a typed [`ir::IrDocument`]. The IR is the canonical
 /// contract between aozora-flavored-markdown-wasm and aozora-flavored-markdown-obsidian's TS renderers.
 ///
@@ -376,7 +437,7 @@ pub fn render_to_ir(input: &str, options: &Options) -> RenderedIr {
     }
 }
 
-/// Internal pipeline driver shared between `render_to_string` and
+/// Internal pipeline driver shared between `render` and
 /// `render_to_ir`.
 ///
 /// Runs the full lex → comrak → format → post-process → unmask →
@@ -463,6 +524,7 @@ fn format_root<'a>(
 /// lists, footnote refs, raw HTML, etc.) and may carry more than one
 /// block when an Aozora paired-container drains at the call boundary.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct RenderedBlock {
     pub ir: Vec<ir::IrBlock>,
     pub html: String,
@@ -620,7 +682,7 @@ mod tests {
 
     #[test]
     fn plain_text_round_trips_through_html() {
-        let r = render_to_string("hello, world", &Options::default());
+        let r = render("hello, world", &Options::default());
         assert!(r.html.contains("hello, world"), "html: {}", r.html);
         assert!(r.diagnostics.is_empty());
     }
@@ -632,7 +694,7 @@ mod tests {
 
     #[test]
     fn ruby_renders_as_html_ruby_element() {
-        let r = render_to_string("｜青梅《おうめ》へ", &Options::default());
+        let r = render("｜青梅《おうめ》へ", &Options::default());
         assert!(r.html.contains("<ruby>"), "html: {}", r.html);
         assert!(r.html.contains("青梅"));
         assert!(r.html.contains("おうめ"));
@@ -642,13 +704,13 @@ mod tests {
 
     #[test]
     fn page_break_promotes_and_does_not_leak_brackets() {
-        let r = render_to_string("前［＃改ページ］後", &Options::default());
+        let r = render("前［＃改ページ］後", &Options::default());
         assert!(!r.html.contains("［＃"), "html: {}", r.html);
     }
 
     #[test]
     fn unknown_annotation_keeps_brackets_inside_wrapper() {
-        let r = render_to_string("前［＃ほげふが］後", &Options::default());
+        let r = render("前［＃ほげふが］後", &Options::default());
         // The annotation HTML carries the original text inside an
         // `aozora-md-annotation` wrapper, so the bracket character may
         // appear, but never bare in body text.
@@ -661,7 +723,7 @@ mod tests {
 
     #[test]
     fn commonmark_passes_through_with_heading_intact() {
-        let r = render_to_string("# Hello\n\nworld", &Options::default());
+        let r = render("# Hello\n\nworld", &Options::default());
         assert!(r.html.contains("<h1>Hello</h1>"), "html: {}", r.html);
         assert!(r.html.contains("world"));
     }
@@ -685,7 +747,7 @@ mod tests {
         // `｜...《》` source must survive verbatim because the lexer
         // never ran.
         let opts = Options::gfm_only();
-        let html = render_to_string("~~strike~~ ｜青梅《おうめ》", &opts).html;
+        let html = render("~~strike~~ ｜青梅《おうめ》", &opts).html;
         assert!(html.contains("<del>strike</del>"), "html: {html}");
         assert!(
             html.contains("｜青梅"),
@@ -776,7 +838,7 @@ mod tests {
     #[test]
     fn in_budget_input_still_renders_normally() {
         // Guard must be transparent for ordinary input.
-        let r = render_to_string("# hi\n\nbody", &Options::default());
+        let r = render("# hi\n\nbody", &Options::default());
         assert!(r.html.contains("<h1>hi</h1>"), "html: {}", r.html);
         let ir = render_to_ir("para", &Options::default());
         assert!(!ir.ir.blocks.is_empty());

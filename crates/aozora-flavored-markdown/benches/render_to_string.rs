@@ -21,7 +21,7 @@ use std::hint::black_box;
 use std::path::PathBuf;
 
 use aozora::encoding::decode_sjis;
-use aozora_flavored_markdown::{Options, render_to_ir, render_to_string};
+use aozora_flavored_markdown::{Options, render, render_to_ir};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 
 /// Relative path of 罪と罰 under `AOZORA_CORPUS_ROOT` (same layout as
@@ -71,7 +71,7 @@ fn bench_render_to_string(c: &mut Criterion) {
     ] {
         g.throughput(Throughput::Bytes(doc.len() as u64));
         g.bench_function(label, |b| {
-            b.iter(|| black_box(render_to_string(black_box(&doc), black_box(&opts))));
+            b.iter(|| black_box(render(black_box(&doc), black_box(&opts))));
         });
     }
     g.finish();
@@ -86,7 +86,7 @@ fn bench_small_doc(c: &mut Criterion) {
     let mut g = c.benchmark_group("render_small_doc");
     g.throughput(Throughput::Bytes(doc.len() as u64));
     g.bench_function("representative_4k", |b| {
-        b.iter(|| black_box(render_to_string(black_box(&doc), black_box(&opts))));
+        b.iter(|| black_box(render(black_box(&doc), black_box(&opts))));
     });
     g.finish();
 }
@@ -120,7 +120,7 @@ fn bench_crime_and_punishment(c: &mut Criterion) {
     let mut g = c.benchmark_group("crime_and_punishment");
     g.throughput(Throughput::Bytes(text.len() as u64));
     g.bench_function("render_to_string", |b| {
-        b.iter(|| black_box(render_to_string(black_box(&text), black_box(&opts))));
+        b.iter(|| black_box(render(black_box(&text), black_box(&opts))));
     });
     g.finish();
 }

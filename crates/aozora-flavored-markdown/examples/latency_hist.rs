@@ -1,4 +1,4 @@
-//! Small-document `render_to_string` latency percentiles (p50/p90/p99).
+//! Small-document `render` latency percentiles (p50/p90/p99).
 //!
 //! criterion's `render_small_doc` group reports the *mean*'s confidence
 //! interval; this example reports the *latency distribution* of
@@ -14,7 +14,7 @@
 use std::hint::black_box;
 use std::time::Instant;
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 
 const WARMUP: usize = 200;
 const ITERS: usize = 4000;
@@ -41,13 +41,13 @@ fn main() {
     let doc = small_doc();
 
     for _ in 0..WARMUP {
-        black_box(render_to_string(black_box(&doc), &opts));
+        black_box(render(black_box(&doc), &opts));
     }
 
     let mut samples_ns: Vec<u128> = Vec::with_capacity(ITERS);
     for _ in 0..ITERS {
         let start = Instant::now();
-        let rendered = render_to_string(black_box(&doc), &opts);
+        let rendered = render(black_box(&doc), &opts);
         let elapsed = start.elapsed().as_nanos();
         black_box(rendered);
         samples_ns.push(elapsed);
@@ -60,7 +60,7 @@ fn main() {
     };
 
     println!(
-        "render_to_string small-doc latency ({} bytes, {ITERS} runs)",
+        "render small-doc latency ({} bytes, {ITERS} runs)",
         doc.len()
     );
     println!("  p50 = {} µs", pct(50) / 1_000);

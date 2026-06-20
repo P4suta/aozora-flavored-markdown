@@ -26,7 +26,7 @@
 
 use aozora::proptest::generators::aozora_fragment;
 use aozora_flavored_markdown::html::render_to_string;
-use aozora_flavored_markdown::{Options, render_to_string as render_with_diag, sentinels};
+use aozora_flavored_markdown::{Options, render as render_with_diag, sentinels};
 use aozora_flavored_markdown_test_support::strip_annotation_wrappers;
 use proptest::prelude::*;
 
