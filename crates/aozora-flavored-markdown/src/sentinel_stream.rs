@@ -13,12 +13,13 @@
 //!   on the codepoint (`ch as u32 - 0xE001 < 4`). Hotter than the
 //!   `matches!` chain it replaces because every paragraph-text walk
 //!   touches this predicate per char.
-//! - `flatten_registry_in_source_order` materialises the registry into
-//!   a `Vec<NodeRef>` in source order via the registry's own
-//!   ascending-key iterator (`iter_sorted`), since both walkers consume
-//!   entries linearly and never look up by position at HTML rewrite
-//!   time — the order alone is sufficient. That makes it `O(n_registry)`
-//!   with no re-scan of the normalized text.
+//! - `SentinelCursor::from_lex_out_with_source` materialises the registry
+//!   into a `Vec` of `(NodeRef, source-text)` pairs in source order via
+//!   the registry's own ascending-key iterator (`iter_sorted`), zipped
+//!   with the parallel `source_nodes` span table. Both walkers consume
+//!   entries linearly and never look up by position at rewrite time — the
+//!   order alone is sufficient. That makes it `O(n_registry)` with no
+//!   re-scan of the normalized text.
 //! - `paragraph_sole_block_sentinel` walks a comrak paragraph node
 //!   directly with allocation-free semantics, returning the kind of
 //!   block sentinel iff the paragraph carries exactly one and no
@@ -224,32 +225,6 @@ where
     });
 }
 
-/// Walk `lex_out.normalized` byte-by-byte; for every PUA sentinel,
-/// query the registry and append the resulting [`NodeRef`] to a
-/// freshly-allocated `Vec` in source order.
-///
-/// Returns an empty vec when the registry is empty (the typical
-/// branch when `Options::aozora_enabled` is `false`).
-pub(crate) fn flatten_registry_in_source_order<'a>(
-    lex_out: &BorrowedLexOutput<'a>,
-) -> Vec<NodeRef<'a>> {
-    // The registry is already keyed by normalized position, so its
-    // ascending-key iterator yields exactly the sentinel nodes in source
-    // order — O(n_registry). The previous implementation re-scanned the
-    // whole `normalized` text (`char_indices`) and did a binary-search
-    // `node_at` per sentinel — O(n_norm × log n_registry) — even though
-    // the registry already knew every sentinel position. Equivalence with
-    // that scan is pinned by `flatten_matches_normalized_scan`.
-    let mut out = Vec::with_capacity(lex_out.registry.len());
-    out.extend(
-        lex_out
-            .registry
-            .iter_sorted()
-            .map(|(_pos, node_ref)| node_ref),
-    );
-    out
-}
-
 /// Cursor over an owned sentinel-ordered stream of `(NodeRef, literal)`
 /// pairs, where `literal` is the original source text the lexer
 /// collapsed into that sentinel.
@@ -260,51 +235,54 @@ pub(crate) fn flatten_registry_in_source_order<'a>(
 /// slice lifetime through every walker — a single `'src` (the
 /// borrowed-AST payload lifetime) is enough.
 ///
-/// The `literal` slice is needed only by the splicer's literal-context
-/// paths (a sentinel that landed inside a markdown inline code span or a
-/// link destination must render as its *original source*, not as the
-/// Aozora HTML). Callers that don't need it build with an empty literal
-/// via [`Self::from_lex_out`] / [`Self::from_nodes`] and read nodes with
+/// The owned `literal` lets the splicer's literal-context paths render a
+/// sentinel that landed inside a markdown inline code span or a link
+/// destination as its *original source*, not as the Aozora HTML. It is
+/// owned (not a borrow) because it is sliced from the **sanitized**
+/// source — a transient buffer the lexer rewrites from the raw input
+/// (BOM/CRLF/accent-span normalisation) — which the cursor must not
+/// outlive a borrow into. Callers that don't need it (`from_nodes`, the
+/// streaming swap) build with an empty literal and read nodes with
 /// [`Self::next`] / [`Self::peek`].
 #[derive(Debug)]
 pub(crate) struct SentinelCursor<'src> {
-    nodes: Vec<(NodeRef<'src>, &'src str)>,
+    nodes: Vec<(NodeRef<'src>, String)>,
     idx: usize,
 }
 
 impl<'src> SentinelCursor<'src> {
-    /// Materialise the registry into a fresh cursor with empty literals.
-    /// Empty `lex_out` produces a cursor with no entries; consumers
-    /// degrade to markdown-only behaviour.
-    pub(crate) fn from_lex_out(lex_out: Option<&BorrowedLexOutput<'src>>) -> Self {
-        let nodes = lex_out
-            .map(flatten_registry_in_source_order)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|node| (node, ""))
-            .collect();
-        Self { nodes, idx: 0 }
-    }
-
     /// Materialise the registry *with* each entry's original source text,
-    /// sliced from `source` (the lexer input) via the parallel
-    /// `source_nodes` table. Used by the HTML splicer so a sentinel that
-    /// lands in a literal markdown context (inline code, link URL) can be
-    /// rewritten back to its original Aozora source instead of leaking the
-    /// PUA char or rendering interpreted HTML where it doesn't belong.
+    /// sliced from `sanitized` via the parallel `source_nodes` table. Used
+    /// by the HTML splicer and IR builder so a sentinel that lands in a
+    /// literal markdown context (inline code, link URL) can be rewritten
+    /// back to its original Aozora source instead of leaking the PUA char
+    /// or rendering interpreted markup where it doesn't belong.
     ///
+    /// `sanitized` MUST be the lexer's Phase-0 sanitized source (see
+    /// `aozora::pipeline::lexer::sanitize`), because `source_span`
+    /// coordinates are in sanitized-source bytes — slicing the raw input
+    /// would misalign (or panic) on BOM / CRLF / accent-span inputs.
     /// `registry.iter_sorted()` and `source_nodes` are parallel and both
     /// source-ordered (pinned by `source_nodes_parallel_to_registry`), so
-    /// zipping pairs each node with its own span.
+    /// zipping pairs each node with its own span. The `get` guard keeps a
+    /// span that somehow falls outside `sanitized` from panicking — it
+    /// degrades to an empty literal rather than aborting the process.
     pub(crate) fn from_lex_out_with_source(
         lex_out: Option<&BorrowedLexOutput<'src>>,
-        source: &'src str,
+        sanitized: &str,
     ) -> Self {
         let nodes = lex_out.map_or_else(Vec::new, |lo| {
             lo.registry
                 .iter_sorted()
                 .zip(lo.source_nodes.iter())
-                .map(|((_pos, node), sn)| (node, sn.source_span.slice(source)))
+                .map(|((_pos, node), sn)| {
+                    let span = sn.source_span;
+                    let literal = sanitized
+                        .get(span.start as usize..span.end as usize)
+                        .unwrap_or_default()
+                        .to_owned();
+                    (node, literal)
+                })
                 .collect()
         });
         Self { nodes, idx: 0 }
@@ -315,7 +293,10 @@ impl<'src> SentinelCursor<'src> {
     /// Literals are empty — the streaming IR builder never reads them.
     pub(crate) fn from_nodes(nodes: Vec<NodeRef<'src>>) -> Self {
         Self {
-            nodes: nodes.into_iter().map(|node| (node, "")).collect(),
+            nodes: nodes
+                .into_iter()
+                .map(|node| (node, String::new()))
+                .collect(),
             idx: 0,
         }
     }
@@ -336,14 +317,15 @@ impl<'src> SentinelCursor<'src> {
         n
     }
 
-    /// Consume the next entry, returning both its node and its original
-    /// source text. Used by the splicer's literal-context paths.
-    pub(crate) fn next_literal(&mut self) -> Option<(NodeRef<'src>, &'src str)> {
-        let entry = self.nodes.get(self.idx).copied();
-        if entry.is_some() {
-            self.idx += 1;
+    /// Consume the next entry, returning its original source text. Used by
+    /// the splicer / IR builder's literal-context paths.
+    pub(crate) fn next_literal(&mut self) -> Option<&str> {
+        if self.idx >= self.nodes.len() {
+            return None;
         }
-        entry
+        let i = self.idx;
+        self.idx += 1;
+        Some(self.nodes[i].1.as_str())
     }
 
     /// Saturating advance by `n` entries.
@@ -469,13 +451,13 @@ mod tests {
         assert!(cursor.next().is_none());
     }
 
-    /// `flatten_registry_in_source_order` now reads the registry's
-    /// `iter_sorted` instead of re-scanning the normalized text. Pin that
-    /// the two produce the *same* source-ordered sequence — the invariant
-    /// the `SentinelCursor` lockstep with `split_text_node` / `ParaScan`
-    /// depends on. Checked on a sentinel-sparse (representative) and a
-    /// sentinel-dense (pathological) document, since a divergence would
-    /// surface in the dense case.
+    /// `SentinelCursor::from_lex_out_with_source` reads the registry's
+    /// `iter_sorted` rather than re-scanning the normalized text. Pin that
+    /// `iter_sorted` produces the *same* source-ordered sequence as a full
+    /// normalized scan — the invariant the cursor's lockstep with
+    /// `split_text_node` / `ParaScan` depends on. Checked on a
+    /// sentinel-sparse (representative) and a sentinel-dense (pathological)
+    /// document, since a divergence would surface in the dense case.
     #[test]
     fn flatten_matches_normalized_scan() {
         use aozora::NormalizedOffset;
@@ -511,7 +493,7 @@ mod tests {
                 "iter_sorted order must match the normalized-scan order for {src:?}"
             );
             assert_eq!(
-                flatten_registry_in_source_order(&lex_out).len(),
+                via_iter_sorted.len(),
                 lex_out.registry.len(),
                 "one node per registry entry for {src:?}"
             );

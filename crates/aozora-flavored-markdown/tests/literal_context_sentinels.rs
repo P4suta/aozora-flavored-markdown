@@ -133,6 +133,37 @@ fn notation_in_link_url_does_not_desync_link_text() {
 }
 
 // ---------------------------------------------------------------------------
+// Sanitized-coordinate regression: `source_span` is in Phase-0 sanitized
+// bytes, so slicing must use the sanitized source. CRLF / BOM inputs shift
+// byte offsets — slicing the raw input panicked (out-of-bounds / non-char
+// boundary), a SECURITY-scoped crash on untrusted input.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn crlf_before_notation_does_not_panic_and_renders() {
+    // The leading CRLF makes the sanitized source shorter than the raw
+    // input, so the ruby's source span only lines up against the sanitized
+    // text. Must not panic, and the ruby must still render.
+    let html = render_to_string("a\r\n\r\n｜青梅《おうめ》");
+    assert_no_sentinel(&html);
+    assert!(
+        html.contains("<ruby>") && html.contains("青梅") && html.contains("おうめ"),
+        "ruby after CRLF must render, got {html:?}"
+    );
+}
+
+#[test]
+fn bom_before_notation_does_not_panic() {
+    // A UTF-8 BOM is stripped by sanitize, shifting every later offset.
+    let html = render_to_string("\u{feff}｜青梅《おうめ》");
+    assert_no_sentinel(&html);
+    assert!(
+        html.contains("<ruby>"),
+        "ruby after BOM must render, got {html:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Fenced code blocks (already masked) stay literal — regression guard.
 // ---------------------------------------------------------------------------
 
