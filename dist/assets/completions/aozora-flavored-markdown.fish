@@ -29,7 +29,7 @@ sjis\t''"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_needs_command" -l color -d 'When to colorize diagnostics: auto (TTY-aware), always, or never' -r -f -a "auto\t''
 always\t''
 never\t''"
-complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_needs_command" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'`diagnostic [code]: message` lines for humans'
+complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_needs_command" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'Graphical diagnostics (severity, code, message, source snippet) for humans'
 json\t'A stable `aozora-md.diagnostics.v1` JSON envelope for tooling'"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_needs_command" -l strict -d 'Treat any lexer/parser diagnostic as a hard error (exit 2). Default: warn and pass through'
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_needs_command" -s v -l verbose -d 'Increase log verbosity (-v info, -vv debug, -vvv trace). `RUST_LOG` overrides'
@@ -47,7 +47,7 @@ sjis\t''"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand render" -l color -d 'When to colorize diagnostics: auto (TTY-aware), always, or never' -r -f -a "auto\t''
 always\t''
 never\t''"
-complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand render" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'`diagnostic [code]: message` lines for humans'
+complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand render" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'Graphical diagnostics (severity, code, message, source snippet) for humans'
 json\t'A stable `aozora-md.diagnostics.v1` JSON envelope for tooling'"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand render" -l strict -d 'Treat any lexer/parser diagnostic as a hard error (exit 2). Default: warn and pass through'
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand render" -s v -l verbose -d 'Increase log verbosity (-v info, -vv debug, -vvv trace). `RUST_LOG` overrides'
@@ -58,7 +58,7 @@ sjis\t''"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand check" -l color -d 'When to colorize diagnostics: auto (TTY-aware), always, or never' -r -f -a "auto\t''
 always\t''
 never\t''"
-complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand check" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'`diagnostic [code]: message` lines for humans'
+complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand check" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'Graphical diagnostics (severity, code, message, source snippet) for humans'
 json\t'A stable `aozora-md.diagnostics.v1` JSON envelope for tooling'"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand check" -l strict -d 'Treat any lexer/parser diagnostic as a hard error (exit 2). Default: warn and pass through'
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand check" -s v -l verbose -d 'Increase log verbosity (-v info, -vv debug, -vvv trace). `RUST_LOG` overrides'
@@ -69,7 +69,7 @@ sjis\t''"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand completions" -l color -d 'When to colorize diagnostics: auto (TTY-aware), always, or never' -r -f -a "auto\t''
 always\t''
 never\t''"
-complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand completions" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'`diagnostic [code]: message` lines for humans'
+complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand completions" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'Graphical diagnostics (severity, code, message, source snippet) for humans'
 json\t'A stable `aozora-md.diagnostics.v1` JSON envelope for tooling'"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand completions" -l strict -d 'Treat any lexer/parser diagnostic as a hard error (exit 2). Default: warn and pass through'
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand completions" -s v -l verbose -d 'Increase log verbosity (-v info, -vv debug, -vvv trace). `RUST_LOG` overrides'
@@ -80,7 +80,7 @@ sjis\t''"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand _man" -l color -d 'When to colorize diagnostics: auto (TTY-aware), always, or never' -r -f -a "auto\t''
 always\t''
 never\t''"
-complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand _man" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'`diagnostic [code]: message` lines for humans'
+complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand _man" -l format -d 'Diagnostic output format: human-readable lines, or stable JSON for tooling' -r -f -a "human\t'Graphical diagnostics (severity, code, message, source snippet) for humans'
 json\t'A stable `aozora-md.diagnostics.v1` JSON envelope for tooling'"
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand _man" -l strict -d 'Treat any lexer/parser diagnostic as a hard error (exit 2). Default: warn and pass through'
 complete -c aozora-flavored-markdown -n "__fish_aozora_flavored_markdown_using_subcommand _man" -s v -l verbose -d 'Increase log verbosity (-v info, -vv debug, -vvv trace). `RUST_LOG` overrides'

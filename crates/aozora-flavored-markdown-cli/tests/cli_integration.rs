@@ -544,17 +544,22 @@ fn diagnostics_print_to_stderr_with_aozora_code() {
     // Even without --strict, diagnostics surface on stderr so tooling
     // (Language servers, CI grep) can react. The lexer lives in the
     // sibling `aozora` crate, so the diagnostic codes carry the
-    // `aozora::…` prefix from upstream.
+    // `aozora::…` prefix from upstream. Human output is now a miette
+    // graphical block; `--color never` keeps it deterministic (no ANSI).
     let path = write_temp_utf8(DIAGNOSTIC_INPUT);
-    let out = run_cli(&["check", path.to_str().unwrap()]);
+    let out = run_cli(&["--color", "never", "check", path.to_str().unwrap()]);
     assert!(
         out.status.success(),
         "check on diagnostic-heavy input must still exit 0 without --strict"
     );
     let stderr = stderr_of(&out);
     assert!(
-        stderr.contains("diagnostic [aozora::"),
-        "stderr must carry `diagnostic [aozora::…]` lines, got {stderr:?}"
+        stderr.contains("aozora::lex::unmatched_close"),
+        "stderr must carry the stable diagnostic code, got {stderr:?}"
+    );
+    assert!(
+        !stderr.contains(ESC),
+        "--color never must not emit ANSI, got {stderr:?}"
     );
 }
 
@@ -828,20 +833,40 @@ fn json_line_col_is_one_based() {
 }
 
 #[test]
-fn human_format_unchanged() {
-    // Adding --format must not change the default human behaviour.
+fn human_format_is_graphical() {
+    // The default human format renders miette's graphical diagnostic
+    // (severity, code, message, source snippet) on stderr — not the old
+    // `diagnostic [code]: message` line. JSON output is unaffected.
     let path = write_temp_utf8(DIAGNOSTIC_INPUT);
-    let out = run_cli(&["check", path.to_str().unwrap()]);
+    let out = run_cli(&["--color", "never", "check", path.to_str().unwrap()]);
     assert!(out.status.success());
     assert!(
-        stderr_of(&out).contains("diagnostic [aozora::"),
-        "default human format must still print stderr lines, got {:?}",
+        stderr_of(&out).contains("aozora::lex::unmatched_close"),
+        "graphical human output must still carry the code, got {:?}",
         stderr_of(&out)
     );
     assert!(
         stdout_of(&out).is_empty(),
         "human check must keep stdout empty, got {:?}",
         stdout_of(&out)
+    );
+}
+
+#[test]
+fn human_diagnostic_snippet_shows_source_and_no_ansi_with_color_never() {
+    // The graphical block must include a snippet of the offending source,
+    // and `--color never` must keep it ANSI-free for deterministic capture.
+    let path = write_temp_utf8(DIAGNOSTIC_INPUT);
+    let out = run_cli(&["--color", "never", "check", path.to_str().unwrap()]);
+    assert!(out.status.success());
+    let stderr = stderr_of(&out);
+    assert!(
+        stderr.contains("orphan"),
+        "graphical output must show the offending source line, got {stderr:?}"
+    );
+    assert!(
+        !stderr.contains(ESC),
+        "--color never must not emit ANSI, got {stderr:?}"
     );
 }
 
