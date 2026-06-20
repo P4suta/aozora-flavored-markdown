@@ -1,6 +1,9 @@
 [package]
 name        = "afm-wasm"
 description = "WebAssembly bindings for afm-markdown — used by afm-obsidian / afm-logseq / browser hosts"
+# Not a crates.io library: ships as a wasm-pack/npm artefact to the editor
+# hosts, so it stays out of the `publish-crates.yml` ladder (ADR-0015).
+publish     = false
 version.workspace      = true
 edition.workspace      = true
 rust-version.workspace = true

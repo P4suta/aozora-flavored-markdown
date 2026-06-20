@@ -21,6 +21,8 @@ and removed.
 | [0011](./adr/0011-brand-boundary-css-class-rewrite.md) | Brand boundary: HTML class rewrite at the afm side | accepted |
 | [0012](./adr/0012-diagnostic-json-output-schema-and-stability.md) | Diagnostic JSON output schema and stability (`afm.diagnostics.v1`) | accepted |
 | [0013](./adr/0013-public-ir-enums-non-exhaustive.md) | Public IR enums are `#[non_exhaustive]` | accepted |
+| [0014](./adr/0014-comrak-vendoring-upgrade-policy.md) | comrak vendoring upgrade & follow policy | accepted |
+| [0015](./adr/0015-crates-io-publication-and-semver.md) | crates.io publication and semver policy | accepted |
 
 ## Authoring a new ADR
 
