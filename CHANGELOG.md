@@ -7,6 +7,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`just setup`** — one-shot first-time setup (build the dev image,
+  install git hooks, run `just doctor`, run the tests); idempotent, so
+  it doubles as a "get back to green after a pull" command.
+- **`just snapshot-review` / `just snapshot-accept`** — drive `cargo
+  insta` for the snapshot tests that `just test` (nextest) leaves
+  pending but does not apply.
+- **`just prop-seed SEED`** — replay a single proptest failure from the
+  seed nextest prints on its FAIL line.
+- **Grouped `just` menu** — every recipe carries a `[group(...)]`, so a
+  bare `just` lists recipes by area (build / test / lint / docs / …);
+  the destructive `nuke` is now guarded behind `[confirm]`.
+
+### Changed
+
+- **`just ci` is faster without dropping a gate.** The non-compile gates
+  (`deny` / `audit` / `book-build`) run in a background lane that
+  overlaps the compile lane, and the redundant `check` step plus the
+  duplicate `fmt-check` / `typos` / `strict-code` runs that `lint`
+  bundled are removed. Same 18 gates; warm-cache wall-clock ~35 s
+  → ~23 s. The compile lane stays sequential (one shared cargo target
+  lock).
+- **`just` recipes are container-aware — no more docker-in-docker.** Run
+  inside the dev/ci image (a `just shell`, a VS Code devcontainer, or a
+  GitHub Codespace, where `AFM_IN_CONTAINER=1`), recipes invoke their
+  tool directly instead of nesting a second `docker compose run`. The
+  devcontainer now targets the full-tool `ci` image, so the complete
+  `just ci` runs inside Codespaces, and `postCreateCommand` installs the
+  git hooks.
+
+### Fixed
+
+- **Dead `CLAUDE.md` link in the README** (the file is personal and not
+  committed); readers are pointed at `CONTRIBUTING.md` and `docs/adr/`.
+
 ## [0.4.0] - 2026-06-14
 
 ### Added
