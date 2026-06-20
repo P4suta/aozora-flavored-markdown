@@ -52,6 +52,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Release archives now bundle the shell completions and the `afm.1`
   man page** (under `completions/` and `man/`). Regenerate the committed
   assets with `just dist-assets`; `just ci` drift-checks them.
+- **Runnable doctests on the `afm-markdown` public API** — every public
+  entry point (`render_to_string`, `render_to_ir`, `render_blocks_to_ir`,
+  `serialize`, `Options::afm_default`, `html::render_to_string`) now
+  carries a compiled, asserted example. `just test-doc` is wired into
+  `just ci` and a CI job so the examples can never silently rot.
 
 ### Changed
 

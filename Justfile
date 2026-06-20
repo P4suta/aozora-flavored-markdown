@@ -790,7 +790,7 @@ ci:
     # --- foreground lane: instant text gates first (fail-fast in seconds),
     # --- then the compile pipeline (sequential — shared target dir). ---------
     fg_steps=(typos fmt-check strict-code verify-version-pins \
-              upstream-diff types-check clippy build dist-assets-check test prop \
+              upstream-diff types-check clippy build dist-assets-check test test-doc prop \
               spec-commonmark spec-gfm doc coverage udeps)
     halted=""
     for step in "${fg_steps[@]}"; do

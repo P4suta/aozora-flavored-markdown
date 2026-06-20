@@ -147,6 +147,7 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just build
       - run: just test
+      - run: just test-doc
 
   # Phase-2 (needs check). CommonMark + GFM conformance. (Aozora-layer specs
   # live in the aozora repo; afm exercises the pipeline via `aozora_parity`.)

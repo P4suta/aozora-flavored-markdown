@@ -12,6 +12,13 @@ use crate::{Options, render_to_string as render_into_rendered};
 /// (CLI `--strict` flag, LSP, corpus sweep) call
 /// [`crate::render_to_string`] directly and inspect
 /// [`crate::Rendered::diagnostics`].
+///
+/// # Examples
+///
+/// ```
+/// let html = afm_markdown::html::render_to_string("｜青梅《おうめ》");
+/// assert!(html.contains("<ruby>"));
+/// ```
 #[must_use]
 pub fn render_to_string(input: &str) -> String {
     render_into_rendered(input, &Options::afm_default()).html
