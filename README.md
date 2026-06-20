@@ -111,28 +111,43 @@ consumed here as a `git` dependency (ADR-0010).
 
 ## Development
 
-All operations run inside Docker. The host toolchain is never invoked
-directly (ADR-0002).
+All operations run inside Docker; the host toolchain is never invoked
+directly (ADR-0002). After cloning, one command sets everything up:
 
 ```bash
+just setup             # build the dev image, install hooks, check env, run tests
+```
+
+Then the inner loop — edit, see it compile, gate before pushing:
+
+```bash
+just watch             # bacon file-watcher: recompiles on save, inside Docker
 just test              # cargo nextest via Docker
 just lint              # fmt + clippy + typos + strict-code
+just ci                # replicate the full CI gate set locally (run before pushing)
+```
+
+`just` with no arguments lists every recipe, grouped by area. Others you'll
+reach for:
+
+```bash
 just coverage          # llvm-cov regions, CI floor at 96%
 just spec-commonmark   # full CommonMark 0.31.2 spec
 just spec-gfm          # GFM 0.29 spec
 just upstream-diff     # verify the upstream comrak tree stays 0-line (verbatim v0.52.0)
-just ci                # replicate the full CI matrix locally
 just book-serve        # mdbook live preview at http://localhost:3000
 ```
+
+Prefer a zero-install start? The **Open in GitHub Codespaces** badge at the top
+boots a ready-to-code container with the toolchain already built.
 
 Aozora-only test surfaces (`spec-aozora`, `spec-golden-56656`,
 `corpus-sweep`) live in the sibling
 [`P4suta/aozora`](https://github.com/P4suta/aozora) repo. Run them
 from there.
 
-See [CLAUDE.md](./CLAUDE.md) for the project guide, [docs/adr/](./docs/adr/)
-for architectural decisions, and [CONTRIBUTING.md](./CONTRIBUTING.md) for
-how to hack on afm.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to hack on afm and
+[docs/adr/](./docs/adr/) for the architectural decisions behind it.
 
 ## Examples
 
