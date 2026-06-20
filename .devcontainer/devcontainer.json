@@ -1,13 +1,17 @@
 {
   "name": "afm dev",
   "dockerComposeFile": ["../docker-compose.yml"],
-  "service": "dev",
+  "service": "devcontainer",
   "workspaceFolder": "/workspace",
   "remoteUser": "root",
 
   "shutdownAction": "none",
 
   "overrideCommand": true,
+
+  // Inside the image, `just` runs tools directly (AFM_IN_CONTAINER=1), so this
+  // installs the git hooks without nesting a container.
+  "postCreateCommand": "just hooks",
 
   "customizations": {
     "vscode": {

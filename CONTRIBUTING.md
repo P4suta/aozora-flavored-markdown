@@ -48,12 +48,26 @@ per ADR-0009.
 
 ## First-time setup
 
+One command after cloning — builds the dev image, installs the git
+hooks, checks the environment, and runs the tests:
+
+```sh
+just setup
+```
+
+It wraps the steps you can also run by hand:
+
 ```sh
 docker compose build dev       # ~5 min first time, cached afterward
 jj git init --colocate         # if jj isn't already initialised (optional)
 just hooks                     # wire lefthook pre-commit / commit-msg / pre-push
+just doctor                    # verify images, volumes, the aozora pin
 just test                      # confirm green
 ```
+
+`just setup` is idempotent, so re-run it after pulling. Prefer zero local
+setup? The **Open in GitHub Codespaces** badge in the README boots a
+container with the toolchain already built.
 
 ## Development loop
 

@@ -108,6 +108,30 @@ services:
       - cargo-target:/cargo/target
       - sccache:/cargo/sccache
 
+  # VS Code devcontainer / GitHub Codespaces target. Same image as `ci` (every
+  # tool, incl. nightly + mdbook) so the in-container `just` path runs the full
+  # gate set directly — but with interactive settings and WITHOUT `CI=true`, so
+  # it behaves like a dev box, not a CI runner. `AFM_IN_CONTAINER=1` (baked into
+  # the image) flips the Justfile to its no-docker-nesting mode.
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ci
+    image: afm-ci:local
+    working_dir: /workspace
+    user: "${AFM_UID:-1000}:${AFM_GID:-1000}"  # see `dev` service
+    environment: *common-env
+    volumes:
+      - .:/workspace:cached
+      - cargo-registry:/cargo/home/registry
+      - cargo-git:/cargo/home/git
+      - cargo-target:/cargo/target
+      - sccache:/cargo/sccache
+    init: true
+    tty: true
+    stdin_open: true
+
   book:
     build:
       context: .
