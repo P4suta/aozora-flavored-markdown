@@ -17,11 +17,8 @@ concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
 
-# Advanced CodeQL setup (replaces default setup). The matrix scans the real
-# source: Rust (the workspace) and TypeScript/JavaScript (afm-wasm + the
-# afm-book theme). The redundant js/ts aliases and `actions` language that
-# default setup auto-detected are dropped. Vendored comrak (upstream/comrak)
-# is excluded via codeql-config.yml.
+# Scans Rust (the workspace) and TypeScript/JavaScript (afm-wasm + the
+# afm-book theme). Vendored comrak is excluded via codeql-config.yml.
 jobs:
   codeql:
     name: codeql (${{ matrix.language }})

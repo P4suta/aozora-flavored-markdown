@@ -22,14 +22,14 @@
 - [ ] Commit messages follow Conventional Commits (lefthook enforces).
 - [ ] If this touches `upstream/comrak/`: linked the approving ADR and
       confirmed `just upstream-diff` still passes (0-line diff budget,
-      ADR-0001 v0.2.4).
+      ADR-0001).
 - [ ] If this adds a new 青空文庫 notation: filed it in the sibling
       [`P4suta/aozora`](https://github.com/P4suta/aozora) repo first
       (ADR-0010); afm-side follow-up is usually a one-line mapping in
       `afm_markdown::ir` plus a test.
 - [ ] If this adds a renderer-emitted class: updated
-      `crates/afm-markdown/src/test_support.rs::AFM_CLASSES` and both
-      afm-book themes (`afm-horizontal.css` / `afm-vertical.css`).
+      `afm-markdown-test-support`'s `AFM_CLASSES` and both afm-book
+      themes (`afm-horizontal.css` / `afm-vertical.css`).
 
 ## Related
 

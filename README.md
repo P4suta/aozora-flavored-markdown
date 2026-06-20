@@ -65,7 +65,7 @@ result in any pipeline that speaks CommonMark.
 - **Pure-functional parse pipeline** — zero parse-time hooks in
   vendored comrak; Aozora recognition lives in
   [`aozora`](https://github.com/P4suta/aozora) (sibling repo) and is
-  spliced into the comrak AST by `afm-markdown::post_process`.
+  spliced into the comrak AST by `afm-markdown::ast_splice`.
 
 ## What you can write
 

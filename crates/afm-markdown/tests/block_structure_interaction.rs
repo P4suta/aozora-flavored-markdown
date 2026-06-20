@@ -247,8 +247,8 @@ fn page_break_only_document_renders_single_div() {
         "page-break-only doc must render the div, got {html:?}"
     );
     // No <p> wrapper — the lexer's blank-line padding promotes the
-    // sentinel to a standalone paragraph, which post_process then
-    // replaces with a pure block node.
+    // sentinel to a standalone paragraph, which the splicer (`ast_splice`)
+    // then replaces with a pure block node.
     assert!(
         !html.contains("<p>"),
         "page-break-only doc must not emit a <p>, got {html:?}"

@@ -1,14 +1,8 @@
 # Dependency review on pull requests.
 #
-# Complements the ADR-0001 / cargo-deny local gate: `cargo deny` runs
-# inside the dev image and checks the full workspace against our
-# licence + advisory rules, while dependency-review focuses on
-# *changes* a PR introduces and comments the diff directly in the
-# review UI.
-#
-# Action pinning: the actions below are pinned to full commit SHAs
-# (the `# vX.Y.Z` trailer is the resolved tag); Dependabot's
-# github-actions ecosystem keeps the SHAs current.
+# A PR-time canary that flags the dependency changes a PR introduces and
+# comments the diff in the review UI. cargo-deny remains the source of
+# truth, checking the full workspace against our licence + advisory rules.
 
 name: dependency-review
 
@@ -33,15 +27,10 @@ jobs:
           # advisory of moderate severity or worse.
           fail-on-severity: moderate
 
-          # Mirror deny.toml's license allow-list. Keep this in sync
-          # with the full cargo-deny policy; dependency-review is a
-          # PR-time canary, not the source of truth.
-          #
+          # Keep in sync with deny.toml's license allow-list.
           # BSD-2-Clause is required for the vendored comrak tree.
-          # CC-BY-SA-4.0 is present because spec/*.json fixtures
-          # inherit that licence from the CommonMark / GFM specs,
-          # even though those fixtures ship as test data rather than
-          # runtime dependencies.
+          # CC-BY-SA-4.0 covers spec/*.json fixtures that inherit it
+          # from the CommonMark / GFM specs (test data, not runtime deps).
           allow-licenses: >-
             Apache-2.0,
             MIT,
@@ -54,16 +43,12 @@ jobs:
             MPL-2.0,
             CC-BY-SA-4.0
 
-          # CI-only GitHub Actions are build-time tooling — never linked
-          # into or distributed with the published crates — so their
-          # licenses are out of scope for our `Apache-2.0 OR MIT` product
-          # policy. Swatinem/rust-cache is LGPL-3.0 (a JS action that runs
-          # in CI); exempt it from the license check. The runtime-crate
-          # license policy stays enforced by `allow-licenses` above and
-          # authoritatively by cargo-deny (the `audit (deny)` gate). If a
-          # future CI action carries a copyleft license, append its purl.
+          # CI-only actions are build-time tooling, never linked into or
+          # shipped with the crates, so their licenses are out of scope for
+          # the `Apache-2.0 OR MIT` product policy. Swatinem/rust-cache is
+          # LGPL-3.0; exempt it. Append a purl here for any future copyleft
+          # CI action.
           allow-dependencies-licenses: pkg:githubactions/Swatinem/rust-cache
 
-          # Post a summary comment only on failure so clean PRs don't
-          # get a no-op drive-by from the bot.
+          # Comment only on failure so clean PRs aren't spammed.
           comment-summary-in-pr: on-failure
