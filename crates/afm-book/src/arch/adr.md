@@ -15,6 +15,7 @@ alternatives, and consequences live there in full. The table below is a map.
 | 0009 | Authoring tools live in sibling repositories       | Accepted             |
 | 0010 | Extract `aozora-*` core into a sibling repo        | Accepted             |
 | 0011 | Brand boundary — `aozora-*` → `afm-*` HTML rewrite | Accepted             |
+| 0012 | Diagnostic JSON output schema and stability        | Accepted             |
 
 ADRs marked **Moved** keep their number here as redirect stubs; the canonical
 text lives in the sibling [`P4suta/aozora`](https://github.com/P4suta/aozora)
