@@ -30,7 +30,7 @@ const Toolbar: Component<ToolbarProps> = (props) => {
     <header class="aozora-md-pg-toolbar">
       <a
         class="aozora-md-pg-brand"
-        href="https://github.com/P4suta/afm"
+        href="https://github.com/P4suta/aozora-flavored-markdown"
         target="_blank"
         rel="noopener"
       >

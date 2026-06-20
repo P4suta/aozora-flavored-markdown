@@ -79,7 +79,7 @@ envelope for tooling (editors, CI gates, LSP bridges):
 `check --format json` writes to **stdout** (so it pipes into `jq`);
 `render --format json` keeps stdout for HTML and writes the JSON to
 **stderr**. Stability is additive-only within `v1`; see
-[ADR-0012](https://github.com/P4suta/afm/blob/main/docs/adr/0012-diagnostic-json-output-schema-and-stability.md).
+[ADR-0012](https://github.com/P4suta/aozora-flavored-markdown/blob/main/docs/adr/0012-diagnostic-json-output-schema-and-stability.md).
 
 ```sh
 aozora-flavored-markdown check --format json input.md | jq '.diagnostics[].code'

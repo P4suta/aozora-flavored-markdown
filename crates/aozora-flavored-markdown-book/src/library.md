@@ -12,7 +12,7 @@ aozora-flavored-markdown is not on crates.io yet; depend on it directly by git U
 
 ```toml
 [dependencies]
-aozora-flavored-markdown = { git = "https://github.com/P4suta/afm" }
+aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
 ```
 
 The `aozora-encoding` sibling crate provides Shift_JIS decoding when
@@ -54,7 +54,7 @@ also what the CommonMark 0.31.2 and GFM 0.29 spec runners exercise.
 ## Render to a structured IR
 
 `render_to_ir` returns the same HTML alongside a typed `IrDocument`
-that mirrors the TypeScript `IRDocument` consumed by afm-obsidian:
+that mirrors the TypeScript `IRDocument` consumed by aozora-flavored-markdown-obsidian:
 
 ```rust
 use aozora_flavored_markdown::ir::{IrBlock, IrInline};
@@ -85,14 +85,14 @@ fn main() {
 The IR carries every Aozora-side construct (`Ruby`, `DoubleRuby`,
 `Bouten`, `Tcy`, `Gaiji`, `Annotation`, `Container`, `PageBreak`,
 `SectionBreak`) plus the markdown-side block / inline shapes — so
-JS-side renderers in afm-obsidian / afm-logseq can pick their own
+JS-side renderers in aozora-flavored-markdown-obsidian / aozora-flavored-markdown-logseq can pick their own
 output target (DOM fragment, CodeMirror RangeSet, semantic tokens)
 without re-parsing the HTML.
 
 ## Render block-by-block (streaming)
 
 For long documents where you want to checkpoint between blocks
-(afm-obsidian uses this for `AbortSignal` cancellation in chunked
+(aozora-flavored-markdown-obsidian uses this for `AbortSignal` cancellation in chunked
 post-processors), use `render_blocks_to_ir`:
 
 ```rust
@@ -156,7 +156,7 @@ fn main() {
 ## More examples
 
 End-to-end snippets live under
-[`crates/aozora-flavored-markdown/examples/`](https://github.com/P4suta/afm/tree/main/crates/aozora-flavored-markdown/examples)
+[`crates/aozora-flavored-markdown/examples/`](https://github.com/P4suta/aozora-flavored-markdown/tree/main/crates/aozora-flavored-markdown/examples)
 in the repository:
 
 - `render-utf8.rs` — UTF-8 source → HTML on stdout.

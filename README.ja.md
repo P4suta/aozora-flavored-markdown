@@ -3,20 +3,20 @@
 [English](./README.md) · [日本語](./README.ja.md)
 
 <p align="center">
-  <a href="https://github.com/P4suta/afm/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/P4suta/afm/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/P4suta/afm/actions/workflows/docs.yml"><img alt="docs deploy" src="https://github.com/P4suta/afm/actions/workflows/docs.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/docs.yml"><img alt="docs deploy" src="https://github.com/P4suta/aozora-flavored-markdown/actions/workflows/docs.yml/badge.svg"></a>
   <a href="https://crates.io/crates/aozora-flavored-markdown-cli"><img alt="crates.io" src="https://img.shields.io/crates/v/aozora-flavored-markdown-cli?label=aozora-flavored-markdown-cli"></a>
   <a href="https://docs.rs/aozora-flavored-markdown"><img alt="docs.rs" src="https://img.shields.io/docsrs/aozora-flavored-markdown?label=docs.rs"></a>
-  <a href="https://github.com/P4suta/afm/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/P4suta/afm?display_name=tag&sort=semver"></a>
+  <a href="https://github.com/P4suta/aozora-flavored-markdown/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/P4suta/aozora-flavored-markdown?display_name=tag&sort=semver"></a>
   <a href="./LICENSE-APACHE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue"></a>
   <a href="./rust-toolchain.toml"><img alt="msrv" src="https://img.shields.io/badge/rust-1.96%2B-orange"></a>
-  <a href="https://codespaces.new/P4suta/afm"><img alt="open in github codespaces" src="https://github.com/codespaces/badge.svg" height="20"></a>
+  <a href="https://codespaces.new/P4suta/aozora-flavored-markdown"><img alt="open in github codespaces" src="https://github.com/codespaces/badge.svg" height="20"></a>
 </p>
 
 <p align="center">
-  📖 <a href="https://p4suta.github.io/afm/"><strong>ドキュメント</strong></a>
-  · 🧪 <a href="https://p4suta.github.io/afm/api/"><strong>API リファレンス (rustdoc)</strong></a>
-  · 📦 <a href="https://github.com/P4suta/afm/releases"><strong>リリース &amp; バイナリ</strong></a>
+  📖 <a href="https://p4suta.github.io/aozora-flavored-markdown/"><strong>ドキュメント</strong></a>
+  · 🧪 <a href="https://p4suta.github.io/aozora-flavored-markdown/api/"><strong>API リファレンス (rustdoc)</strong></a>
+  · 📦 <a href="https://github.com/P4suta/aozora-flavored-markdown/releases"><strong>リリース &amp; バイナリ</strong></a>
   · 📝 <a href="./CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
@@ -166,7 +166,7 @@ cargo install aozora-flavored-markdown-cli
 
 **Linux x86_64**, **macOS arm64**, **Windows x86_64** 用のビルド済み
 バイナリが各 GitHub Release に添付されています ——
-[releases ページ](https://github.com/P4suta/afm/releases) から
+[releases ページ](https://github.com/P4suta/aozora-flavored-markdown/releases) から
 `aozora-flavored-markdown-vX.Y.Z-<target>.{tar.gz,zip}` を選んでください。SHA256 sum は
 `SHA256SUMS` として併置されます。各アーカイブにはバイナリ・シェル補完・
 `aozora-flavored-markdown.1` man ページが同梱されます。
@@ -174,7 +174,7 @@ cargo install aozora-flavored-markdown-cli
 最新の開発版を git から:
 
 ```sh
-cargo install --git https://github.com/P4suta/afm --locked aozora-flavored-markdown-cli
+cargo install --git https://github.com/P4suta/aozora-flavored-markdown --locked aozora-flavored-markdown-cli
 ```
 
 ### ライブラリ

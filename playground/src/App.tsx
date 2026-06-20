@@ -203,7 +203,7 @@ const App: Component = () => {
       <footer class="aozora-md-pg-footer">
         <span>
           Powered by{' '}
-          <a href="https://github.com/P4suta/afm" target="_blank" rel="noopener">
+          <a href="https://github.com/P4suta/aozora-flavored-markdown" target="_blank" rel="noopener">
             aozora-md
           </a>{' '}
           — Aozora Flavored Markdown

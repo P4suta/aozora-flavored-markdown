@@ -2,7 +2,7 @@
 //!
 //! When `Options::source_line_anchors` is `true`, the renderer
 //! attaches a `data-aozora-md-source-line="N"` (1-based) attribute to the
-//! first opening tag of every top-level block. The afm-obsidian
+//! first opening tag of every top-level block. The aozora-flavored-markdown-obsidian
 //! document-mode adapter (Pillar 6) uses these anchors to map
 //! Obsidian's per-block post-processor calls back to slices of the
 //! full rendered fragment.

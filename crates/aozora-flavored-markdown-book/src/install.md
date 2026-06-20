@@ -7,7 +7,7 @@ embed produce identical HTML for the same input.
 ## From GitHub Releases
 
 Pre-built binaries for the following targets are published to
-[GitHub Releases](https://github.com/P4suta/afm/releases):
+[GitHub Releases](https://github.com/P4suta/aozora-flavored-markdown/releases):
 
 | Target                            | Archive    |
 |-----------------------------------|------------|
@@ -24,7 +24,7 @@ Each archive bundles the `aozora-flavored-markdown` binary alongside `LICENSE-MI
 
 ```sh
 # Replace vX.Y.Z with the release tag you want from the Releases page.
-curl -L https://github.com/P4suta/afm/releases/download/vX.Y.Z/SHA256SUMS -o SHA256SUMS
+curl -L https://github.com/P4suta/aozora-flavored-markdown/releases/download/vX.Y.Z/SHA256SUMS -o SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
 tar xzf aozora-flavored-markdown-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz
 aozora-flavored-markdown-vX.Y.Z-x86_64-unknown-linux-gnu/aozora-flavored-markdown --version
@@ -50,7 +50,7 @@ You can also print a completion script on demand without the archive —
 ## From source
 
 ```sh
-git clone https://github.com/P4suta/afm
+git clone https://github.com/P4suta/aozora-flavored-markdown
 cd aozora-flavored-markdown
 just build-release
 ```
@@ -65,7 +65,7 @@ aozora-flavored-markdown is not on crates.io yet; depend on it directly by git U
 
 ```toml
 [dependencies]
-aozora-flavored-markdown = { git = "https://github.com/P4suta/afm" }
+aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
 ```
 
 See [Library Usage](library.md) for a minimal parse + render example.

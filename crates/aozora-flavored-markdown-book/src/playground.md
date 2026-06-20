@@ -4,7 +4,7 @@ The fastest way to see Aozora Flavored Markdown render — without
 installing Rust, cloning the repo, or even leaving the browser — is the
 playground:
 
-**<https://p4suta.github.io/afm/playground/>**
+**<https://p4suta.github.io/aozora-flavored-markdown/playground/>**
 
 The page mounts a two-pane editor (CodeMirror 6 on the left, live HTML
 on the right). The renderer is `aozora-flavored-markdown-wasm` compiled to WebAssembly and
@@ -40,7 +40,7 @@ never leaves your machine.
 | Toolchain | bun 1.3 + Vite 6 + `vite-plugin-wasm` + `vite-plugin-top-level-await` |
 | Theme | The same `aozora-md-vertical.css` / `aozora-md-horizontal.css` the rest of this book uses |
 
-The playground source lives under [`playground/`](https://github.com/P4suta/afm/tree/main/playground)
+The playground source lives under [`playground/`](https://github.com/P4suta/aozora-flavored-markdown/tree/main/playground)
 in the main repo. The `Justfile` recipes that drive it:
 
 ```text

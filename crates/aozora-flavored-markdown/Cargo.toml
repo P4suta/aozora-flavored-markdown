@@ -24,7 +24,7 @@ comrak    = { workspace = true }
 miette    = { workspace = true }
 thiserror = { workspace = true }
 # Used by the IR module to derive Serialize on `IrDocument`. Pulled
-# in as a regular dep so downstream consumers (aozora-flavored-markdown-wasm, afm-epub)
+# in as a regular dep so downstream consumers (aozora-flavored-markdown-wasm, aozora-flavored-markdown-epub)
 # can round-trip the IR via serde-wasm-bindgen / serde_json without
 # extra adapters.
 serde     = { workspace = true }

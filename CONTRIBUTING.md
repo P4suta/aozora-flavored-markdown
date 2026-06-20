@@ -17,7 +17,7 @@ lands in the sibling repo, not here. aozora-md-side work falls into:
    (`render_to_string`, `render_to_ir`, `serialize`,
    `ast_splice::splice_into_ast`, the `IrDocument` projection).
 2. **CLI** — `crates/aozora-flavored-markdown-cli/` (`aozora-flavored-markdown render` / `aozora-flavored-markdown check`).
-3. **WASM bridge** — `crates/aozora-flavored-markdown-wasm/` (afm-obsidian / browser
+3. **WASM bridge** — `crates/aozora-flavored-markdown-wasm/` (aozora-flavored-markdown-obsidian / browser
    hosts).
 4. **Documentation** — `crates/aozora-flavored-markdown-book/` (mdbook site) and
    `docs/adr/` (Architecture Decision Records).
@@ -176,7 +176,7 @@ Most aozora-md-side changes are one of:
 - **Public API drift** — `Options::default` defaults, new
   entry points, diagnostic shape. Lives in
   `crates/aozora-flavored-markdown/src/lib.rs`. Bumping the IR schema is a
-  semver-major change because aozora-flavored-markdown-wasm and afm-obsidian validate
+  semver-major change because aozora-flavored-markdown-wasm and aozora-flavored-markdown-obsidian validate
   it on the JS side.
 - **CLI behaviour** — `crates/aozora-flavored-markdown-cli/src/main.rs` and the binary-
   level integration tests in `crates/aozora-flavored-markdown-cli/tests/cli_integration.rs`.

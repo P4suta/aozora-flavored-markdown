@@ -1,8 +1,8 @@
 //! Intermediate representation produced by [`crate::render_to_ir`].
 //!
 //! The shape mirrors the TypeScript `IRDocument` consumed by
-//! `afm-obsidian/src/ir/types.ts` (and validated in
-//! `afm-obsidian/src/ir/from-wasm.ts`). Keeping the names and field
+//! `aozora-flavored-markdown-obsidian/src/ir/types.ts` (and validated in
+//! `aozora-flavored-markdown-obsidian/src/ir/from-wasm.ts`). Keeping the names and field
 //! ordering aligned across the FFI boundary makes the
 //! `serde-wasm-bindgen` round-trip a pass-through, no shape adapters
 //! needed.
@@ -127,7 +127,7 @@ pub(crate) fn build_ir<'a>(
 /// shared cursor across successive `walk_block` calls so multi-block
 /// inputs preserve the registry's source order. The cursor lives in
 /// this struct (not in the walker) so individual `walk_block` calls
-/// can be issued lazily — afm-obsidian's chunked-cancellation path
+/// can be issued lazily — aozora-flavored-markdown-obsidian's chunked-cancellation path
 /// (ADR-0009) uses this to checkpoint between blocks.
 ///
 /// Container open/close paragraphs that span multiple top-level

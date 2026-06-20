@@ -6,7 +6,7 @@
 //! browser / Node WASM runtime.
 //!
 //! These tests do NOT exercise the wasm-bindgen marshalling path —
-//! that's covered by afm-obsidian's `from-wasm.test.ts` against a
+//! that's covered by aozora-flavored-markdown-obsidian's `from-wasm.test.ts` against a
 //! built `.wasm` artefact.
 
 use aozora_flavored_markdown_wasm::hash_source;
