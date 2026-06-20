@@ -1,0 +1,130 @@
+//! aozora-flavored-markdown's own diagnostic surface.
+//!
+//! Two kinds of observation flow out of a render: lexer diagnostics from
+//! the upstream `aozora` parser, and host-level ones that afm raises before
+//! the lexer ever runs (e.g. oversized input). This module is the single
+//! serde-friendly shape both flatten into — the one type the CLI's
+//! `aozora-md.diagnostics.v1` envelope and the wasm bridge serialise.
+//!
+//! Owning the public diagnostic type here (rather than re-exporting
+//! `aozora`'s) keeps afm's API decoupled from `aozora`'s `SemVer`, the same
+//! way the IR enums and `sentinels` module shield consumers from upstream
+//! churn. `aozora::Diagnostic` is mapped in via [`From`].
+
+use serde::Serialize;
+
+/// How strictly a host should treat a [`Diagnostic`]. Serialises to the
+/// lowercase wire string (`"error"` / `"warning"` / `"note"`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Severity {
+    /// Genuine error; the parse should be treated as suspect.
+    Error,
+    /// Recoverable observation; the parse continues and output is kept.
+    Warning,
+    /// Informational note; does not affect build / CI status.
+    Note,
+}
+
+/// Origin axis of a [`Diagnostic`]: a user-input issue versus a
+/// library-internal invariant violation. Serialises to `"source"` /
+/// `"internal"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DiagnosticSource {
+    /// The problem traces back to the user-provided source text.
+    Source,
+    /// A pipeline-internal invariant failed — indicates a library bug.
+    Internal,
+}
+
+/// Byte-offset range into the (sanitized) source, end-exclusive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Span {
+    /// Inclusive start byte offset.
+    pub start: u32,
+    /// Exclusive end byte offset.
+    pub end: u32,
+}
+
+/// A non-fatal observation about a render.
+///
+/// Carries the two routing axes ([`Severity`], [`DiagnosticSource`]), a
+/// stable machine-readable [`code`](Self::code) (`aozora::lex::…` for
+/// upstream lexer diagnostics, `aozora-md::…` for afm host-level ones), a
+/// human-readable `message`, and the byte [`Span`] it refers to. Construct
+/// from an upstream diagnostic via [`From`]; consumers read the fields.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct Diagnostic {
+    /// Routing severity.
+    pub severity: Severity,
+    /// Whether the issue is user-source or library-internal.
+    pub source: DiagnosticSource,
+    /// Stable machine-readable identifier.
+    pub code: &'static str,
+    /// Human-readable message. Not part of the stability contract.
+    pub message: String,
+    /// Byte range in the sanitized source.
+    pub span: Span,
+}
+
+impl Diagnostic {
+    /// afm host-level diagnostic: the input exceeds the lexer's `u32`
+    /// span budget (~4 GiB), so nothing was rendered. Raised by the public
+    /// entry points before the core lexer is invoked.
+    #[must_use]
+    pub(crate) fn source_too_large(bytes: usize) -> Self {
+        Self {
+            severity: Severity::Error,
+            source: DiagnosticSource::Source,
+            code: "aozora-md::source_too_large",
+            message: format!(
+                "source is {bytes} bytes, over the {} byte (u32 span) limit; nothing was rendered",
+                u32::MAX
+            ),
+            span: Span { start: 0, end: 0 },
+        }
+    }
+}
+
+impl From<&aozora::Diagnostic> for Diagnostic {
+    fn from(d: &aozora::Diagnostic) -> Self {
+        let span = d.span();
+        Self {
+            severity: d.severity().into(),
+            source: d.source().into(),
+            code: d.code(),
+            message: d.to_string(),
+            span: Span {
+                start: span.start,
+                end: span.end,
+            },
+        }
+    }
+}
+
+impl From<aozora::Severity> for Severity {
+    fn from(s: aozora::Severity) -> Self {
+        // `aozora::Severity` is `#[non_exhaustive]`; a future variant maps
+        // to the most conservative routing (`Error`).
+        match s {
+            aozora::Severity::Warning => Self::Warning,
+            aozora::Severity::Note => Self::Note,
+            _ => Self::Error,
+        }
+    }
+}
+
+impl From<aozora::DiagnosticSource> for DiagnosticSource {
+    fn from(s: aozora::DiagnosticSource) -> Self {
+        // `aozora::DiagnosticSource` is `#[non_exhaustive]`; an unknown
+        // future variant is treated as a source-side issue.
+        match s {
+            aozora::DiagnosticSource::Internal => Self::Internal,
+            _ => Self::Source,
+        }
+    }
+}
