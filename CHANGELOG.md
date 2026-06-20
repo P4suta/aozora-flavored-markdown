@@ -31,6 +31,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path to read the document from standard input (`cat in.md | afm render
   -`), honouring `--encoding sjis` on the piped byte stream. The `-`
   placeholder was already documented but previously errored.
+- **`afm render -o <file>` / `--output`** — write HTML straight to a file
+  instead of redirecting stdout (`-` keeps stdout); strict failures write
+  nothing.
+- **`--color auto|always|never`** for error reports — `auto` honours
+  `NO_COLOR` and `CLICOLOR_FORCE` and otherwise follows the stderr TTY; an
+  explicit `always`/`never` wins over the environment.
+- **`-v`/`-q` verbosity flags** — set the default log level without
+  reaching for `RUST_LOG` (which still overrides them when set).
 
 ### Changed
 

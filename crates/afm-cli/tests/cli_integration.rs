@@ -17,7 +17,7 @@
 //!   — each exits non-zero with a Japanese error message.
 
 use std::env;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Output, Stdio};
@@ -78,6 +78,30 @@ fn run_afm_stdin(args: &[&str], stdin: &[u8]) -> Output {
         .write_all(stdin)
         .expect("write child stdin");
     child.wait_with_output().expect("wait for afm binary")
+}
+
+/// Run `afm` with a hermetic environment: the colour-related vars that
+/// otherwise leak in from CI are cleared, then `envs` is applied. Lets the
+/// `--color` / `NO_COLOR` / `CLICOLOR_FORCE` tests assert on a known baseline.
+fn run_afm_env(args: &[&str], envs: &[(&str, &str)]) -> Output {
+    let mut cmd = Command::new(afm_bin());
+    cmd.args(args)
+        .env_remove("NO_COLOR")
+        .env_remove("CLICOLOR_FORCE")
+        .env_remove("RUST_LOG");
+    for (key, value) in envs {
+        cmd.env(key, value);
+    }
+    cmd.output().expect("spawn afm binary")
+}
+
+/// A unique, not-yet-created path under the temp dir — for `-o <file>` tests.
+fn unique_temp_path(suffix: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock went backward")
+        .subsec_nanos();
+    env::temp_dir().join(format!("afm_cli_out_{}_{nanos}{suffix}", process::id()))
 }
 
 fn stdout_of(out: &Output) -> &str {
@@ -521,4 +545,145 @@ fn diagnostics_print_to_stderr_with_aozora_code() {
         stderr.contains("diagnostic [aozora::"),
         "stderr must carry `diagnostic [aozora::…]` lines, got {stderr:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// `--output` / `-o`
+// ---------------------------------------------------------------------------
+
+#[test]
+fn render_output_file_writes_html() {
+    let src = write_temp_utf8("Hello, world.");
+    let dst = unique_temp_path(".html");
+    let out = run_afm(&["render", src.to_str().unwrap(), "-o", dst.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "render -o must succeed, stderr = {:?}",
+        stderr_of(&out)
+    );
+    assert!(
+        stdout_of(&out).is_empty(),
+        "render -o <file> must not also print HTML to stdout, got {:?}",
+        stdout_of(&out)
+    );
+    let written = fs::read_to_string(&dst).expect("output file must exist");
+    assert!(
+        written.contains("<p>Hello, world.</p>"),
+        "output file must contain the rendered HTML, got {written:?}"
+    );
+}
+
+#[test]
+fn render_output_dash_is_stdout() {
+    let src = write_temp_utf8("Hello, world.");
+    let out = run_afm(&["render", src.to_str().unwrap(), "-o", "-"]);
+    assert!(out.status.success(), "render -o - must succeed");
+    assert!(
+        stdout_of(&out).contains("<p>Hello, world.</p>"),
+        "-o - must write HTML to stdout, got {:?}",
+        stdout_of(&out)
+    );
+}
+
+#[test]
+fn render_output_to_unwritable_path_fails() {
+    let src = write_temp_utf8("Hello, world.");
+    // The parent directory does not exist, so the file cannot be created.
+    let out = run_afm(&[
+        "render",
+        src.to_str().unwrap(),
+        "-o",
+        "/tmp/afm_no_such_dir_xyz/out.html",
+    ]);
+    assert!(
+        !out.status.success(),
+        "unwritable -o path must exit non-zero"
+    );
+    assert!(
+        stderr_of(&out).contains("出力ファイル"),
+        "error must mention 出力ファイル, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `--color` / NO_COLOR / CLICOLOR_FORCE
+// ---------------------------------------------------------------------------
+
+/// A non-existent input drives the miette error report, which is where the
+/// colour choice is observable.
+const MISSING_INPUT: &str = "/tmp/this_path_does_not_exist_ever_afm_cli_color";
+
+/// ANSI escape introducer (ESC).
+const ESC: char = '\u{1b}';
+
+#[test]
+fn color_always_emits_ansi_even_when_piped() {
+    let out = run_afm_env(&["--color", "always", "render", MISSING_INPUT], &[]);
+    assert!(!out.status.success(), "missing file must still fail");
+    assert!(
+        stderr_of(&out).contains(ESC),
+        "--color always must emit ANSI, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn color_never_suppresses_ansi() {
+    let out = run_afm_env(&["--color", "never", "render", MISSING_INPUT], &[]);
+    assert!(!out.status.success());
+    assert!(
+        !stderr_of(&out).contains(ESC),
+        "--color never must not emit ANSI, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn no_color_env_disables_color() {
+    let out = run_afm_env(&["render", MISSING_INPUT], &[("NO_COLOR", "1")]);
+    assert!(!out.status.success());
+    assert!(
+        !stderr_of(&out).contains(ESC),
+        "NO_COLOR must disable ANSI under the default auto mode, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+#[test]
+fn clicolor_force_enables_color() {
+    let out = run_afm_env(&["render", MISSING_INPUT], &[("CLICOLOR_FORCE", "1")]);
+    assert!(!out.status.success());
+    assert!(
+        stderr_of(&out).contains(ESC),
+        "CLICOLOR_FORCE must enable ANSI even when stderr is piped, got {:?}",
+        stderr_of(&out)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `-v` / `-q` verbosity plumbing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn verbose_and_quiet_flags_parse_and_run() {
+    let src = write_temp_utf8("clean input");
+    let path = src.to_str().unwrap();
+    let cases: [&[&str]; 4] = [&["-v"], &["-vvv"], &["-q"], &["-qq"]];
+    for flag in cases {
+        let mut args: Vec<&str> = flag.to_vec();
+        args.push("render");
+        args.push(path);
+        let out = run_afm(&args);
+        assert!(
+            out.status.success(),
+            "{flag:?} render must exit 0, stderr = {:?}",
+            stderr_of(&out)
+        );
+        assert!(
+            stdout_of(&out).contains("<p>clean input</p>"),
+            "{flag:?} must still render to stdout, got {:?}",
+            stdout_of(&out)
+        );
+    }
 }

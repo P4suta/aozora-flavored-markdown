@@ -10,13 +10,13 @@
 
 #![forbid(unsafe_code)]
 
-use std::io::{self, Read};
+use std::io::{self, IsTerminal, Read};
 use std::path::{Path, PathBuf};
-use std::{fs, process::ExitCode};
+use std::{env, fs, process::ExitCode};
 
 use afm_markdown::{Options, render_to_string};
 use aozora::encoding::decode_sjis;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
 #[derive(Parser, Debug)]
@@ -37,6 +37,18 @@ struct Cli {
     /// Treat any lexer/parser diagnostic as a hard error (exit 2). Default: warn and pass through.
     #[arg(long, global = true)]
     strict: bool,
+
+    /// When to colorize diagnostics: auto (TTY-aware), always, or never.
+    #[arg(long, global = true, value_enum, default_value_t = ColorChoice::Auto)]
+    color: ColorChoice,
+
+    /// Increase log verbosity (-v info, -vv debug, -vvv trace). `RUST_LOG` overrides.
+    #[arg(short, long, global = true, action = ArgAction::Count)]
+    verbose: u8,
+
+    /// Decrease log verbosity (-q errors only). `RUST_LOG` overrides.
+    #[arg(short, long, global = true, action = ArgAction::Count)]
+    quiet: u8,
 }
 
 #[derive(Subcommand, Debug)]
@@ -45,6 +57,10 @@ enum Command {
     Render {
         /// Path to the afm source. Use `-` for stdin.
         input: PathBuf,
+
+        /// Write HTML here instead of stdout. Use `-` for stdout.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Parse the input and report diagnostics without rendering.
     Check {
@@ -59,9 +75,33 @@ enum InputEncoding {
     Sjis,
 }
 
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum ColorChoice {
+    Auto,
+    Always,
+    Never,
+}
+
+/// Where rendered HTML goes. Resolved from `--output`; `None` and `-` both
+/// mean stdout.
+#[derive(Debug)]
+enum OutputSink {
+    Stdout,
+    File(PathBuf),
+}
+
+impl OutputSink {
+    fn from_arg(output: Option<PathBuf>) -> Self {
+        match output {
+            Some(path) if path != Path::new("-") => Self::File(path),
+            _ => Self::Stdout,
+        }
+    }
+}
+
 /// Resolved inputs for one render/check pass. Carrying these in a struct
 /// (rather than a fistful of positional args) keeps the shared pipeline under
-/// clippy's argument-count and bool-parameter limits as later phases add flags.
+/// clippy's argument-count and bool-parameter limits as more flags land.
 #[derive(Debug)]
 struct PipelineArgs {
     input: PathBuf,
@@ -69,6 +109,7 @@ struct PipelineArgs {
     strict: bool,
     /// `render` prints HTML on success; `check` parses only.
     emit_html: bool,
+    output: OutputSink,
 }
 
 fn main() -> ExitCode {
@@ -82,35 +123,86 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<ExitCode> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
-        )
-        .with_writer(io::stderr)
-        .init();
-
     let cli = Cli::parse();
 
+    init_tracing(cli.verbose, cli.quiet);
+    install_diagnostic_hook(resolve_color(cli.color))?;
+
     let args = match cli.command {
-        Command::Render { input } => PipelineArgs {
+        Command::Render { input, output } => PipelineArgs {
             input,
             encoding: cli.encoding,
             strict: cli.strict,
             emit_html: true,
+            output: OutputSink::from_arg(output),
         },
         Command::Check { input } => PipelineArgs {
             input,
             encoding: cli.encoding,
             strict: cli.strict,
             emit_html: false,
+            output: OutputSink::Stdout,
         },
     };
     run_pipeline(&args)
 }
 
+/// Configure the tracing subscriber. An explicit `RUST_LOG` always wins;
+/// otherwise the `-v`/`-q` count picks a default level.
+fn init_tracing(verbose: u8, quiet: u8) {
+    let filter = if env::var_os("RUST_LOG").is_some() {
+        tracing_subscriber::EnvFilter::from_default_env()
+    } else {
+        tracing_subscriber::EnvFilter::new(verbosity_level(verbose, quiet))
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(io::stderr)
+        .init();
+}
+
+/// Map the net `-v`/`-q` count to a tracing level. Default (0) stays `warn`,
+/// matching the historical behaviour.
+fn verbosity_level(verbose: u8, quiet: u8) -> &'static str {
+    match i16::from(verbose) - i16::from(quiet) {
+        ..=-1 => "error",
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    }
+}
+
+/// Decide whether to colorize diagnostics. An explicit `--color always`/`never`
+/// wins; under `auto` we honor `NO_COLOR`, then `CLICOLOR_FORCE`, then whether
+/// stderr is a terminal.
+fn resolve_color(choice: ColorChoice) -> bool {
+    match choice {
+        ColorChoice::Always => true,
+        ColorChoice::Never => false,
+        ColorChoice::Auto => {
+            if env::var_os("NO_COLOR").is_some() {
+                false
+            } else if env::var("CLICOLOR_FORCE").is_ok_and(|v| !v.is_empty() && v != "0") {
+                true
+            } else {
+                io::stderr().is_terminal()
+            }
+        }
+    }
+}
+
+/// Install the miette report hook so error reports honor the resolved color
+/// choice instead of miette's own TTY auto-detection.
+fn install_diagnostic_hook(color: bool) -> Result<()> {
+    miette::set_hook(Box::new(move |_| {
+        Box::new(miette::MietteHandlerOpts::new().color(color).build())
+    }))
+    .map_err(|e| miette::miette!("診断フォーマッタを初期化できません: {e}"))
+}
+
 /// Read → render → report. Shared by `render` and `check`; the only difference
-/// is whether HTML reaches stdout on success. Returns exit code 2 when
+/// is whether HTML reaches the output sink on success. Returns exit code 2 when
 /// `--strict` promotes a lexer diagnostic to an error, otherwise 0.
 fn run_pipeline(args: &PipelineArgs) -> Result<ExitCode> {
     let source = read_input(&args.input, args.encoding)?;
@@ -127,9 +219,22 @@ fn run_pipeline(args: &PipelineArgs) -> Result<ExitCode> {
     }
 
     if args.emit_html {
-        println!("{}", result.html);
+        write_html(&args.output, &result.html)?;
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Emit rendered HTML to stdout or a file, with a trailing newline either way.
+fn write_html(sink: &OutputSink, html: &str) -> Result<()> {
+    match sink {
+        OutputSink::Stdout => {
+            println!("{html}");
+            Ok(())
+        }
+        OutputSink::File(path) => fs::write(path, format!("{html}\n"))
+            .into_diagnostic()
+            .wrap_err_with(|| format!("出力ファイルを書けません: {}", path.display())),
+    }
 }
 
 /// Read the input as raw bytes — from a file path, or from standard input when
