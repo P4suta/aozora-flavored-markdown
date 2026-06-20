@@ -38,6 +38,14 @@ ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
     RUSTUP_PERMIT_COPY_RENAME=1
 
+# `docker build` does NOT inherit docker-compose's x-common-env, so the cargo
+# registry-resilience knobs must be set here too: the `cargo install` layers in
+# cargo-tools (cargo-binstall, bacon) otherwise hit crates.io directly and flake
+# on the HTTP/2 "framing layer" error. RETRY rides out transient blips;
+# MULTIPLEXING=false forces HTTP/1 to sidestep the framing bug entirely.
+ENV CARGO_NET_RETRY=10 \
+    CARGO_HTTP_MULTIPLEXING=false
+
 # Use mold as the default linker for faster builds
 RUN mkdir -p /root/.cargo && printf '%s\n' \
     '[target.x86_64-unknown-linux-gnu]' \
