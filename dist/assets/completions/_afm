@@ -1,0 +1,218 @@
+#compdef afm
+
+autoload -U is-at-least
+
+_afm() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
+'--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+json\:"A stable \`afm.diagnostics.v1\` JSON envelope for tooling"))' \
+'--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
+'*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*--verbose[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*-q[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'*--quiet[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_afm_commands" \
+"*::: :->afm" \
+&& ret=0
+    case $state in
+    (afm)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:afm-command-$line[1]:"
+        case $line[1] in
+            (render)
+_arguments "${_arguments_options[@]}" : \
+'-o+[Write HTML here instead of stdout. Use \`-\` for stdout]:OUTPUT:_files' \
+'--output=[Write HTML here instead of stdout. Use \`-\` for stdout]:OUTPUT:_files' \
+'--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
+'--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+json\:"A stable \`afm.diagnostics.v1\` JSON envelope for tooling"))' \
+'--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
+'*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*--verbose[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*-q[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'*--quiet[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':input -- Path to the afm source. Use `-` for stdin:_files' \
+&& ret=0
+;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+'--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
+'--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+json\:"A stable \`afm.diagnostics.v1\` JSON envelope for tooling"))' \
+'--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
+'*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*--verbose[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*-q[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'*--quiet[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':input -- Path to the afm source. Use `-` for stdin:_files' \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+'--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
+'--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+json\:"A stable \`afm.diagnostics.v1\` JSON envelope for tooling"))' \
+'--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
+'*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*--verbose[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*-q[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'*--quiet[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':shell -- Target shell:(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(_man)
+_arguments "${_arguments_options[@]}" : \
+'--encoding=[Input encoding. Defaults to UTF-8; use \`sjis\` for raw Aozora Bunko files]:ENCODING:(utf8 sjis)' \
+'--color=[When to colorize diagnostics\: auto (TTY-aware), always, or never]:COLOR:(auto always never)' \
+'--format=[Diagnostic output format\: human-readable lines, or stable JSON for tooling]:FORMAT:((human\:"\`diagnostic \[code\]\: message\` lines for humans"
+json\:"A stable \`afm.diagnostics.v1\` JSON envelope for tooling"))' \
+'--strict[Treat any lexer/parser diagnostic as a hard error (exit 2). Default\: warn and pass through]' \
+'*-v[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*--verbose[Increase log verbosity (-v info, -vv debug, -vvv trace). \`RUST_LOG\` overrides]' \
+'*-q[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'*--quiet[Decrease log verbosity (-q errors only). \`RUST_LOG\` overrides]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_afm__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:afm-help-command-$line[1]:"
+        case $line[1] in
+            (render)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(_man)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_afm_commands] )) ||
+_afm_commands() {
+    local commands; commands=(
+'render:Render the input to HTML on stdout' \
+'check:Parse the input and report diagnostics without rendering' \
+'completions:Generate a shell completion script on stdout' \
+'_man:Render the man page (roff) on stdout. Hidden; used by packaging' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'afm commands' commands "$@"
+}
+(( $+functions[_afm__subcmd___man_commands] )) ||
+_afm__subcmd___man_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm _man commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__check_commands] )) ||
+_afm__subcmd__check_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm check commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__completions_commands] )) ||
+_afm__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm completions commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__help_commands] )) ||
+_afm__subcmd__help_commands() {
+    local commands; commands=(
+'render:Render the input to HTML on stdout' \
+'check:Parse the input and report diagnostics without rendering' \
+'completions:Generate a shell completion script on stdout' \
+'_man:Render the man page (roff) on stdout. Hidden; used by packaging' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'afm help commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__help__subcmd___man_commands] )) ||
+_afm__subcmd__help__subcmd___man_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm help _man commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__help__subcmd__check_commands] )) ||
+_afm__subcmd__help__subcmd__check_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm help check commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__help__subcmd__completions_commands] )) ||
+_afm__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm help completions commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__help__subcmd__help_commands] )) ||
+_afm__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm help help commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__help__subcmd__render_commands] )) ||
+_afm__subcmd__help__subcmd__render_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm help render commands' commands "$@"
+}
+(( $+functions[_afm__subcmd__render_commands] )) ||
+_afm__subcmd__render_commands() {
+    local commands; commands=()
+    _describe -t commands 'afm render commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_afm" ]; then
+    _afm "$@"
+else
+    compdef _afm afm
+fi
