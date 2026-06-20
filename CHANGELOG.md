@@ -106,6 +106,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   vendored path locally but publishes against the identical registry `0.52.0`.
   `cargo xtask new-adr` now renders `docs/adr/0000-template.md` (full MADR
   section set) instead of a hard-coded subset.
+- **MSRV raised to Rust 1.96.0**, aligning `rust-toolchain.toml`, the workspace
+  `rust-version`, `clippy.toml`, the mise/CI pins, and the README badge with the
+  `rust:1.96.0` dev-image base (which previously forced a redundant 1.95.0
+  rustup install). Dependabot now ignores the Docker `rust` base so a bump
+  can't silently advance the MSRV.
 
 ### Fixed
 

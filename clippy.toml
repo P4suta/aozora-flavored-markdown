@@ -22,7 +22,7 @@ max-fn-params-bools = 1 # pass an enum instead of two-plus bool flags
 enum-variant-name-threshold = 2
 enum-variant-size-threshold = 256
 
-msrv = "1.95.0" # matches rust-toolchain.toml
+msrv = "1.96.0" # matches rust-toolchain.toml
 
 # unwrap / expect / panic are diagnostic shortcuts in tests, bugs in production.
 allow-unwrap-in-tests = true
