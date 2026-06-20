@@ -45,8 +45,7 @@ fn aozora_inline_renders_inside_per_block_html() {
 #[test]
 fn aozora_disabled_path_skips_lex_pre_pass() {
     let src = "first\n\nsecond\n";
-    let mut opts = Options::commonmark_only();
-    opts.aozora_enabled = false;
+    let opts = Options::commonmark_only();
     let (blocks, diagnostics) = render_blocks_to_ir(src, &opts);
     assert_eq!(blocks.len(), 2);
     assert!(diagnostics.is_empty());

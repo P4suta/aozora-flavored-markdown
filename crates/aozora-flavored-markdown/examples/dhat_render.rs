@@ -1,4 +1,4 @@
-//! Heap-allocation profile of one large `render_to_string`, via dhat.
+//! Heap-allocation profile of one large `render`, via dhat.
 //!
 //! Reports total allocations + bytes and peak (`At t-gmax`) resident
 //! bytes — the third metric of the optimization program (the numbers
@@ -11,7 +11,7 @@
 
 use std::hint::black_box;
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
@@ -42,7 +42,7 @@ fn main() {
     let opts = Options::default();
     let doc = large_doc();
 
-    let rendered = render_to_string(black_box(&doc), black_box(&opts));
+    let rendered = render(black_box(&doc), black_box(&opts));
     black_box(rendered);
 
     // Explicit drop so the heap snapshot (printed summary + dhat-heap.json)

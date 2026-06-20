@@ -1,4 +1,4 @@
-//! Parser-bound `render_to_string` hot loop for `samply record`.
+//! Parser-bound `render` hot loop for `samply record`.
 //!
 //! Gives the sampling profiler a steady stream of render frames so a
 //! flamegraph attributes time across comrak parse/format vs the aozora
@@ -18,7 +18,7 @@
 use std::env;
 use std::hint::black_box;
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 
 /// A representative aozora-flavored-markdown block (CommonMark + GFM + 青空文庫記法) repeated
 /// to ~128 KiB, matching the bench's `representative` shape.
@@ -48,6 +48,6 @@ fn main() {
     let doc = representative(128 * 1024);
 
     for _ in 0..repeat {
-        black_box(render_to_string(black_box(&doc), black_box(&opts)));
+        black_box(render(black_box(&doc), black_box(&opts)));
     }
 }

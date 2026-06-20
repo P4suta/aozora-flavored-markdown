@@ -1,16 +1,15 @@
 //! HTML rendering convenience entry.
 //!
-//! Back-compat shim for the pre-0.2.4 `html::render_to_string(src)`
-//! signature. Equivalent to
-//! `crate::render_to_string(src, &Options::default()).html`.
+//! Convenience shim that renders straight to an HTML `String`. Equivalent
+//! to `crate::render(src, &Options::default()).html`.
 
-use crate::{Options, render_to_string as render_into_rendered};
+use crate::{Options, render as render_into_rendered};
 
 /// Render aozora-flavored-markdown source to HTML, dropping diagnostics.
 ///
 /// Convenience for the typical caller. For diagnostic-aware paths
 /// (CLI `--strict` flag, LSP, corpus sweep) call
-/// [`crate::render_to_string`] directly and inspect
+/// [`crate::render`] directly and inspect
 /// [`crate::Rendered::diagnostics`].
 ///
 /// # Examples

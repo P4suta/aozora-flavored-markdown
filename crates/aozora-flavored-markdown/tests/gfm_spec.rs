@@ -25,7 +25,7 @@
 
 use std::collections::BTreeSet;
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 use serde::Deserialize;
 
 const FIXTURE: &str = include_str!("../../../spec/gfm-0.29-gfm.json");
@@ -56,8 +56,11 @@ fn load() -> Vec<SpecExample> {
 /// `aozora_enabled = false` because the GFM spec runner verifies the
 /// wrapper does not perturb upstream comrak behaviour.
 fn options_for(extension: &str) -> Options {
-    let mut comrak = comrak::Options::default();
-    comrak.render.r#unsafe = true;
+    // commonmark_only(): raw-HTML passthrough on, Aozora off — the GFM spec
+    // baseline. Enable exactly the one extension under test via the comrak
+    // escape hatch.
+    let mut opts = Options::commonmark_only();
+    let comrak = opts.comrak_mut();
     match extension {
         "autolink" => comrak.extension.autolink = true,
         "strikethrough" => comrak.extension.strikethrough = true,
@@ -66,11 +69,7 @@ fn options_for(extension: &str) -> Options {
         "disabled" => comrak.extension.tasklist = true,
         other => panic!("unknown GFM extension tag in fixture: {other}"),
     }
-    Options {
-        comrak,
-        aozora_enabled: false,
-        source_line_anchors: false,
-    }
+    opts
 }
 
 #[test]
@@ -95,7 +94,7 @@ fn gfm_0_29_extension_pass() {
         }
         let tag = ex.extension.as_deref().expect("filtered");
         let opts = options_for(tag);
-        let actual = render_to_string(&ex.markdown, &opts).html;
+        let actual = render(&ex.markdown, &opts).html;
         if actual != ex.html {
             failures.push(format!(
                 "example {} (section {:?}, extension {tag:?}):\n  markdown: {:?}\n  expected: {:?}\n  actual:   {:?}",

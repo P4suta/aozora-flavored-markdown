@@ -33,12 +33,12 @@
 //! insta's update flow, so accept the pending snapshots with cargo-insta
 //! directly.
 
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render as render_full};
 
 /// Render an aozora-flavored-markdown source through the full aozora-flavored-markdown path (lexer pre-pass +
 /// comrak + AST splice), returning just the HTML.
 fn render(source: &str) -> String {
-    render_to_string(source, &Options::default()).html
+    render_full(source, &Options::default()).html
 }
 
 #[test]

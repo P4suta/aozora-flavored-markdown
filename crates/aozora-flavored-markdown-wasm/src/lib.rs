@@ -97,10 +97,10 @@ struct RenderOptions {
 fn build_options(opts: &RenderOptions) -> Options {
     let mut base = Options::default();
     if let Some(v) = opts.aozora_enabled {
-        base.aozora_enabled = v;
+        base = base.with_aozora_enabled(v);
     }
     if let Some(v) = opts.source_line_anchors {
-        base.source_line_anchors = v;
+        base = base.with_source_line_anchors(v);
     }
     base
 }

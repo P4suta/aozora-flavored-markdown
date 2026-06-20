@@ -16,9 +16,7 @@
 //! is the core guarantee; the assertions additionally pin that the
 //! innermost content still renders.
 
-use aozora_flavored_markdown::{
-    Options, render_blocks_to_ir, render_to_ir, render_to_string, serialize,
-};
+use aozora_flavored_markdown::{Options, render, render_blocks_to_ir, render_to_ir, serialize};
 
 /// ~100k nested blockquotes on a single line, wrapping a leaf paragraph.
 /// Pre-fix this overflowed `ast_splice::walk`'s recursion; the input is
@@ -28,8 +26,8 @@ fn deeply_nested_blockquotes() -> String {
 }
 
 #[test]
-fn render_to_string_survives_deep_blockquote_nesting() {
-    let out = render_to_string(&deeply_nested_blockquotes(), &Options::default());
+fn render_survives_deep_blockquote_nesting() {
+    let out = render(&deeply_nested_blockquotes(), &Options::default());
     assert!(
         out.html.contains("deep"),
         "innermost content should still render"
@@ -65,7 +63,7 @@ fn deep_nesting_with_aozora_annotation_holds_tier_a() {
     // leak a bare ［＃ into the output (Tier-A), and no PUA sentinel
     // (U+E001..E004) may survive into the HTML.
     let input = format!("{}［＃改ページ］", "> ".repeat(50_000));
-    let out = render_to_string(&input, &Options::default());
+    let out = render(&input, &Options::default());
     assert!(
         !out.html.contains('\u{E001}')
             && !out.html.contains('\u{E002}')
@@ -87,7 +85,7 @@ fn deeply_nested_lists_survive() {
         }
         input.push_str("- item\n");
     }
-    let rendered = render_to_string(&input, &Options::default());
+    let rendered = render(&input, &Options::default());
     let ir = render_to_ir(&input, &Options::default());
     assert!(rendered.html.contains("item"), "list items should render");
     assert!(!ir.html.is_empty(), "IR render should produce HTML");

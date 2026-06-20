@@ -268,8 +268,7 @@ fn unclosed_container_at_eof_is_drained_into_block() {
 
 #[test]
 fn aozora_disabled_path_emits_no_aozora_ir_variants() {
-    let mut opts = Options::commonmark_only();
-    opts.aozora_enabled = false;
+    let opts = Options::commonmark_only();
     let result = render_to_ir("｜青梅《おうめ》", &opts);
     let inlines = match &result.ir.blocks[0] {
         IrBlock::Paragraph { children, .. } => children,

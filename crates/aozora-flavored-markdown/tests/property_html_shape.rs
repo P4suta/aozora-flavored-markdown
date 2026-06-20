@@ -34,7 +34,7 @@
 use aozora::proptest::config::default_config;
 use aozora::proptest::generators::{aozora_fragment, commonmark_adversarial, pathological_aozora};
 use aozora_flavored_markdown::html::render_to_string;
-use aozora_flavored_markdown::{Options, render_to_string as render_to_diagnostics};
+use aozora_flavored_markdown::{Options, render as render_to_diagnostics};
 use aozora_flavored_markdown_test_support::{
     assert_html_invariants, check_no_bare_bracket, check_no_sentinel_leak,
 };
