@@ -89,8 +89,8 @@ fn class_stem_histogram(html: &str, prefix: &str) -> HashMap<String, usize> {
 #[test]
 fn both_renderers_agree_on_class_histogram_for_pure_aozora_input() {
     // The two surfaces emit different brands (`aozora-*` vs `afm-*`)
-    // by design — see the brand-boundary doc in
-    // `afm_markdown::post_process`. The differential compares stems
+    // by design — see the brand-boundary handling in `ast_splice`
+    // (ADR-0011). The differential compares stems
     // (the part after the prefix) so divergence flags a recogniser
     // drift, not the brand difference.
     let mut diffs = Vec::new();

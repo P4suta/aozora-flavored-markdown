@@ -36,12 +36,8 @@ check:
 build:
     {{_dev}} cargo build --workspace --all-targets
 
-# Build rustdoc for every workspace crate, exercising the
-# `broken_intra_doc_links = "deny"` lint that lives in `[workspace.lints
-# .rustdoc]`. Running this on every PR catches dead doc-links *before*
-# docs.yml fails post-merge — the failure mode that bit us on the
-# May-4 docs run and again on PR #27's merge to main, both fixed
-# reactively in PR #28.
+# Build rustdoc for every crate — the only gate that runs the
+# `broken_intra_doc_links = "deny"` rustdoc lint (check / clippy skip it).
 doc:
     {{_dev}} cargo doc --workspace --no-deps --document-private-items
 
@@ -78,9 +74,8 @@ prop:
 prop-deep:
     {{_dev}} bash -c 'AOZORA_PROPTEST_CASES=4096 cargo nextest run --workspace --all-features --test "property_*" --run-ignored default'
 
-# Unit-test-only predicate pinning — runs every `invariant_unit_` test
-# in `afm_parser::test_support`. Narrow target for regression hunts
-# that don't need the full proptest sweep.
+# Run every `invariant_unit_` predicate test — narrow regression target
+# that skips the full proptest sweep.
 invariants:
     {{_dev}} cargo nextest run --package afm-markdown --lib -E 'test(invariant_unit_)'
 
@@ -98,35 +93,16 @@ spec-gfm:
 
 # --- fuzzing -----------------------------------------------------------------
 #
-# The `parse_render` / `serialize_round_trip` / `sjis_decode` harnesses live in
-# `crates/afm-markdown/fuzz/`. They run libFuzzer under nightly rustc inside
-# the dev container.
-#
-# Workflow:
-#   1. `just fuzz-quick TARGET` (60 s) — smoke run for development loops.
-#   2. `just fuzz-deep TARGET`  (5 min) — release-gate run.
-#   3. When a crash surfaces, libFuzzer writes the input to
-#      `fuzz/artifacts/<target>/crash-<sha>` automatically.
-#   4. `just fuzz-triage TARGET` reproduces every artifact in turn and
-#      prints its Debug-formatted bytes + the panic message — analysis
-#      becomes one shell call instead of N manual reproductions.
-#   5. `just fuzz-promote TARGET ARTIFACT` lifts a triaged artifact into
-#      `crates/afm-markdown/tests/fuzz_regressions/<target>/` so the
-#      `tests/fuzz_regressions.rs` integration test treats it as a
-#      permanent regression case (runs on every `just test`, no nightly
-#      required). After fixing the underlying bug, `just test` is the
-#      only thing the contributor needs to verify the fix in CI.
+# libFuzzer harnesses (`parse_render` / `serialize_round_trip` / `sjis_decode`)
+# live in `crates/afm-markdown/fuzz/`; they run under nightly in the dev
+# container. Triaged crashes are promoted into `tests/fuzz_regressions/` so
+# `just test` replays them with no nightly required.
 
 # Run the named fuzz target with arbitrary args (escape hatch for advanced use).
 fuzz *ARGS:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
 
-# 60-second smoke fuzz — fits inside a development inner loop.
-# `timeout` wraps libFuzzer as a hard backstop: if `-max_total_time`
-# fires correctly the wrapper exits with libFuzzer's status; if
-# libFuzzer ever hangs (rare on a busy CI runner), SIGTERM lands at
-# the wrapper deadline and SIGKILL 10 s later so control returns to
-# the caller in known time.
+# 60-second smoke fuzz. `timeout` is a hard backstop if libFuzzer ever hangs.
 fuzz-quick TARGET:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 90s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
 
@@ -134,11 +110,7 @@ fuzz-quick TARGET:
 fuzz-deep TARGET:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 360s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
 
-# 15-minute marathon fuzz — the strongest single-target soak we run by
-# hand. Reach for this when the 5-minute deep gate has been clean for a
-# full development cycle and you want to push the corpus another order
-# of magnitude. The harness exits cleanly after 15 min regardless of
-# whether new paths were found.
+# 15-minute marathon fuzz — strongest single-target soak; exits cleanly at 15 min.
 fuzz-marathon TARGET:
     {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 1000s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
 
@@ -271,17 +243,11 @@ dhat:
 latency:
     {{_dev}} cargo run --release --example latency_hist -p afm-markdown
 
-# Host-only CPU flamegraph of a render hot loop. `samply` opens
-# perf_event_open(2), which Docker's seccomp blocks, so this builds and
-# records on the host — the ADR-0002 profiling exception (aozora's
-# `samply-*` recipes take the same one). Built with `--profile bench`
-# (NOT `--release`): [profile.bench]'s `strip = "none"` + `debug = 1`
-# keep the symbols samply needs to symbolicate, and the binary still
-# lands in target/release/ (the bench profile shares that directory).
-# Needs `samply` on PATH and /proc/sys/kernel/perf_event_paranoid <= 1
-# (samply prints the fix-up command otherwise). Saves
-# /tmp/afm-render.json.gz; open at https://profiler.firefox.com or via
-# `samply load /tmp/afm-render.json.gz`.
+# Host-only CPU flamegraph of a render hot loop. samply needs
+# perf_event_open(2), which Docker's seccomp blocks, so it records on the host
+# (the ADR-0002 profiling exception). Built `--profile bench` to keep symbols.
+# Needs `samply` on PATH and perf_event_paranoid <= 1; writes
+# /tmp/afm-render.json.gz (open at https://profiler.firefox.com).
 samply-render REPEAT="200":
     cargo build --profile bench --example samply_render -p afm-markdown
     samply record --save-only --no-open -o /tmp/afm-render.json.gz -r 4000 -- target/release/examples/samply_render {{REPEAT}}
@@ -290,61 +256,13 @@ samply-render REPEAT="200":
 
 # Coverage gate. Fails when region coverage drops below `_COV_FLOOR`.
 #
-# Tool / metric rationale:
-# - `cargo-llvm-cov` 0.8.5 supports `--fail-under-regions` and
-#   `--fail-under-lines` / `--fail-under-functions`, but not
-#   `--fail-under-branches` (the flag simply does not exist in this
-#   version). Regions are a strictly finer-grained unit than branches:
-#   every conditional in Rust produces separate regions for each
-#   outcome, plus finer internal splits. Passing a given region
-#   threshold therefore implies at least that branch threshold —
-#   region coverage is an honest, stable-toolchain proxy for C1.
-# - `--branch` emits branch-level counts only on nightly rustc. We stay
-#   on stable for the CI gate (see `rust-toolchain.toml`) and use
-#   `coverage-branch` below for informational branch reporting.
+# Regions, not branches: `cargo-llvm-cov` 0.8.5 has `--fail-under-regions` but
+# no `--fail-under-branches` (branch counts need nightly); regions are finer
+# than branches, so a region threshold implies the branch one on stable.
 #
-# Scope excludes:
-# - `upstream/comrak/` — vendored fork (ADR-0001), never measured here.
-# - `target/` — build artefacts.
-# - `**/main.rs` — CLI binary entrypoints (`afm-cli`, `xtask`). These
-#   are thin shells over their crate libraries; wiring integration
-#   tests against the process entry is follow-up work.
-# - `xtask/` — internal developer tooling, not a production concern.
-#
-# `_COV_FLOOR` is the enforced minimum today, not the goal. The
-# stated goal (ADR-0006 §coverage) is 100% on production code. The
-# floor ratchets upward in follow-up commits that close specific
-# gaps; see task tracker.
-#
-# Ratchet history:
-# - 94 (M0): initial gate landing with the parse pipeline wired up.
-# - 95 (G3): F-series fills in recogniser branches + G1 adds full
-#   gaiji resolve coverage; measured regions total 95.36%.
-# - 96 (Cov-Ratchet): diagnostic.rs V1/V2/V3 constructor tests +
-#   phase6_validate.rs synthetic-registry tests + html.rs
-#   section/container/double-ruby unit tests; measured 96.07%.
-#   Remaining gaps are mostly non-exhaustive `_` arms on
-#   `#[non_exhaustive]` enums (structurally unreachable in-crate).
-# 93 (Aozora-Split, post-v0.2.0): afm-parser → afm-markdown rename
-#   moved the lexer/AST/encoding tests out into the sibling aozora
-#   repo. The afm-markdown test surface is now ~half its previous
-#   size; total regions dropped from 96.07% to 93.44%. The 96% gate
-#   was set against a workspace that included those crates, so we
-#   ratchet down to the new measurement and tighten back up as the
-#   afm-markdown-specific test suite grows (post_process invariants,
-#   aozora_parity differential, html-shape proptests).
-# 96 (post-v0.2.5 production-only): test_support.rs was extracted
-#   from the coverage measurement because it is `#[doc(hidden)]
-#   pub mod` shipped only so integration tests in `tests/*.rs` can
-#   share invariant helpers — it is not production code. The
-#   measured surface is now lib.rs / post_process.rs / html.rs.
-# 96 (IR + streaming + WASM): afm-wasm exposes wasm-bindgen entry
-#   points that native `cargo llvm-cov` cannot exercise, so the
-#   crate is permanently excluded from measurement (its surface is
-#   exercised by `wasm-pack test` instead, separately from the
-#   coverage gate). The IR walker (ir.rs) and the streaming /
-#   anchor paths (lib.rs) are exercised by `tests/ir_coverage.rs`
-#   to keep production coverage above the 96 floor.
+# Excludes (`_COV_IGNORE`): vendored comrak (ADR-0001), build artefacts, CLI
+# `main.rs` entrypoints, xtask tooling, test-support, and afm-wasm (exercised
+# by `wasm-pack test`, which native llvm-cov can't reach).
 _COV_FLOOR := "96"
 _COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|afm-markdown-test-support/|afm-wasm/)"
 
@@ -402,9 +320,8 @@ strict-code:
     failed=0
 
     # ---- Warning suppression -----------------------------------------------
-    # #[allow(...)] / #![allow(...)] / #[cfg_attr(..., allow(...))]
-    # accumulate dead rules that hide real bugs. Memory note
-    # feedback_no_warning_suppression: refactor the code instead.
+    # #[allow] / cfg_attr(allow) accumulate dead rules that hide bugs;
+    # refactor the code instead.
     check 'warning suppression (#[allow] / cfg_attr+allow)' \
         '^\s*(#!?\[allow\(|#!?\[cfg_attr\([^)]*allow\()' || failed=1
 
@@ -488,11 +405,9 @@ fmt-check:
 fmt:
     {{_dev}} cargo fmt --all
 
-# Clippy — lint groups (pedantic/nursery/cargo) and carve-outs are owned
-# entirely by `[workspace.lints]` in Cargo.toml. Passing `-W clippy::<group>`
-# here would re-enable the whole group at CLI priority and silently undo
-# per-lint allow carve-outs (e.g. `redundant_pub_crate`). Keep the CLI
-# surface to `-D warnings` only.
+# Clippy. Lint groups and carve-outs live entirely in `[workspace.lints]`;
+# passing `-W clippy::<group>` here would override the per-lint allow carve-outs,
+# so keep the CLI surface to `-D warnings` only.
 clippy:
     {{_dev}} cargo clippy --workspace --all-targets --all-features -- -D warnings
 
@@ -500,13 +415,9 @@ clippy:
 typos:
     {{_dev}} typos
 
-# Assert that tool-version pins which live in multiple files agree.
-# bun is pinned in three locations (Dockerfile / playground/package.json
-# / docs.yml); wasm-pack in two (Dockerfile / docs.yml). A patch bump
-# that only touches one would let dev and CI silently resolve different
-# versions. This recipe greps each file for the canonical pattern and
-# fails (exit 1) if any pair disagrees — the mechanical replacement for
-# a "remember to update all three" comment.
+# Assert tool-version pins agree across files: bun (Dockerfile /
+# playground/package.json / docs.yml) and wasm-pack (Dockerfile / docs.yml).
+# Fails if any pair disagrees.
 verify-version-pins:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -552,46 +463,17 @@ verify-version-pins:
 deny:
     {{_dev}} cargo deny check
 
-# RustSec advisory scan.
-#
-# Depends on `audit-comrak` so the vendored-comrak advisory gate runs in
-# the same invocation: `cargo audit` alone keys advisories off the
-# *registry* dependency graph in `Cargo.lock`, and comrak is a PATH dep
-# (`upstream/comrak/`, ADR-0001) — it never appears there, so a future
-# RUSTSEC advisory against comrak 0.52.0 would be invisible to the plain
-# scan. `audit-comrak` closes that blind spot. Both are wired into
-# `just ci` via this recipe (and the `audit` matrix leg in ci.yml).
+# RustSec advisory scan. Depends on `audit-comrak` because comrak is a PATH
+# dep (ADR-0001) absent from Cargo.lock, so plain `cargo audit` can't see it.
 audit: audit-comrak
     {{_dev}} cargo audit
 
-# Vendored-comrak RUSTSEC gate (C1/F4).
-#
-# comrak is vendored as a path dependency at `upstream/comrak/` (version
-# in `upstream/comrak/Cargo.toml`, sha in `upstream/comrak/COMRAK_SHA`),
-# pinned bit-for-bit to upstream v0.52.0 (ADR-0001, 0-line diff). Because
-# it is a path dep it is absent from the registry dependency graph
-# `cargo audit` / `cargo deny` walk, so neither tool would ever flag a
-# RUSTSEC advisory filed against the `comrak` crate at our pinned
-# version. This recipe re-introduces that coverage WITHOUT a scheduled
-# workflow (user preference: no cron): it runs per-PR as part of
-# `just ci`.
-#
-# Mechanism: synthesise a one-crate `Cargo.lock` that declares `comrak`
-# at exactly the vendored version as a crates.io registry package, then
-# point the real `cargo audit` at it (`--file`). This delegates the
-# advisory version-range matching to the authoritative RustSec engine
-# (no hand-rolled semver parsing) and uses the same advisory-db
-# `cargo audit` already fetches. `--deny warnings` makes ANY advisory
-# match — vulnerability, unmaintained, or yanked notice keyed to comrak
-# — fail the gate. The version is read from `upstream/comrak/Cargo.toml`
-# so there is no second source of truth to drift.
-#
-# Exit semantics: clean (no advisory affects the pinned version) → 0;
-# an advisory matches → non-zero, halting `just ci`. On a hit, read the
-# RUSTSEC id it prints, then either bump the vendored tree
-# (`just upstream-sync <tag>`) past the patched version or, if the
-# advisory does not apply to how afm drives comrak, record a documented
-# `ignore` in the gate (see afm/SECURITY.md "Vendored comrak").
+# Vendored-comrak RUSTSEC gate. comrak is a path dep (`upstream/comrak/`,
+# ADR-0001), so it never reaches the registry graph `cargo audit` walks. This
+# synthesises a one-crate Cargo.lock pinning the vendored comrak version as a
+# registry package and audits that, so any advisory keyed to comrak fails the
+# gate. On a hit: bump the vendored tree past the patched version, or record a
+# documented ignore (see SECURITY.md "Vendored comrak").
 audit-comrak:
     {{_dev}} bash -c '\
         set -euo pipefail; \
@@ -681,9 +563,6 @@ types-check:
     {{_dev}} cargo run --package xtask --quiet -- types check
 
 # Regenerate CHANGELOG.md from Conventional-Commits history (see cliff.toml).
-# Uses git-cliff inside the dev container — the tool is provisioned by the
-# Dockerfile's cargo-tools stage, so `just changelog` should work on any
-# developer machine after the initial image build.
 changelog:
     {{_dev}} git-cliff -o CHANGELOG.md
 
@@ -706,16 +585,10 @@ _pg := "docker compose run --rm --service-ports playground"
 # Vite or dev server is bound to 5173 on the host.
 _pg_install := "docker compose run --rm playground"
 
-# Build the afm-wasm package consumed by the playground (and any browser host).
-# Output lands in `crates/afm-wasm/pkg/`, referenced by `playground/package.json`
-# via `"afm-wasm": "file:../crates/afm-wasm/pkg"`.
-#
-# `RUSTC_WRAPPER=` (empty) bypasses sccache for the wasm-pack invocation:
-# wasm-pack internally triggers `rustup target add wasm32-unknown-unknown`
-# and the rustup-sync subprocess scrubs SCCACHE_GHA_ENABLED to an invalid
-# value, which sccache 0.15+ rejects with "must be 'true', 'on', ...". The
-# wasm build is per-target (separate target dir from native) so the cache
-# benefit was marginal anyway.
+# Build the afm-wasm package for the playground; output to `crates/afm-wasm/pkg/`
+# (referenced by `playground/package.json` as `file:../crates/afm-wasm/pkg`).
+# `RUSTC_WRAPPER=` bypasses sccache, which wasm-pack's `rustup target add`
+# subprocess corrupts (SCCACHE_GHA_ENABLED); the wasm cache benefit is marginal.
 wasm-build:
     {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
         --target bundler --release \
@@ -762,31 +635,14 @@ playground-serve: playground-build
 
 # --- aggregate ----------------------------------------------------------------
 
-# Local replica of the full CI pipeline. Ordered fail-fast: cheap checks
-# first, slow ones last. Every step prints its own `[HH:MM:SS] →→→ name`
-# start banner and `✓ name (took Ns)` or `✗ name FAILED (after Ns)`
-# trailer, so a long run never leaves the user wondering whether it's
-# stuck or progressing. A failure exits immediately with the failing
-# step's exit code; no downstream work runs.
+# Local replica of the full CI pipeline. Fail-fast, ordered cheap-to-expensive;
+# each step prints a start banner and pass/fail trailer with timing.
 ci:
     #!/usr/bin/env bash
     set -uo pipefail
 
-    # Step ordering rationale:
-    #   1-3  no-compile static checks (seconds; fastest signal)
-    #   4    grep-based source rules (fast)
-    #   5    verify-version-pins — catches Dockerfile / docs.yml / package.json drift
-    #   6    cargo check (typecheck only; warm-cache fast)
-    #   6b   types-check — IR→TS `.d.ts` codegen drift gate (needs xtask compiled)
-    #   7    cargo doc — exercises `broken_intra_doc_links = deny`; the
-    #        only place this lint actually runs (check / clippy skip it)
-    #   8-9  Cargo.lock-only checks (no compile required)
-    #   10   clippy via `lint` composite (heavy lint pass — full compile)
-    #   11   build (validate all targets compile)
-    #   12-15 test pyramid — unit → property → spec
-    #   16   coverage (instrumented compile, slow)
-    #   17   book — independent of cargo state
-    #   18   udeps — nightly only; deferred so a stable failure surfaces first
+    # Ordered cheap-to-expensive: static checks → check/doc → lockfile gates →
+    # clippy/build → test pyramid → coverage → book → udeps (nightly, last).
     steps=(
         "typos"
         "fmt-check"
@@ -837,13 +693,9 @@ ci:
 
 # --- developer workflow helpers ----------------------------------------------
 
-# Snapshot of the local environment in one screen. Tells you
-# immediately which images are present, which volumes are mounted,
-# whether sccache is configured, whether the aozora SHA pin in
-# Cargo.toml matches Cargo.lock, and whether the playground artefacts
-# are ready to serve. Exit 0 = nothing wrong; exit 1 = missing
-# prerequisite a build will trip on. Run before / after major
-# operations so you never wonder "is my environment broken".
+# One-screen snapshot of the local environment: images, volumes, the aozora
+# SHA pin ↔ Cargo.lock, and playground artefacts. Exit 1 = a missing
+# prerequisite a build would trip on.
 doctor:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -902,7 +754,7 @@ doctor:
             || grep -q "#${pinned:0:7}" Cargo.lock 2>/dev/null; then
             printf '%b aozora rev pin: %s (Cargo.lock agrees)\n' "$OK" "${pinned:0:12}…"
         else
-            printf '%b aozora rev pin %s NOT reflected in Cargo.lock  →  cargo update -p aozora-syntax\n' \
+            printf '%b aozora rev pin %s NOT reflected in Cargo.lock  →  cargo update -p aozora\n' \
                 "$ERR" "${pinned:0:12}…"
             fail=1
         fi

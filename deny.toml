@@ -10,16 +10,13 @@ ignore = []
 
 [licenses]
 version = 2
-# Upstream comrak ships BSD-2-Clause; our crates are Apache-2.0 OR MIT.
-# The list below is the union of allowed licenses across the dep graph.
+# Union of licenses across the dep graph (comrak is BSD-2-Clause; our crates
+# are Apache-2.0 OR MIT).
 allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "MIT",
-    # Permissive, no-attribution. Mirrors the sibling aozora repo's policy
-    # so the two graphs accept the same license set (some transitive deps
-    # ship MIT-0); keeps the umbrella dependency from tripping cargo-deny.
-    "MIT-0",
+    "MIT-0", # mirrors aozora's policy; some transitive deps ship MIT-0
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",

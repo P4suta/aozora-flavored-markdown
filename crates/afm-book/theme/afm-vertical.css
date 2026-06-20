@@ -1,7 +1,7 @@
 /*
  * afm-vertical.css — vertical-rl (tategaki) writing mode theme.
  *
- * Class contract: every class token the afm-parser renderer can
+ * Class contract: every `afm-*` class token the renderer can
  * emit MUST have at least one rule in this file. The integration
  * test `css_class_contract.rs` walks this file plus a pinned list
  * of emitted classes and fails CI when a new class lands without a

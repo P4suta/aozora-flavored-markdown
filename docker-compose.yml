@@ -13,60 +13,36 @@
 name: afm
 
 x-common-env: &common-env
-  # Cargo caches live at /cargo/* — OUTSIDE the /workspace bind mount — on
-  # purpose. Nesting a named volume inside the bind mount (the old
-  # /workspace/target etc.) makes the Docker daemon create the host-side
-  # mountpoint (./target, ./.cargo, ./.sccache) as **root**, which litters
-  # the working tree with root-owned junk and breaks any host-side cargo.
-  # Keeping the caches at /cargo/* leaves the host's own ./target free and
-  # keeps the checkout clean. The named volumes still persist them.
+  # Cargo caches live at /cargo/* (named volumes), OUTSIDE the /workspace bind
+  # mount: a volume nested under the bind mount makes the daemon create the
+  # host mountpoint (./target etc.) as root and litter the working tree.
   CARGO_HOME: /cargo/home
   CARGO_TARGET_DIR: /cargo/target
   RUSTC_WRAPPER: sccache
   SCCACHE_DIR: /cargo/sccache
-  # sccache cannot cache crates compiled with cargo's incremental mode.
-  # Cargo defaults incremental=true for workspace members in dev/test profiles,
-  # which silently bypasses sccache for the very crates we build most often.
-  # Pinning this here applies to every service that inherits x-common-env.
+  # sccache can't cache incremental builds, and cargo defaults
+  # incremental=true for workspace members — disable it so sccache applies.
   CARGO_INCREMENTAL: "0"
   SCCACHE_CACHE_SIZE: "10G"
   RUST_BACKTRACE: "1"
-  # Ride out transient static.crates.io outages — a brief "Could not connect
-  # to server" blip failed a cargo step in the sibling aozora repo; cargo's
-  # default retry is 3. Bump it so a short network hiccup isn't a CI failure.
-  # Applies to every service that inherits x-common-env.
+  # Ride out transient crates.io blips (cargo's default retry is 3).
   CARGO_NET_RETRY: "10"
-  # Use mold as the default linker for faster host-triple builds. The
-  # Dockerfile installs mold + clang and writes /root/.cargo/config.toml
-  # with the same intent, but CARGO_HOME=/cargo/home above means cargo
-  # never reads it — so drive the linker via target-scoped env here.
-  # CRUCIAL: scope to the host triple. A plain RUSTFLAGS=-fuse-ld=mold
-  # would leak into `wasm-pack build --target wasm32-unknown-unknown`
-  # and fail ("rust-lld: error: unknown argument: -fuse-ld=mold"); the
-  # wasm linker is rust-lld, not mold. The per-target form keeps host
-  # builds fast without breaking wasm. (Mirrors the sibling aozora repo.)
+  # mold linker for the host triple. Driven by env (not config.toml, which
+  # cargo skips under CARGO_HOME=/cargo/home) and scoped to the host triple:
+  # a plain RUSTFLAGS=-fuse-ld=mold would leak into `wasm-pack` and break the
+  # wasm-lld link.
   CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
   CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: "clang"
   TERM: ${TERM:-xterm-256color}
-  # /workspace is bind-mounted from the host. Locally the container runs as
-  # the matching host UID (1000) so git is happy; in CI it runs as root
-  # (AFM_UID=0) over a checkout owned by the runner's UID, and git then
-  # refuses operations with "dubious ownership". Whitelist via the
-  # GIT_CONFIG_* triplet rather than baking a `git config` invocation into
-  # the image (keeps the whitelist local to the compose surface).
+  # Whitelist the bind-mounted /workspace so git doesn't refuse "dubious
+  # ownership" when CI runs as root over a checkout owned by another UID.
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: "safe.directory"
   GIT_CONFIG_VALUE_0: "/workspace"
-  # Optional GitHub Actions cache backend for sccache. The forward-from-
-  # host pattern below ({KEY}: ) leaves the variable UNSET in the
-  # container when the host doesn't have it set — important because
-  # sccache 0.15+ rejects an empty string ("must be 'true', 'on', '1',
-  # 'false', 'off' or '0'") and even "false" is treated as enabled in
-  # some sccache code paths. Local dev: unset = sccache uses the disk
-  # volume cache. CI: setup-dev-image sets these three on the runner so
-  # the container sees the real GHA cache backend.
-  # (Listed under the service's `environment:` blocks below — YAML
-  # maps can't have key-only entries.)
+  # Optional GHA cache backend for sccache. The forward-from-host pattern in
+  # the service `environment:` blocks leaves these UNSET when the host hasn't
+  # set them (sccache rejects an empty value); CI's setup-dev-image sets them.
+  # Local dev unset = sccache uses the disk volume cache.
 
 services:
   dev:
@@ -76,11 +52,8 @@ services:
       target: dev
     image: afm-dev:local
     working_dir: /workspace
-    # Runtime UID/GID. Unset locally → 1000 (the image's baked `dev` user,
-    # matched to the conventional host UID) so bind-mount writes are
-    # host-owned. CI sets AFM_UID=0/AFM_GID=0 (setup-dev-image action) → root,
-    # since the runner's checkout is owned by a different UID and ownership
-    # is throwaway on the ephemeral runner.
+    # Runtime UID/GID. Unset locally → 1000 (host-owned bind-mount writes);
+    # CI sets AFM_UID=0/AFM_GID=0 → root over its throwaway checkout.
     user: "${AFM_UID:-1000}:${AFM_GID:-1000}"
     environment: *common-env
     volumes:
@@ -127,11 +100,8 @@ services:
       <<: *common-env
       CI: "true"
     volumes:
-      # `:cached` (writable): CI steps emit artifacts back into the tree
-      # (wasm `pkg/`, generated docs, coverage reports), so the source
-      # mount stays writable. The cargo caches now live at /cargo/*
-      # (outside this bind mount), so the old ":ro hides the nested
-      # /workspace/{target,.cargo,.sccache} mountpoints" hazard is gone.
+      # Writable: CI steps emit artifacts back into the tree (wasm pkg/,
+      # docs, coverage). Cargo caches live at /cargo/*, outside this mount.
       - .:/workspace:cached
       - cargo-registry:/cargo/home/registry
       - cargo-git:/cargo/home/git
@@ -167,11 +137,9 @@ services:
       - cargo-git:/cargo/home/git
       - cargo-target:/cargo/target
 
-  # Vite dev / preview server for the browser playground.
-  # Reuses the `dev` image (which already has Node 22 + wasm-pack) so no
-  # extra build target is needed. `node_modules` lives in a named volume so
-  # the bind-mount of `/workspace` doesn't drag npm's tree through the
-  # cross-filesystem boundary (slow on Docker Desktop / WSL).
+  # Vite dev / preview server for the playground. Reuses the `dev` image
+  # (Node 22 + wasm-pack); `node_modules` lives in a named volume to avoid
+  # dragging npm's tree across the bind-mount boundary (slow on WSL).
   playground:
     build:
       context: .

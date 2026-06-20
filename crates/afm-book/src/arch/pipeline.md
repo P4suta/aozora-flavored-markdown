@@ -27,16 +27,16 @@ source (UTF-8 or Shift_JIS)
    │
    ▼  comrak::parse_document               (vanilla CommonMark + GFM)
    │   sentinels survive as plain UTF-8 — they aren't in the
-   │   `<>&"'` escape set, so format_html passes them through too.
+   │   `<>&"'` escape set, so they stay intact in the AST.
    │
-   ▼  comrak::format_html                  (HTML with sentinels in body)
-   │
-   ▼  afm_markdown::post_process::splice_aozora_html
-   │     · single-pass scan over the emitted HTML
-   │     · sentinel ↔ aozora_render::render_node output substitution
+   ▼  ast_splice::splice_into_ast
+   │     · replaces each sentinel node with a `Raw` node carrying
+   │       aozora_render::render_node output
    │     · paragraph-aware: HeadingHint promotes to <h{level}>;
    │       sole-block-sentinel paragraphs become standalone blocks
    │     · brand boundary: aozora-* CSS classes → afm-* (ADR-0011)
+   │
+   ▼  comrak::format_html                  (renders the spliced AST)
    │
    ▼  HTML
 ```
@@ -45,9 +45,8 @@ source (UTF-8 or Shift_JIS)
 
 Both consumers of the lex output — the HTML splicer and the IR
 projector — walk the **same source-order sequence** of registry
-entries. The shared abstraction is
-[`SentinelCursor`](https://p4suta.github.io/afm/api/afm_markdown/sentinels/struct.SentinelCursor.html)
-in `crates/afm-markdown/src/sentinels.rs`:
+entries. The shared abstraction is `SentinelCursor` in
+`crates/afm-markdown/src/sentinel_stream.rs`:
 
 ```text
                 ┌──────────────── BorrowedLexOutput ────────────────┐
@@ -65,7 +64,7 @@ in `crates/afm-markdown/src/sentinels.rs`:
                           │  shared cursor             │
                 ┌─────────┴────────┐         ┌─────────┴────────┐
                 │ HTML splicer     │         │ IR builder       │
-                │ (post_process)   │         │ (ir.rs)          │
+                │ (ast_splice)     │         │ (ir.rs)          │
                 │                  │         │                  │
                 │ String buffer    │         │ Vec<IrBlock>     │
                 │ container_stack: │         │ container_stack: │
@@ -108,14 +107,11 @@ ADR-0010 for the original split).
 
 ## What lives in the vendored comrak tree
 
-`upstream/comrak/` is a verbatim copy of comrak v0.52.0 with a
-**0-line diff** (ADR-0001 v0.2.4). afm composes comrak as a black
-box: `parse_document`, `format_html`, and the AST type tree are
-imported, the sentinels survive both passes as plain UTF-8, and
-post-process owns the entire afm-side surface. Upgrading comrak is
-a `cargo xtask upstream-sync <tag>` away — no patches to re-apply.
+`upstream/comrak/` is a verbatim copy of comrak v0.52.0 with a **0-line diff**
+(ADR-0001). afm composes comrak as a black box: `parse_document`, `format_html`,
+and the AST type tree are imported, the sentinels survive parsing as plain
+UTF-8, and the splice owns the entire afm-side surface. Upgrading comrak is a
+`cargo xtask upstream-sync <tag>` away — no patches to re-apply.
 
-See [the architectural decisions](adr.md) for the full rationale and
-the alternatives that led here (ADR-0008 reset the design to
-zero-parser-hooks; ADR-0010 split parser / renderer into the sibling
-repo; ADR-0011 nailed down the brand boundary).
+See [the architectural decisions](adr.md) for the full rationale (ADR-0008
+zero-parser-hooks, ADR-0010 parser/renderer split, ADR-0011 brand boundary).

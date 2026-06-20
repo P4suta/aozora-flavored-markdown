@@ -63,7 +63,7 @@ CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 - **Pure-functional な parse pipeline** —— vendored comrak 内に
   parse-time hook は 0、青空文庫記法の認識は sibling repo
   [`aozora`](https://github.com/P4suta/aozora) に分離され、
-  `afm-markdown::post_process` で comrak AST に splice されます。
+  `afm-markdown::ast_splice` で comrak AST に splice されます。
 
 ## 書ける記法
 

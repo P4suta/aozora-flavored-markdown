@@ -33,16 +33,9 @@
 //! able to witness the pre-/post-promotion AST, which the shape-only
 //! HTML predicate cannot observe.
 //!
-//! # Why a separate crate
-//!
-//! These helpers were originally a `#[doc(hidden)] pub mod
-//! test_support` inside `afm-markdown` so the integration test
-//! binaries could reach them without duplication. That hack has been
-//! retired in v0.4: integration glue lives here instead, and
-//! `afm-markdown` declares this crate as a `dev-dependency`. The
-//! `#[doc(hidden)]` smoke screen is gone, the production crate's
-//! type-check / lint / `cargo doc` surface shrinks, and `_COV_IGNORE`
-//! no longer has to carve out a path inside the production tree.
+//! These predicates live in their own crate (an `afm-markdown` dev-dependency)
+//! so they stay out of the production crate's type-check / lint / `cargo doc`
+//! / coverage surface.
 //!
 //! [`AFM_CLASSES`]: self::AFM_CLASSES
 
@@ -53,37 +46,12 @@ use core::fmt;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
-// AFM_CLASSES is the complete CSS-class contract emitted by the
-// renderer. Mirrored here so the css_class_contract integration test
-// can pin the surface from a single import path
-// (`afm_markdown_test_support::AFM_CLASSES`); the underlying contract
-// is enforced by aozora's own test suite.
-//
-// ## How drift between this list and aozora-render is caught
-//
-// Sibling `aozora-render` embeds the `aozora-*` class names as
-// string literals inside `writer.write_str(...)` calls — there is
-// no exported `pub const` we could import. Build-time fetch of the
-// sibling source is technically possible but heavyweight (depends
-// on cargo metadata + a regex scan).
-//
-// Instead, drift is caught by the existing
-// `crates/afm-markdown/tests/css_class_contract.rs` integration
-// test, which runs every ruby / bouten / gaiji / TCY / annotation
-// / container shape through `afm_markdown::render_to_string` and
-// asserts that every emitted `class="afm-…"` token appears in this
-// list. A *new* class added upstream surfaces immediately as a
-// failed assertion ("class `afm-foo` not in `AFM_CLASSES`"), so
-// the obligation reduces to: when `css_class_contract` fails after
-// an `aozora-*` workspace bump, append the new class name here
-// and to the corresponding rule in
-// `crates/afm-book/theme/afm-{horizontal,vertical}.css`.
-//
-// A dedicated automation pass (build.rs that fetches the sibling
-// source tree, regex-extracts `class="aozora-…"` literals, and
-// emits an `AFM_CLASSES` const into `OUT_DIR`) is sketched as a
-// future ADR — it would eliminate the manual append step at the
-// cost of a network / filesystem dependency in the test build.
+// The complete `afm-*` CSS-class contract emitted by the renderer, pinned here
+// so `tests/css_class_contract.rs` can assert every emitted `class="afm-…"`
+// token appears in this list. There is no `pub const` to import from
+// `aozora-render` (it writes the class names as string literals), so when that
+// test fails after an `aozora-*` bump, add the new class here and to the
+// matching rule in `crates/afm-book/theme/afm-{horizontal,vertical}.css`.
 pub const AFM_CLASSES: &[&str] = &[
     "afm-align-end",
     "afm-annotation",

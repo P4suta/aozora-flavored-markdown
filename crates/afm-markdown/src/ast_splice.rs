@@ -1,32 +1,22 @@
-//! AST-level Aozora sentinel splicer (replaces the string-based
-//! `crate::post_process`).
+//! AST-level Aozora sentinel splicer.
 //!
-//! ## Why an AST splicer?
+//! comrak hands us a typed AST whose paragraphs / code blocks / headings are
+//! separate `NodeValue` variants. We splice the sentinels directly into that
+//! AST and let `comrak::format_html` produce the final HTML in one pass, rather
+//! than re-scanning a flat HTML byte stream.
 //!
-//! comrak hands us a typed AST whose paragraphs / code blocks /
-//! headings are separate variants of `NodeValue`. The previous design
-//! emitted comrak HTML to a string and re-scanned it with a four-pass
-//! post-processor, paying the cost of re-tokenising paragraph
-//! boundaries and inline-tag balance from a flat byte stream that
-//! comrak had just produced. We can splice the sentinels directly
-//! into the AST and let `comrak::format_html` produce the final HTML
-//! in a single verbatim pass.
-//!
-//! Architectural symmetry: [`crate::ir`]'s `IrWalker` walks the same
-//! comrak AST to project an `IrDocument`. Both consume the same
-//! [`SentinelCursor`] and use the same
-//! [`paragraph_sole_block_sentinel`] / [`ParaScan`] primitives — they
-//! differ only in their emit target (string-storing AST nodes vs.
-//! typed `IrBlock` tree).
+//! [`crate::ir`]'s `IrWalker` walks the same comrak AST to project an
+//! `IrDocument`; both consume the same [`SentinelCursor`] and
+//! [`paragraph_sole_block_sentinel`] / [`ParaScan`] primitives, differing only
+//! in their emit target.
 //!
 //! ## Pipeline shape
 //!
-//! See `crate` doc for the full pipeline. This module sits between
-//! `comrak::parse_document` (which leaves PUA sentinels inside `Text`
-//! nodes verbatim, since they are not in CommonMark's HTML escape
-//! set) and `comrak::format_html`. We mutate the AST in place: each
-//! sentinel character is replaced by a `NodeValue::Raw` node carrying
-//! the actual Aozora HTML produced by [`render_node::render`].
+//! This module sits between `comrak::parse_document` (which leaves PUA
+//! sentinels inside `Text` nodes verbatim — they are not in CommonMark's HTML
+//! escape set) and `comrak::format_html`. It mutates the AST in place: each
+//! sentinel character is replaced by a `NodeValue::Raw` node carrying the
+//! Aozora HTML produced by [`render_node::render`].
 //!
 //! `Raw` is the right node kind: `comrak/src/nodes.rs` documents it
 //! as "inserted verbatim into CommonMark and HTML output", and the
@@ -36,11 +26,10 @@
 //! ## Cases
 //!
 //! 1. **Sole-block-sentinel paragraph** (a `<p>U+E002</p>`-shaped
-//!    paragraph in legacy parlance): [`paragraph_sole_block_sentinel`]
-//!    returns `Some(kind)`. Insert a `Raw` node before the paragraph
-//!    carrying the rendered output, then detach the paragraph.
-//!    Paired open/close use the container stack to keep the LIFO
-//!    invariant the way the legacy splicer did.
+//!    paragraph): [`paragraph_sole_block_sentinel`] returns
+//!    `Some(kind)`. Insert a `Raw` node before the paragraph carrying
+//!    the rendered output, then detach the paragraph. Paired open/close
+//!    use the container stack to keep the LIFO invariant.
 //! 2. **Heading-hint promotion** (`［＃「X」は大見出し］`): the first
 //!    inline sentinel in the paragraph is a `HeadingHint`. Mutate the
 //!    paragraph's `NodeValue` to `Heading { level, setext: false }`
@@ -51,7 +40,7 @@
 //!    around each sentinel char and weave `Raw` siblings carrying the
 //!    rendered output. Block sentinels surviving into an inline
 //!    context (e.g. raw text inside a fenced code block we somehow
-//!    didn't mask) drop silently — matches the legacy splicer.
+//!    didn't mask) drop silently.
 //! 4. **Orphan `［＃...］`**: a bracket run the lexer never claimed.
 //!    Split the `Text` and replace the bracket span with a `Raw` node
 //!    containing `<span class="afm-annotation" hidden>...</span>`.
@@ -220,9 +209,8 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
             }
             _ => {
                 // Mismatch (registry/AST drift) or orphan close (no
-                // matching open): silently drop the paragraph rather
-                // than emit an unbalanced close tag — same Tier-D
-                // protection the legacy splicer enforced.
+                // matching open): silently drop the paragraph rather than
+                // emit an unbalanced close tag (Tier-D protection).
                 paragraph.detach();
             }
         }
@@ -236,13 +224,12 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
     ) {
         self.cursor.advance(sentinels_to_consume);
         let level = hint.level.clamp(1, 6);
-        // The heading body is the hint's `target`, escaped against
-        // the same five-char surface (`< > & " '`) the legacy splicer
-        // used. We emit it as a `Raw` node rather than a `Text` node
-        // because comrak's text escape skips `'`, and the legacy
-        // contract escaped it. `Raw` stays inert through
-        // `format_html`, so the `<h{level}>...</h{level}>` framing is
-        // generated by comrak around our pre-escaped body.
+        // The heading body is the hint's `target`, escaped against the
+        // five-char surface (`< > & " '`). We emit a `Raw` node rather than
+        // `Text` because comrak's text escape skips `'`, which we want
+        // escaped. `Raw` stays inert through `format_html`, so the
+        // `<h{level}>...</h{level}>` framing is generated by comrak around
+        // our pre-escaped body.
         let mut escaped = String::with_capacity(hint.target.as_str().len());
         push_html_escaped(&mut escaped, hint.target.as_str());
         let children: Vec<&'a AstNode<'a>> = paragraph.children().collect();
@@ -603,17 +590,12 @@ mod tests {
 
     #[test]
     fn orphan_bracket_wrap_respects_text_node_boundary() {
-        // Pin the AST-splicer's preferred semantics: an unclosed
-        // `［＃` only wraps within its own Text node — a soft break
-        // (`\n`) inside the same paragraph splits the wrap because
-        // comrak emits `Text("［＃")` + `SoftBreak` + `Text("※")`.
-        // The legacy string-pass would have wrapped across the
-        // soft break (it scanned bytes, not nodes). This test
-        // documents the deliberate semantic choice that comes with
-        // moving from string-scan to AST-walk: wrap scope is
-        // structural, not byte-positional. Both behaviours satisfy
-        // the Tier-A canary (no bare `［＃` survives outside an
-        // `afm-annotation` wrapper); the AST one is just sharper.
+        // Pin the AST-splicer's semantics: an unclosed `［＃` only wraps
+        // within its own Text node — a soft break (`\n`) inside the same
+        // paragraph splits the wrap because comrak emits `Text("［＃")` +
+        // `SoftBreak` + `Text("※")`, so wrap scope is structural, not
+        // byte-positional. This still satisfies the Tier-A canary (no bare
+        // `［＃` survives outside an `afm-annotation` wrapper).
         let html = render_via_ast_splice("［＃\n※");
         assert!(
             html.contains("<span class=\"afm-annotation\" hidden>［＃</span>"),

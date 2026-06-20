@@ -7,10 +7,7 @@ members = [
     "crates/afm-wasm",
     "crates/xtask",
 ]
-# afm-book is an mdbook site, not a Rust crate, so it is not a workspace member.
-# upstream/comrak is managed by xtask and vendored verbatim; it does not
-# participate in the workspace build (afm-markdown depends on the upstream
-# path directly).
+# afm-book (mdbook site) and upstream/comrak (vendored verbatim) are not crates.
 exclude = ["upstream/comrak", "crates/afm-book"]
 
 [workspace.package]
@@ -28,11 +25,8 @@ keywords      = ["markdown", "aozora", "japanese", "typography", "parser"]
 categories    = ["parser-implementations", "text-processing", "localization"]
 
 [workspace.lints.rust]
-# Hard bans — the compiler rejects these rather than warning.
 unsafe_code      = "forbid"
-# Identifier hygiene: all 日本語 appears as string literals, never as idents.
-# Deny rather than warn so the gate cannot be stepped past in a review.
-non_ascii_idents = "deny"
+non_ascii_idents = "deny" # all 日本語 is string literals, never identifiers
 
 # Strong signals that tend to mask real bugs.
 missing_debug_implementations = "warn"
@@ -57,23 +51,15 @@ keyword_idents_2024        = "warn"  # 2024-edition reserved keywords as idents
 variant_size_differences   = "warn"  # large enum variants — push to `Box`
 ambiguous_negative_literals = "warn" # `-1.pow(2)` precedence traps
 
-# Dead-code policy: the compiler already `warn`s about unused items, and our
-# `cargo clippy -- -D warnings` gate promotes that to an error at CI time. We
-# spell it out as `deny` here so the policy is visible in the manifest and
-# so a local `cargo build` (which doesn't pass `-D warnings`) still hard-fails
-# on unreferenced items — keeps stale recognisers / scaffolding code from
-# piling up across refactors.
+# `deny` so a plain `cargo build` (no `-D warnings`) also hard-fails on
+# unreferenced items, keeping stale scaffolding from piling up.
 dead_code = "deny"
 
 # Warn on edition-drift so we catch idioms deprecated by the next edition early.
 rust_2024_compatibility = { level = "warn", priority = -1 }
 
 [workspace.lints.rustdoc]
-# Docs are a shipped surface. All rustdoc lints are `deny` (matching the
-# sibling aozora repo): broken / private links, bad codeblocks, invalid
-# HTML, bare URLs, redundant links, and unescaped backticks are defects,
-# not smells. A genuinely work-in-progress doc surface takes a scoped
-# `#[allow(rustdoc::…, reason = "…")]`, never a blanket warn.
+# Docs are a shipped surface: all rustdoc lints are `deny` (matches aozora).
 broken_intra_doc_links       = "deny"
 private_intra_doc_links      = "deny"
 invalid_codeblock_attributes = "deny"
@@ -101,26 +87,11 @@ unnecessary_safety_comment = "warn"
 unnecessary_safety_doc     = "warn"
 missing_assert_message     = "warn"
 
-# Restriction group — hand-picked lints from clippy::restriction that
-# catch concrete bug-source patterns the plain pedantic/nursery groups
-# don't cover. The full restriction group is deliberately NOT enabled —
-# it contains mutually contradictory lints; each entry here is a
-# considered decision.
-#
-# `print_stdout` / `print_stderr` are NOT in this list because Cargo does
-# not allow combining `[lints] workspace = true` with per-crate
-# `[lints.clippy]` overrides (rust-lang/cargo#12697). We enforce the
-# "no stray println! in lib crates" rule via the strict-code grep gate
-# instead (`just strict-code`), which naturally scopes by path and
-# satisfies the feedback_no_warning_suppression rule structurally.
+# Hand-picked clippy::restriction lints (the full group has contradictory
+# lints, so it stays off). `print_stdout` / `print_stderr` can't live here —
+# Cargo rejects mixing workspace lints with per-crate overrides
+# (rust-lang/cargo#12697) — so `just strict-code` greps for stray println!.
 str_to_string                    = "warn"  # prefer `.into()` / `String::from`
-# `string_to_string` was removed from clippy in favour of `implicit_clone`;
-# the latter is already on via `pedantic`.
-# `string_slice` was considered and rejected: parser hot paths maintain
-# char-boundary invariants on indices by construction. Forcing `.get()` +
-# `unwrap_or` at every site would both obscure intent and double code size
-# in the tightest loops. Fuzz-testing and integration tests are the right
-# tool for validating these invariants, not a lint.
 absolute_paths                   = "warn"  # prefer `use`-imported names
 allow_attributes_without_reason  = "warn"  # belt-and-braces against strict-code gate
 empty_structs_with_brackets      = "warn"
@@ -142,52 +113,30 @@ rc_mutex                         = "warn"  # `Rc<Mutex<_>>` is a smell — threa
 lossy_float_literal              = "warn"
 suspicious_xor_used_as_pow       = "warn"  # `2 ^ 10` is 8, not 1024
 
-# Justified carve-outs. Keep this list short and documented.
-module_name_repetitions = "allow" # e.g. `aozora_syntax::SyntaxError` is clearer than fighting this
+# Justified carve-outs.
+module_name_repetitions = "allow" # `aozora_syntax::SyntaxError` reads clearer
 multiple_crate_versions = "allow" # transitive dep collisions are not our problem
-# `Options::afm_default()` and similar zero-arg builders are clearer
-# as functions than associated const items; the lint is over-eager
-# for our public surface.
-missing_const_for_fn    = "allow"
-# `redundant_pub_crate` (nursery) conflicts with rustc's `unreachable_pub`:
-# the former asks `pub(crate)` → `pub` inside private modules, the latter
-# asks `pub` → `pub(crate)` when unreachable. We treat `unreachable_pub` as
-# the source of truth and silence this one structurally.
-redundant_pub_crate     = "allow"
+missing_const_for_fn    = "allow" # zero-arg builders read clearer as fns
+redundant_pub_crate     = "allow" # conflicts with rustc's `unreachable_pub` (our source of truth)
 
 [workspace.dependencies]
-# Internal crate (the Markdown-integration layer that lives in this repo)
 afm-markdown = { version = "0.4.0", path = "crates/afm-markdown" }
-# Internal test-only crate. `publish = false` so the version is purely
-# a cargo-deny placeholder; the real coupling is the workspace path.
+# Test-only; `publish = false`, so the version is a cargo-deny placeholder.
 afm-markdown-test-support = { version = "0.4.0", path = "crates/afm-markdown-test-support" }
 
-# Sibling repo aozora — pure 青空文庫記法 parser. afm depends on the
-# single umbrella `aozora` crate (its designated front door), NOT the
-# internal `publish = false` build-block crates (aozora-syntax /
-# -pipeline / -render / -encoding / -spec) — so afm is insulated from
-# aozora's internal crate decomposition. Pinned to one upstream commit
-# SHA so `cargo update` can't silently advance it; bump cadence is one
-# PR per intentional aozora sync.
-#
-# To bump: replace the rev with the new aozora `main` HEAD, then
-#   cargo update -p aozora
-#
-# afm reaches the borrowed pipeline / renderer / encoding through
-# `aozora::{pipeline, syntax, render, encoding}` plus the curated
-# top-level re-exports (`aozora::{Diagnostic, render_node, Arena, ...}`),
-# so comrak still needs no Aozora-aware hooks (ADR-0001 budget = 0).
-# `default-features = false` keeps cst / query / wire / proptest / schema
-# out of the build graph; the dev-only proptest generators come in via
-# the `proptest` feature on the afm-markdown dev-dependency.
+# Sibling 青空文庫記法 parser. Depend on the umbrella `aozora` crate only, not
+# its internal build-block crates, so afm is insulated from its decomposition.
+# Pinned by commit SHA so `cargo update` can't advance it; bump = one PR per
+# intentional sync (replace `rev` with the new aozora HEAD, then
+# `cargo update -p aozora`). `default-features = false` keeps cst / query /
+# wire / proptest / schema out of the build graph.
 aozora = { version = "0.4.0", git = "https://github.com/P4suta/aozora.git", rev = "a53c632b1d1be4bfcbce7de010ab5b0843e98cc0", default-features = false }
 
-# comrak vendored fork (path, not crates.io).
-# `default-features = false` drops the comrak CLI (`cli` / `syntect` / `bon`)
-# which we don't consume; afm-cli is our own binary, not comrak's.
+# Vendored comrak fork (path, not crates.io). `default-features = false` drops
+# the comrak CLI (`cli` / `syntect` / `bon`); afm-cli is our own binary.
 comrak = { version = "0.52.0", path = "upstream/comrak", default-features = false }
 
-# Error handling — versions verified against crates.io 2026-04-23
+# Error handling
 thiserror = "2.0.18"
 anyhow    = "1.0"
 miette    = { version = "7.6.0", features = ["fancy"] }
@@ -223,10 +172,10 @@ clap = { version = "4.6.1", features = ["derive", "wrap_help", "env", "color", "
 # Testing
 proptest          = "1.11"
 pretty_assertions = "1.4.1"
-# Snapshot testing — verified against crates.io 2026-06-02.
+# Snapshot testing
 insta             = "1.47"
 
-# Benchmarking / profiling — versions verified against crates.io 2026-05-31
+# Benchmarking / profiling
 criterion = { version = "0.8", features = ["html_reports"] }
 dhat      = "0.3"
 

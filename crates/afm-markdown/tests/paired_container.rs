@@ -118,9 +118,7 @@ fn warichu_renders_inline_not_as_block_container() {
     // small-text side-note flowing with the surrounding prose). The
     // renderer must emit a single `<span class="afm-warichu">` pair
     // inside the host paragraph — *not* a block `<div>` that would
-    // split the sentence mid-stream (as the deprecated
-    // `ここから割り注` form used to). This test pins the fix for the
-    // 56656 `黄色い鑑札（…）` rendering bug.
+    // split the sentence mid-stream.
     let html = render_to_string("黄色い鑑札（［＃割り注］淫売婦の鑑札［＃割り注終わり］）をもって");
     assert!(
         html.contains(r#"<span class="afm-warichu">淫売婦の鑑札</span>"#),
@@ -232,10 +230,7 @@ fn container_with_multiple_child_blocks_captures_all() {
 // The Aozora annotation spec for 字下げ / 地付き
 // (<https://www.aozora.gr.jp/annotation/indent.html>) asks that a
 // second `ここから…` of the same family implicitly ends the previous
-// scope — they are state-changing, not stack-nesting. 罪と罰 (fixture
-// 56656) exercises this shape around the Malborough song and was
-// leaking a bare U+E003 (BLOCK_OPEN_SENTINEL) into the rendered HTML
-// until Phase 5's post_process fix.
+// scope — they are state-changing, not stack-nesting.
 // ---------------------------------------------------------------------------
 
 #[test]

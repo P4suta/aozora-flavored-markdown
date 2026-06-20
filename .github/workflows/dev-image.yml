@@ -1,22 +1,14 @@
 # Build and publish the afm dev container image to GHCR.
 #
-# This workflow exists so the main CI pipeline (ci.yml) can `docker
-# pull ghcr.io/p4suta/afm-dev:latest` instead of rebuilding the image
-# from scratch on every commit. The image carries the Rust toolchain,
-# nightly toolchain (for cargo-fuzz / cargo-udeps), all cargo dev
-# tools (cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-audit,
-# cargo-cliff, cargo-semver-checks, cargo-mutants, mold linker,
-# sccache, Node.js, mdbook, …) — building it from source on every
-# CI run takes 30-40 minutes which dominates total wall-clock.
+# Lets ci.yml `docker pull ghcr.io/p4suta/afm-dev:latest` instead of
+# rebuilding the toolchain + cargo dev tools image (30-40 min) on every
+# commit.
 #
-# Trigger conditions are deliberately narrow: the image only needs
-# rebuild when the Dockerfile, docker-compose.yml, or rust-toolchain
-# pin actually change. Routine source / Cargo.toml / workflow churn
-# does NOT republish.
+# Triggers are narrow on purpose: only rebuild when the Dockerfile,
+# docker-compose.yml, or rust-toolchain pin change.
 #
-# The workflow tags both `:latest` (mutable, used by ci.yml's pull
-# step) and `:<commit-sha>` (immutable, useful for git-bisect across
-# image-affecting changes).
+# Tags `:latest` (mutable, pulled by ci.yml) and `:<commit-sha>`
+# (immutable, for git-bisect across image-affecting changes).
 
 name: dev-image
 
@@ -54,8 +46,8 @@ jobs:
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5  # v4.1.0
 
       - name: Log in to GHCR
-        # PR builds from forks must not have GHCR credentials — we still
-        # build to verify but skip the login + push there.
+        # Fork PR builds have no GHCR credentials: build to verify but
+        # skip login + push.
         if: github.event_name != 'pull_request'
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
         with:

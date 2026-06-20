@@ -8,8 +8,7 @@
 //! Coverage targets:
 //!
 //! - Default UTF-8 path: plain text, Aozora ruby, bracket annotations
-//!   all render through the lexer + `post_process` pipeline and reach
-//!   stdout.
+//!   all render through the lexer + splice pipeline and reach stdout.
 //! - Shift_JIS path (`--encoding sjis`): the same pipeline accepts
 //!   legacy Aozora .txt byte streams without pre-conversion.
 //! - `check` subcommand: no-op on valid input, diagnostic on invalid.
