@@ -7,14 +7,23 @@ set dotenv-load := false
 
 # --- internal helpers ---------------------------------------------------------
 
+# `AFM_IN_CONTAINER=1` is baked into the dev/fuzz/ci images (see Dockerfile). On
+# the host it is unset, so every recipe wraps its tool in `docker compose run`
+# (ADR-0002). Inside one of those images — a `just shell`, a devcontainer, or a
+# Codespace — it is "1", so recipes run the tool DIRECTLY rather than nesting a
+# second container (there is no Docker daemon in there). One Justfile, both
+# worlds; no docker-in-docker.
+_in := env_var_or_default("AFM_IN_CONTAINER", "0")
+
 # Default run prefix for the interactive dev container (TTY attached)
-_dev := "docker compose run --rm dev"
+_dev := if _in == "1" { "" } else { "docker compose run --rm dev" }
 # Non-interactive variant for CI-like invocations (no TTY)
-_ci  := "docker compose run --rm --no-TTY ci"
+_ci  := if _in == "1" { "" } else { "docker compose run --rm --no-TTY ci" }
 # Nightly-bearing variant. The `dev` image is stable-only after the Dockerfile
 # fuzz-stage split; `_fuzz` is for recipes that need `cargo +nightly`
-# (`udeps`, every `fuzz*` recipe, `coverage-branch`).
-_fuzz := "docker compose run --rm fuzz"
+# (`udeps`, every `fuzz*` recipe, `coverage-branch`). Inside the `ci`/`fuzz`
+# image nightly is present, so the direct form works there too.
+_fuzz := if _in == "1" { "" } else { "docker compose run --rm fuzz" }
 
 # --- metadata -----------------------------------------------------------------
 
@@ -600,20 +609,21 @@ spec-refresh:
 
 # --- docs ---------------------------------------------------------------------
 
-# Build the mdbook documentation site
+# Build the mdbook documentation site. The dev/ci image ships mdbook, so inside
+# a container we build directly; on the host we use the dedicated `book` service.
 [group('docs')]
 book-build:
-    docker compose run --rm book mdbook build
+    {{ if _in == "1" { "cd crates/afm-book && mdbook build" } else { "docker compose run --rm book mdbook build" } }}
 
 # Serve the mdbook site at http://localhost:3000
 [group('docs')]
 book-serve:
-    docker compose up book
+    {{ if _in == "1" { "cd crates/afm-book && mdbook serve --hostname 0.0.0.0 --port 3000" } else { "docker compose up book" } }}
 
 # Check documentation links
 [group('docs')]
 book-linkcheck:
-    docker compose run --rm book mdbook-linkcheck
+    {{ if _in == "1" { "cd crates/afm-book && mdbook-linkcheck" } else { "docker compose run --rm book mdbook-linkcheck" } }}
 
 # New Architecture Decision Record (MADR template)
 [group('docs')]

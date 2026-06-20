@@ -151,11 +151,16 @@ COPY --from=cargo-tools /usr/local/bin/ /usr/local/bin/
 # scrubs the env and trips the sccache pin above).
 RUN rustup component add rustfmt clippy rust-src
 
+# AFM_IN_CONTAINER tells the Justfile it is already inside the dev image, so its
+# recipes run tools directly instead of nesting another `docker compose run`
+# (which has no daemon here). Lets `just shell`, devcontainers and Codespaces
+# use the same `just` recipes as the host. Inherited by the fuzz / ci stages.
 ENV CARGO_HOME=/cargo/home \
     CARGO_TARGET_DIR=/cargo/target \
     RUSTC_WRAPPER=sccache \
     SCCACHE_DIR=/cargo/sccache \
-    RUST_BACKTRACE=1
+    RUST_BACKTRACE=1 \
+    AFM_IN_CONTAINER=1
 
 # Pre-create the /cargo/* cache mount targets. They live OUTSIDE the
 # /workspace bind mount on purpose: nesting them under /workspace makes the
