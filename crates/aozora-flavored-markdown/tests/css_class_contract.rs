@@ -21,7 +21,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
-use aozora_flavored_markdown_test_support::AOZORA_MD_CLASSES;
+use aozora_flavored_markdown::html::render_to_string;
+use aozora_flavored_markdown_test_support::{AOZORA_MD_CLASSES, check_css_class_contract};
 
 /// Absolute path to one of the theme CSS files. Resolving via
 /// `CARGO_MANIFEST_DIR` keeps the test stable regardless of the
@@ -134,4 +135,123 @@ fn collect_class_selectors_tolerates_trailing_hyphen() {
     let css = ".aozora-md- { }";
     let selectors = collect_class_selectors(css);
     assert!(selectors.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Render-direction contract: construct → aozora-md-* class → AOZORA_MD_CLASSES
+//
+// The theme tests above prove AOZORA_MD_CLASSES ⊆ CSS. The two tests below
+// close the other half of the loop:
+//
+//   (1) every aozora-md-* class a known construct emits is recognised by
+//       AOZORA_MD_CLASSES — a *new* upstream class surfaces here by name the
+//       moment the corpus reaches it (pin bump), instead of shipping silent
+//       unstyled markup; and
+//   (2) every AOZORA_MD_CLASSES entry is actually emitted by some construct —
+//       a *stale* entry (e.g. `aozora-md-double-ruby` after an upstream
+//       rename) surfaces here — modulo the documented UNEXERCISED gaps.
+//
+// Sources are copied verbatim from existing passing tests / aozora-render's
+// own tests at the pinned SHA — none authored from memory.
+// ---------------------------------------------------------------------------
+
+/// One verified source per class-emitting aozora construct.
+const RENDER_CORPUS: &[(&str, &str)] = &[
+    ("ruby (explicit)", "｜青梅《おうめ》"),
+    ("forward bouten (goma/right)", "対象［＃「対象」に傍点］"),
+    ("left bouten", "X［＃「X」の左に傍点］"),
+    ("tcy", "20［＃「20」は縦中横］"),
+    ("gaiji", "※［＃二の字点、1-2-22］"),
+    ("kaeriten", "学［＃二、レ点］而時習之"),
+    ("unknown annotation", "前［＃ほげふが］後"),
+    ("page break", "前\n\n［＃改ページ］\n\n後"),
+    ("section break (choho)", "前\n\n［＃改丁］\n\n後"),
+    ("indent leaf", "前［＃地から１字下げ］後"),
+    ("align-end leaf", "前［＃地付き］末尾"),
+    (
+        "indent container",
+        "［＃ここから字下げ］\n本文\n［＃ここで字下げ終わり］",
+    ),
+    (
+        "align-end container",
+        "［＃ここから地付き］\n後書き\n［＃ここで地付き終わり］",
+    ),
+    (
+        "keigakomi container",
+        "［＃罫囲み］\n引用\n［＃罫囲み終わり］",
+    ),
+    (
+        "warichu (inline)",
+        "黄色い鑑札（［＃割り注］淫売婦の鑑札［＃割り注終わり］）をもって",
+    ),
+    ("double ruby", "《《強調》》"),
+];
+
+/// `AOZORA_MD_CLASSES` entries the curated corpus does not (yet) emit at the
+/// current pin, each with a justification. Keep this short — an entry here is
+/// a known coverage gap, not license to skip new classes.
+const UNEXERCISED: &[&str] = &[
+    // 割り注 renders inline (`aozora-md-warichu`); the deprecated block form
+    // `［＃ここから割り注］…` is not pinned in this corpus.
+    "aozora-md-container-warichu",
+    // The leaf indent span is emitted by `AozoraNode::Indent` only via a
+    // directly-constructed node — no source-string trigger is pinned. The
+    // *container* form (`aozora-md-container-indent`) is exercised above.
+    "aozora-md-indent",
+    // Kanbun 返り点: no verified source trigger surfaces it through the render
+    // path at the current pin. (Candidate follow-up.)
+    "aozora-md-kaeriten",
+];
+
+/// Collect every `aozora-md-*` class token appearing in a `class="..."`
+/// attribute in `html`. (The corpus emits no `<pre><code>` blocks, so a plain
+/// scan is sufficient here.)
+fn collect_class_tokens(html: &str, out: &mut HashSet<String>) {
+    let mut rest = html;
+    while let Some(i) = rest.find("class=\"") {
+        let after = &rest[i + "class=\"".len()..];
+        let Some(end) = after.find('"') else { break };
+        for tok in after[..end].split_whitespace() {
+            if tok.starts_with("aozora-md-") {
+                out.insert(tok.to_owned());
+            }
+        }
+        rest = &after[end + 1..];
+    }
+}
+
+#[test]
+fn every_rendered_class_is_recognised() {
+    for (label, src) in RENDER_CORPUS {
+        let html = render_to_string(src);
+        if let Err(violation) = check_css_class_contract(&html) {
+            panic!(
+                "corpus item {label:?} emitted an aozora-md-* class not in \
+                 AOZORA_MD_CLASSES:\n  {violation}\n  src = {src:?}\n  html = {html}"
+            );
+        }
+    }
+}
+
+#[test]
+fn every_class_is_exercised_by_the_corpus() {
+    let mut emitted = HashSet::new();
+    for (_label, src) in RENDER_CORPUS {
+        collect_class_tokens(&render_to_string(src), &mut emitted);
+    }
+    let exercised = |base: &str| {
+        emitted
+            .iter()
+            .any(|t| t == base || t.starts_with(&format!("{base}-")))
+    };
+    let stale: Vec<&str> = AOZORA_MD_CLASSES
+        .iter()
+        .copied()
+        .filter(|base| !exercised(base) && !UNEXERCISED.contains(base))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "AOZORA_MD_CLASSES entries no construct emits — remove the stale entry, \
+         add a corpus source, or document it in UNEXERCISED: {stale:?}"
+    );
 }
