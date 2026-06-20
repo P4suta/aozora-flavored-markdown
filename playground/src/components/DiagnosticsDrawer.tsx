@@ -42,8 +42,8 @@ const DiagnosticsDrawer: Component<DiagnosticsDrawerProps> = (props) => {
           <ul class="aozora-md-pg-diagnostics-list">
             <For each={props.diagnostics()}>
               {(d) => (
-                <li class="aozora-md-pg-diagnostics-item" data-level={d.level}>
-                  <span class="aozora-md-pg-diagnostics-level">{d.level}</span>
+                <li class="aozora-md-pg-diagnostics-item" data-level={d.severity}>
+                  <span class="aozora-md-pg-diagnostics-level">{d.severity}</span>
                   <code class="aozora-md-pg-diagnostics-code">{d.code}</code>
                   <span class="aozora-md-pg-diagnostics-message">{d.message}</span>
                 </li>
