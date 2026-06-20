@@ -34,7 +34,7 @@ import type {
 
 export type {
   Diagnostic,
-  DiagnosticLevel,
+  Severity,
   DiagnosticSource,
   IrBlock,
   IrDocument,

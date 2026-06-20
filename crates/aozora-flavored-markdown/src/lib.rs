@@ -47,6 +47,7 @@
 
 mod ast_splice;
 mod code_block_mask;
+pub mod diagnostics;
 pub mod html;
 pub mod ir;
 mod sentinel_stream;
@@ -71,7 +72,8 @@ pub mod sentinels {
     pub const BLOCK_CLOSE: char = aozora::BLOCK_CLOSE_SENTINEL;
 }
 
-pub use aozora::{Diagnostic, DiagnosticSource, Severity};
+#[doc(inline)]
+pub use diagnostics::{Diagnostic, DiagnosticSource, Severity, Span};
 
 use core::mem;
 
@@ -378,7 +380,7 @@ pub fn render(input: &str, options: &Options) -> Rendered {
     if !source_within_span_budget(input) {
         return Rendered {
             html: String::new(),
-            diagnostics: Vec::new(),
+            diagnostics: vec![Diagnostic::source_too_large(input.len())],
         };
     }
     let (html, diagnostics, ()) = drive_pipeline(input, options, |_root, _lex_out| ());
@@ -426,7 +428,7 @@ pub fn render_to_ir(input: &str, options: &Options) -> RenderedIr {
         return RenderedIr {
             ir: ir::IrDocument::default(),
             html: String::new(),
-            diagnostics: Vec::new(),
+            diagnostics: vec![Diagnostic::source_too_large(input.len())],
         };
     }
     let (html, diagnostics, ir) = drive_pipeline(input, options, ir::build_ir);
@@ -484,7 +486,8 @@ where
     ast_splice::splice_into_ast(root, &comrak_arena, &lex_out);
 
     let html = format_root(root, options, Some(mask_originals.as_slice()));
-    (html, lex_out.diagnostics, extra)
+    let diagnostics = lex_out.diagnostics.iter().map(Diagnostic::from).collect();
+    (html, diagnostics, extra)
 }
 
 /// Common HTML finalisation: comrak-format the root (per top-level
@@ -573,7 +576,7 @@ pub fn render_blocks_to_ir(
     options: &Options,
 ) -> (Vec<RenderedBlock>, Vec<Diagnostic>) {
     if !source_within_span_budget(input) {
-        return (Vec::new(), Vec::new());
+        return (Vec::new(), vec![Diagnostic::source_too_large(input.len())]);
     }
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
@@ -602,7 +605,8 @@ pub fn render_blocks_to_ir(
     };
     ast_splice::splice_into_ast(root, &comrak_arena, &lex_out);
     let blocks = collect_rendered_blocks(root, options, blocks_ir);
-    (blocks, lex_out.diagnostics)
+    let diagnostics = lex_out.diagnostics.iter().map(Diagnostic::from).collect();
+    (blocks, diagnostics)
 }
 
 fn collect_rendered_blocks<'a>(

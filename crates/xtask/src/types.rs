@@ -210,15 +210,22 @@ const ENVELOPE: &str = "// =====================================================
 // introspectable here) and guarded by the byte-compare drift gate.
 // =========================================================
 
-export type DiagnosticLevel = \"error\" | \"warning\" | \"note\";
+export type Severity = \"error\" | \"warning\" | \"note\";
 export type DiagnosticSource = \"source\" | \"internal\";
 
-/** Diagnostic projection on the JS wire (aozora-flavored-markdown-wasm `DiagnosticOut`). */
+/** Byte-offset span into the (sanitized) source, end-exclusive. */
+export interface Span {
+  start: number;
+  end: number;
+}
+
+/** A render diagnostic (lexer or afm host-level), serialised by the wasm bridge. Mirrors `aozora_flavored_markdown::Diagnostic`. */
 export interface Diagnostic {
-  level: DiagnosticLevel;
+  severity: Severity;
   source: DiagnosticSource;
   code: string;
   message: string;
+  span: Span;
 }
 
 /** Result envelope returned by `renderAfm`. */

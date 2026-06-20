@@ -65,10 +65,11 @@ const App: Component = () => {
         ir: null,
         diagnostics: [
           {
-            level: 'error',
+            severity: 'error',
             source: 'internal',
             code: 'playground::hash',
             message: String(err),
+            span: { start: 0, end: 0 },
           },
         ],
       });
@@ -87,10 +88,11 @@ const App: Component = () => {
         ir: null,
         diagnostics: [
           {
-            level: 'error',
+            severity: 'error',
             source: 'internal',
             code: 'playground::render',
             message: String(err),
+            span: { start: 0, end: 0 },
           },
         ],
       });

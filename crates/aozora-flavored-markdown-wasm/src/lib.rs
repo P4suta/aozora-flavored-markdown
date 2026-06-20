@@ -54,34 +54,7 @@ struct RenderResult {
     /// renderers; this string is a debug / fallback surface and a
     /// lifeline for hosts that don't ship a JS renderer.
     html: String,
-    diagnostics: Vec<DiagnosticOut>,
-}
-
-/// Wire-format projection of [`Diagnostic`] for the JS side.
-///
-/// `level` (`"error" | "warning" | "note"`) and `source`
-/// (`"source" | "internal"`) come from the upstream stable wire-format
-/// strings. `code` is the dotted machine-readable identifier (e.g.
-/// `"aozora::lex::source_contains_pua"`). `message` is the human
-/// readable rendering via `Diagnostic`'s `Display` impl — already
-/// localised by the upstream `#[error("...")]` macro.
-#[derive(Serialize)]
-struct DiagnosticOut {
-    level: &'static str,
-    source: &'static str,
-    code: &'static str,
-    message: String,
-}
-
-impl DiagnosticOut {
-    fn from_diagnostic(d: &Diagnostic) -> Self {
-        Self {
-            level: d.severity().as_wire_str(),
-            source: d.source().as_wire_str(),
-            code: d.code(),
-            message: d.to_string(),
-        }
-    }
+    diagnostics: Vec<Diagnostic>,
 }
 
 /// Optional render configuration accepted from JS. All fields are
@@ -168,11 +141,7 @@ pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
     let result = RenderResult {
         ir: rendered.ir,
         html: rendered.html,
-        diagnostics: rendered
-            .diagnostics
-            .iter()
-            .map(DiagnosticOut::from_diagnostic)
-            .collect(),
+        diagnostics: rendered.diagnostics,
     };
     serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -218,7 +187,7 @@ struct BlockResult {
 #[derive(Serialize)]
 struct BlocksResult {
     blocks: Vec<BlockResult>,
-    diagnostics: Vec<DiagnosticOut>,
+    diagnostics: Vec<Diagnostic>,
 }
 
 /// Per-block streaming render.
@@ -253,10 +222,7 @@ pub fn render_blocks(source: &str, options: JsValue) -> Result<JsValue, JsValue>
                 source_line: b.source_line,
             })
             .collect(),
-        diagnostics: diagnostics
-            .iter()
-            .map(DiagnosticOut::from_diagnostic)
-            .collect(),
+        diagnostics,
     };
     serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
 }

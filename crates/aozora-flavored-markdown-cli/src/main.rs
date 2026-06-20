@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs, process::ExitCode};
 
 use aozora::encoding::decode_sjis;
-use aozora_flavored_markdown::{Options, render};
+use aozora_flavored_markdown::{Diagnostic, DiagnosticSource, Options, Severity, Span, render};
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueEnum};
 use miette::{IntoDiagnostic, Result, WrapErr};
 
@@ -170,46 +170,36 @@ struct DiagnosticReport {
 
 #[derive(Debug, serde::Serialize)]
 struct DiagnosticJson {
-    /// Stable `aozora::…` code string.
+    /// Stable machine-readable code string.
     code: &'static str,
-    /// `error` / `warning` / `note`.
-    severity: &'static str,
+    /// `error` / `warning` / `note` (serialised from [`Severity`]).
+    severity: Severity,
     /// `source` (user input) / `internal` (pipeline bug).
-    source: &'static str,
-    /// Human-readable message (Display). Not part of the stability contract.
+    source: DiagnosticSource,
+    /// Human-readable message. Not part of the stability contract.
     message: String,
-    span: SpanJson,
+    /// Byte-offset span into the (decoded) source.
+    span: Span,
     /// 1-based line of `span.start`.
     line: u32,
     /// 1-based character column of `span.start`.
     column: u32,
 }
 
-/// Byte-offset span into the (decoded) source.
-#[derive(Debug, serde::Serialize)]
-struct SpanJson {
-    start: u32,
-    end: u32,
-}
-
 impl DiagnosticReport {
     const SCHEMA: &'static str = "aozora-md.diagnostics.v1";
 
-    fn build(diagnostics: &[aozora_flavored_markdown::Diagnostic], source: &str) -> Self {
+    fn build(diagnostics: &[Diagnostic], source: &str) -> Self {
         let diagnostics = diagnostics
             .iter()
             .map(|d| {
-                let span = d.span();
-                let (line, column) = byte_offset_to_line_col(source, span.start);
+                let (line, column) = byte_offset_to_line_col(source, d.span.start);
                 DiagnosticJson {
-                    code: d.code(),
-                    severity: d.severity().as_wire_str(),
-                    source: d.source().as_wire_str(),
-                    message: d.to_string(),
-                    span: SpanJson {
-                        start: span.start,
-                        end: span.end,
-                    },
+                    code: d.code,
+                    severity: d.severity,
+                    source: d.source,
+                    message: d.message.clone(),
+                    span: d.span,
                     line,
                     column,
                 }
@@ -440,7 +430,7 @@ fn read_input(input: &Path, encoding: InputEncoding) -> Result<String> {
 /// output. Either way the stable `aozora::…` codes let language servers and CI
 /// gates key on identifiers rather than free-form messages.
 fn emit_diagnostics(
-    diagnostics: &[aozora_flavored_markdown::Diagnostic],
+    diagnostics: &[Diagnostic],
     source: &str,
     format: DiagFormat,
     stream: DiagStream,
@@ -448,7 +438,7 @@ fn emit_diagnostics(
     match format {
         DiagFormat::Human => {
             for d in diagnostics {
-                stream.write_line(&format!("diagnostic [{}]: {d}", d.code()));
+                stream.write_line(&format!("diagnostic [{}]: {}", d.code, d.message));
             }
         }
         DiagFormat::Json => {
