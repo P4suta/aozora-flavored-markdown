@@ -74,6 +74,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   devcontainer now targets the full-tool `ci` image, so the complete
   `just ci` runs inside Codespaces, and `postCreateCommand` installs the
   git hooks.
+- **`just strict-code` now permits reasoned `#[allow(..., reason = "…")]`**
+  (Rust 1.81+) and forbids only bare `#[allow]` — matching the
+  `clippy::allow_attributes_without_reason` lint the workspace already
+  enforces, which the previous blanket ban contradicted. It also adds an
+  `.expect()` regression tripwire over `afm-markdown` source (baseline 8)
+  and the `cargo-deny` `allow-wildcard-paths` policy for path-only
+  internal dev-deps.
 
 ### Fixed
 
