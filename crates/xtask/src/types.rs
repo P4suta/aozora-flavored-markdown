@@ -15,9 +15,12 @@
 //! string assembly (mirroring the sibling aozora repo's xtask). Three
 //! mechanisms keep it honest against the Rust types:
 //!
-//! 1. **Variant completeness** — the `assert_*_variants` exhaustive
-//!    matches make a new `IrBlock` / `IrInline` variant a *compile*
-//!    error until the generated union is updated.
+//! 1. **Variant completeness** — `assert_*_variants` exhaustive matches
+//!    in `afm_markdown::ir::types` make a new `IrBlock` / `IrInline`
+//!    variant a *compile* error until the generated union is updated.
+//!    They live in the owning crate because those enums are
+//!    `#[non_exhaustive]` (ADR-0013), which forbids an out-of-crate
+//!    exhaustive match.
 //! 2. **Field completeness** — a test serialises a fully-populated
 //!    sample of every IR type and asserts each emitted wire key appears
 //!    as a property in the rendered `.d.ts`.
@@ -32,7 +35,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use afm_markdown::ir::{IrBlock, IrInline};
 use anyhow::{Context, Result, bail};
 
 use crate::{TypesArgs, TypesOp};
@@ -245,51 +247,11 @@ export interface RenderOptions {
 }
 ";
 
-// ===================================================================
-// Variant-completeness pins
-//
-// afm's analog of aozora's `::ALL` auto-flow. The generated unions
-// above are hand-written, so these exhaustive matches make a *new*
-// `IrBlock` / `IrInline` variant a compile error until the union (and
-// the test samples below) are updated. The `const _: fn(...) = ...`
-// coercions reference the functions so they are not dead code.
-// ===================================================================
-
-const _: fn(&IrBlock) = assert_block_variants;
-const _: fn(&IrInline) = assert_inline_variants;
-
-fn assert_block_variants(block: &IrBlock) {
-    match block {
-        IrBlock::Paragraph { .. }
-        | IrBlock::Heading { .. }
-        | IrBlock::Blockquote { .. }
-        | IrBlock::List { .. }
-        | IrBlock::CodeBlock { .. }
-        | IrBlock::ThematicBreak { .. }
-        | IrBlock::Table { .. }
-        | IrBlock::Container { .. }
-        | IrBlock::PageBreak { .. }
-        | IrBlock::SectionBreak { .. } => {}
-    }
-}
-
-fn assert_inline_variants(inline: &IrInline) {
-    match inline {
-        IrInline::Text { .. }
-        | IrInline::Code { .. }
-        | IrInline::Strong { .. }
-        | IrInline::Emphasis { .. }
-        | IrInline::Link { .. }
-        | IrInline::Image { .. }
-        | IrInline::LineBreak { .. }
-        | IrInline::Ruby { .. }
-        | IrInline::DoubleRuby { .. }
-        | IrInline::Bouten { .. }
-        | IrInline::Gaiji { .. }
-        | IrInline::Tcy { .. }
-        | IrInline::Annotation { .. } => {}
-    }
-}
+// Variant-completeness witnesses now live in `afm_markdown::ir::types`
+// (the crate that owns `IrBlock` / `IrInline`): those enums are
+// `#[non_exhaustive]` (ADR-0013), so an exhaustive match is only possible
+// in the owning crate. The field- and tag-completeness tests below still
+// guard the hand-written `.d.ts` union from here.
 
 #[cfg(test)]
 mod tests {

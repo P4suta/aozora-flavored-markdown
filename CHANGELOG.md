@@ -89,6 +89,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   change. The `lint` job is now a parallel matrix (fmt-check / clippy /
   typos / strict-code), and the completions/man drift check
   (`dist-assets-check`) and doctests (`test-doc`) are first-class CI jobs.
+- **Public IR enums `IrBlock` / `IrInline` are now `#[non_exhaustive]`**
+  ([ADR-0013](docs/adr/0013-public-ir-enums-non-exhaustive.md)) so a future
+  青空文庫 notation can be added as a new variant without breaking external
+  Rust `match`es. The serde/JSON contract is unchanged; the variant-
+  completeness witnesses moved into `afm-markdown` (the owning crate). The
+  ADR index now also lists the previously-missing ADR-0012.
 
 ### Fixed
 

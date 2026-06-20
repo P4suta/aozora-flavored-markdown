@@ -22,6 +22,9 @@ pub struct IrDocument {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
+// New Aozora notations land as new variants; `#[non_exhaustive]` (ADR-0013)
+// lets that happen in a minor release without breaking external `match`es.
+#[non_exhaustive]
 pub enum IrBlock {
     Paragraph {
         children: Vec<IrInline>,
@@ -142,6 +145,9 @@ pub enum IrTableAlign {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
+// See `IrBlock`: `#[non_exhaustive]` (ADR-0013) keeps new inline notations
+// additive for external consumers.
+#[non_exhaustive]
 pub enum IrInline {
     Text {
         value: String,
@@ -284,4 +290,52 @@ pub struct Range {
 pub struct Position {
     pub line: u32,
     pub column: u32,
+}
+
+// ---------------------------------------------------------------------
+// Variant-completeness witnesses
+//
+// `IrBlock` / `IrInline` are `#[non_exhaustive]` (ADR-0013), so an
+// exhaustive `match` is impossible from another crate — which is exactly
+// why these witnesses live here, in the owning crate, where an exhaustive
+// match is still allowed. Adding a variant makes them a *compile* error
+// until it is listed below; that is the reminder to also extend the
+// hand-written TypeScript union and its field/tag samples in
+// `crates/xtask/src/types.rs` (the `.d.ts` drift gate). The
+// `const _: fn(...) = ...` coercions reference the functions so they are
+// not dead code.
+const _: fn(&IrBlock) = assert_block_variants;
+const _: fn(&IrInline) = assert_inline_variants;
+
+fn assert_block_variants(block: &IrBlock) {
+    match block {
+        IrBlock::Paragraph { .. }
+        | IrBlock::Heading { .. }
+        | IrBlock::Blockquote { .. }
+        | IrBlock::List { .. }
+        | IrBlock::CodeBlock { .. }
+        | IrBlock::ThematicBreak { .. }
+        | IrBlock::Table { .. }
+        | IrBlock::Container { .. }
+        | IrBlock::PageBreak { .. }
+        | IrBlock::SectionBreak { .. } => {}
+    }
+}
+
+fn assert_inline_variants(inline: &IrInline) {
+    match inline {
+        IrInline::Text { .. }
+        | IrInline::Code { .. }
+        | IrInline::Strong { .. }
+        | IrInline::Emphasis { .. }
+        | IrInline::Link { .. }
+        | IrInline::Image { .. }
+        | IrInline::LineBreak { .. }
+        | IrInline::Ruby { .. }
+        | IrInline::DoubleRuby { .. }
+        | IrInline::Bouten { .. }
+        | IrInline::Gaiji { .. }
+        | IrInline::Tcy { .. }
+        | IrInline::Annotation { .. } => {}
+    }
 }
