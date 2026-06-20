@@ -40,7 +40,7 @@ const EditorPane: Component<EditorPaneProps> = (props) => {
     handle = undefined;
   });
 
-  return <div class="afm-pg-editor-mount" ref={mount} />;
+  return <div class="aozora-md-pg-editor-mount" ref={mount} />;
 };
 
 export default EditorPane;

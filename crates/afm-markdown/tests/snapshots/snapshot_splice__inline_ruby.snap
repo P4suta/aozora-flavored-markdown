@@ -1,5 +1,0 @@
----
-source: crates/afm-markdown/tests/snapshot_splice.rs
-expression: "render(\"｜青梅《おうめ》へ\")"
----
-<p><ruby>青梅<rp>(</rp><rt>おうめ</rt><rp>)</rp></ruby>へ</p>

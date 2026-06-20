@@ -1,14 +1,14 @@
-# cargo publish workflow for the afm workspace.
+# cargo publish workflow for the aozora-flavored-markdown workspace.
 #
 # Publishes the two library/binary crates to crates.io in dependency
-# (topological) order: `afm-markdown` (leaf) then `afm-cli` (depends on it).
+# (topological) order: `aozora-flavored-markdown` (leaf) then `aozora-flavored-markdown-cli` (depends on it).
 # Each `cargo publish` waits for its crate to appear in the crates.io index
-# before returning (cargo >= 1.66), so afm-cli's resolution finds the
-# afm-markdown version just uploaded — no manual `sleep` between steps.
+# before returning (cargo >= 1.66), so aozora-flavored-markdown-cli's resolution finds the
+# aozora-flavored-markdown version just uploaded — no manual `sleep` between steps.
 #
-# Members marked `publish = false` are intentionally absent: afm-wasm (ships
-# via wasm-pack/npm), afm-markdown-test-support and xtask (dev-only), and
-# afm-book (the mdbook source, not a crate).
+# Members marked `publish = false` are intentionally absent: aozora-flavored-markdown-wasm (ships
+# via wasm-pack/npm), aozora-flavored-markdown-test-support and xtask (dev-only), and
+# aozora-flavored-markdown-book (the mdbook source, not a crate).
 #
 # ADR-0002 scope exception: this runs on the native runner toolchain rather
 # than the dev image (like the `msrv` CI job). Publishing is a release
@@ -23,13 +23,13 @@
 #  the publish-new and publish-update scopes — the first run creates the
 #  brand-new crates.)
 #
-# NOTE on dry-run coverage: only the dependency-free leaf (`afm-markdown`)
-# can be dry-run before anything is on crates.io; an afm-cli dry-run fails
-# because its just-bumped afm-markdown dep isn't on the registry yet. The
+# NOTE on dry-run coverage: only the dependency-free leaf (`aozora-flavored-markdown`)
+# can be dry-run before anything is on crates.io; an aozora-flavored-markdown-cli dry-run fails
+# because its just-bumped aozora-flavored-markdown dep isn't on the registry yet. The
 # real correctness gate is a green `ci-success` before tagging; the
 # per-crate verify build that `cargo publish` runs is the final pre-upload
-# check. Name availability is NOT checked by dry-run — `afm-markdown` /
-# `afm-cli` were verified free on crates.io before the first run.
+# check. Name availability is NOT checked by dry-run — `aozora-flavored-markdown` /
+# `aozora-flavored-markdown-cli` were verified free on crates.io before the first run.
 
 name: publish-crates
 
@@ -37,7 +37,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Dry-run only (no upload): packages + verifies afm-markdown"
+        description: "Dry-run only (no upload): packages + verifies aozora-flavored-markdown"
         type: boolean
         default: true
 
@@ -63,8 +63,8 @@ jobs:
       # Metadata smoke test — always runs, even for a live dispatch, so a
       # packaging / metadata regression surfaces before any upload. Only the
       # leaf crate (no unpublished internal deps) can be dry-run pre-publish.
-      - name: Dry-run afm-markdown (metadata smoke test)
-        run: cargo publish -p afm-markdown --dry-run --locked
+      - name: Dry-run aozora-flavored-markdown (metadata smoke test)
+        run: cargo publish -p aozora-flavored-markdown --dry-run --locked
 
       # Live publish in topological order. Resumable + rate-limit aware:
       # each crate is (a) skipped if its version is already on the registry —
@@ -75,7 +75,7 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
         run: |
-          ua="afm-release (+https://github.com/P4suta/afm)"
+          ua="aozora-md-release (+https://github.com/P4suta/afm)"
           ver="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
           echo "Publishing workspace version: ${ver}"
           publish_one() {
@@ -104,7 +104,7 @@ jobs:
               return 1
             done
           }
-          for crate in afm-markdown afm-cli; do
+          for crate in aozora-flavored-markdown aozora-flavored-markdown-cli; do
             echo "::group::publish ${crate}"
             publish_one "${crate}" || exit 1
             echo "::endgroup::"

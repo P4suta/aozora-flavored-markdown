@@ -4,23 +4,23 @@
     <!-- A strict Content-Security-Policy meta tag is injected here at build
          time only (see PROD_CSP in vite.config.ts): defense-in-depth over the
          renderer's escaping — the preview is mounted via innerHTML, but the
-         afm renderer entity-escapes all text and emits no active markup. It is
+         aozora-md renderer entity-escapes all text and emits no active markup. It is
          build-time-only because dev mode needs an HMR WebSocket that
          connect-src 'self' would block and a <meta> CSP cannot be relaxed
          per-environment. -->
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>afm playground — Aozora Flavored Markdown</title>
+    <title>aozora-md playground — Aozora Flavored Markdown</title>
     <meta
       name="description"
-      content="Browser playground for Aozora Flavored Markdown (afm). Try CommonMark + GFM + 青空文庫記法 (ruby, bouten, 縦中横, ...) live."
+      content="Browser playground for Aozora Flavored Markdown (aozora-md). Try CommonMark + GFM + 青空文庫記法 (ruby, bouten, 縦中横, ...) live."
     />
-    <link id="afm-theme" rel="stylesheet" href="" />
+    <link id="aozora-md-theme" rel="stylesheet" href="" />
   </head>
   <body>
     <div id="app">
-      <div id="boot-overlay" role="status" aria-live="polite">afm を読み込み中…</div>
+      <div id="boot-overlay" role="status" aria-live="polite">aozora-md を読み込み中…</div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

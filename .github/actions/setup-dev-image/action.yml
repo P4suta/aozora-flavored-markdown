@@ -1,5 +1,5 @@
 # Composite action: install `just`, wire sccache to the GitHub Actions
-# cache backend, and provision the afm dev image (pulled from GHCR, or
+# cache backend, and provision the aozora-flavored-markdown dev image (pulled from GHCR, or
 # built locally from the in-tree Dockerfile if the pull fails).
 #
 # The pull saves ~30 min over an inline build; the fallback keeps CI
@@ -7,11 +7,11 @@
 # outage, fork PR without packages read).
 #
 # The GHCR image is the `ci` stage (a superset of dev -> fuzz -> ci), so
-# it's tagged as all three `afm-{dev,fuzz,ci}:local` to satisfy every
+# it's tagged as all three `aozora-md-{dev,fuzz,ci}:local` to satisfy every
 # compose service from the single pulled image.
 
 name: setup-dev-image
-description: Pull (or build) the afm dev image, install `just`, and enable sccache GHA backend.
+description: Pull (or build) the aozora-flavored-markdown dev image, install `just`, and enable sccache GHA backend.
 
 runs:
   using: composite
@@ -42,13 +42,13 @@ runs:
     # (UID 1000) for host-owned bind-mount writes in local dev, but the
     # runner's checkout is owned by a different UID, so a non-root container
     # can't write generated files (wasm pkg/, mdbook book/, dist/) into it.
-    # Read by `user:` in docker-compose.yml via the AFM_UID/AFM_GID defaults.
+    # Read by `user:` in docker-compose.yml via the AOZORA_MD_UID/AOZORA_MD_GID defaults.
     - name: Run compose containers as root on CI
       shell: bash
       run: |
         {
-          echo "AFM_UID=0"
-          echo "AFM_GID=0"
+          echo "AOZORA_MD_UID=0"
+          echo "AOZORA_MD_GID=0"
         } >> "$GITHUB_ENV"
 
     # Log in to GHCR with GITHUB_TOKEN. Skipped on fork PRs (token lacks
@@ -65,14 +65,14 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        if docker pull ghcr.io/p4suta/afm-dev:latest; then
-          docker tag ghcr.io/p4suta/afm-dev:latest afm-dev:local
-          docker tag ghcr.io/p4suta/afm-dev:latest afm-fuzz:local
-          docker tag ghcr.io/p4suta/afm-dev:latest afm-ci:local
-          echo "::notice title=dev image::Pulled afm-dev:latest from GHCR"
+        if docker pull ghcr.io/p4suta/aozora-md-dev:latest; then
+          docker tag ghcr.io/p4suta/aozora-md-dev:latest aozora-md-dev:local
+          docker tag ghcr.io/p4suta/aozora-md-dev:latest aozora-md-fuzz:local
+          docker tag ghcr.io/p4suta/aozora-md-dev:latest aozora-md-ci:local
+          echo "::notice title=dev image::Pulled aozora-md-dev:latest from GHCR"
         else
           echo "::warning title=dev image::GHCR pull failed; falling back to local Dockerfile build"
           docker compose build dev
           docker compose build fuzz
-          docker tag afm-fuzz:local afm-ci:local
+          docker tag aozora-md-fuzz:local aozora-md-ci:local
         fi

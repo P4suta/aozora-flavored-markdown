@@ -13,27 +13,27 @@
 
 import { EditorView } from '@codemirror/view';
 
-export const afmEditorTheme = EditorView.theme({
+export const aozoraMdEditorTheme = EditorView.theme({
   '&': {
-    background: 'var(--afm-pg-bg-elevated)',
-    color: 'var(--afm-pg-text)',
+    background: 'var(--aozora-md-pg-bg-elevated)',
+    color: 'var(--aozora-md-pg-text)',
   },
   '&.cm-focused': { outline: 'none' },
-  '.cm-content': { caretColor: 'var(--afm-pg-accent)' },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--afm-pg-accent)' },
+  '.cm-content': { caretColor: 'var(--aozora-md-pg-accent)' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--aozora-md-pg-accent)' },
   '.cm-gutters': {
-    background: 'var(--afm-pg-bg)',
-    color: 'var(--afm-pg-text-soft)',
-    borderRight: '1px solid var(--afm-pg-border)',
+    background: 'var(--aozora-md-pg-bg)',
+    color: 'var(--aozora-md-pg-text-soft)',
+    borderRight: '1px solid var(--aozora-md-pg-border)',
   },
-  '.cm-activeLine': { background: 'var(--afm-pg-accent-soft)' },
-  '.cm-activeLineGutter': { background: 'var(--afm-pg-accent-soft)' },
+  '.cm-activeLine': { background: 'var(--aozora-md-pg-accent-soft)' },
+  '.cm-activeLineGutter': { background: 'var(--aozora-md-pg-accent-soft)' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection':
     {
-      background: 'var(--afm-pg-accent-soft)',
+      background: 'var(--aozora-md-pg-accent-soft)',
     },
   '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
-    background: 'var(--afm-pg-accent-soft)',
-    outline: '1px solid var(--afm-pg-border)',
+    background: 'var(--aozora-md-pg-accent-soft)',
+    outline: '1px solid var(--aozora-md-pg-border)',
   },
 });

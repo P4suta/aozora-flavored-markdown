@@ -1,11 +1,11 @@
-afm — Aozora Flavored Markdown
-Copyright (c) the afm contributors
+aozora-flavored-markdown — Aozora Flavored Markdown
+Copyright (c) the aozora-flavored-markdown contributors
 
 This NOTICE file is a convenience index of third-party material
-incorporated into the afm source repository. It does not replace the
+incorporated into the aozora-flavored-markdown source repository. It does not replace the
 individual license files and source-level attributions; those remain the
 authoritative record. Unless specified otherwise in one of the sections
-below, everything else in this repository is original afm code and is
+below, everything else in this repository is original aozora-flavored-markdown code and is
 dual-licensed under Apache-2.0 OR MIT (see LICENSE-APACHE and LICENSE-MIT).
 
 
@@ -30,7 +30,7 @@ comrak itself incorporates code derived from several upstream projects:
   - the comrak test suite (BSD-2-Clause, (c) John MacFarlane, 2014)
 
 See upstream/comrak/COPYING for the full and authoritative text of each of
-these notices. afm's modifications to the vendored tree are kept within the
+these notices. aozora-flavored-markdown's modifications to the vendored tree are kept within the
 200-line diff budget documented in ADR-0001 (docs/adr/0001-*.md) and
 upstream/comrak/UPSTREAM_DIFF.md.
 
@@ -56,8 +56,8 @@ The conformance test fixtures under spec/ are derived from:
     (https://creativecommons.org/licenses/by-sa/4.0/).
 
 These fixtures are used for test-time conformance validation only. They
-are not part of the compiled afm binary or library distribution, but they
-are shipped in the source repository as evidence that afm respects the
+are not part of the compiled aozora-flavored-markdown binary or library distribution, but they
+are shipped in the source repository as evidence that aozora-flavored-markdown respects the
 upstream specifications. The JSON files are generated from the adjacent
 .txt sources via `just spec-refresh`; both sources and generated fixtures
 are committed verbatim.
@@ -69,8 +69,8 @@ are committed verbatim.
 
 HTML snapshots of the Aozora Bunko (青空文庫) annotation specification
 are reproduced under docs/specs/aozora/ verbatim for offline technical
-reference during afm development. The material is (c) Aozora Bunko
-volunteers and remains their property; afm includes the snapshots under a
+reference during aozora-flavored-markdown development. The material is (c) Aozora Bunko
+volunteers and remains their property; aozora-flavored-markdown includes the snapshots under a
 limited fair-use / quotation exception grounded in the fact that the text
 is short, stable, and central to an interoperability effort.
 
@@ -99,11 +99,11 @@ copyright has lapsed under Japanese law.
 
 
 ================================================================================
-5. afm (Apache-2.0 OR MIT)
+5. aozora-flavored-markdown (Apache-2.0 OR MIT)
 ================================================================================
 
-All original afm source code — everything outside upstream/comrak/ and
+All original aozora-flavored-markdown source code — everything outside upstream/comrak/ and
 spec/ — is dual-licensed under Apache-2.0 OR MIT at the user's option.
 See LICENSE-APACHE and LICENSE-MIT for the full license texts. By
-contributing to afm you agree that your contribution is dual-licensed
+contributing to aozora-flavored-markdown you agree that your contribution is dual-licensed
 under the same terms (see CONTRIBUTING.md).

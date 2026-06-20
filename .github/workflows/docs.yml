@@ -1,7 +1,7 @@
-# Publish the afm book + rustdoc to GitHub Pages.
+# Publish the aozora-flavored-markdown book + rustdoc to GitHub Pages.
 #
-# afm is not on crates.io, so there is no docs.rs; build rustdoc locally
-# and layer it under the mdbook site at `/afm/api/`.
+# aozora-flavored-markdown is not on crates.io, so there is no docs.rs; build rustdoc locally
+# and layer it under the mdbook site at `/aozora-flavored-markdown/api/`.
 #
 # Docs builds use the native runner toolchain, not the dev Docker image:
 # the Pages deploy actions expect artefacts on the runner filesystem.
@@ -51,7 +51,7 @@ jobs:
         run: cargo doc --workspace --no-deps --document-private-items
 
       - name: Build mdbook
-        run: mdbook build crates/afm-book
+        run: mdbook build crates/aozora-flavored-markdown-book
 
       - name: Install bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
@@ -65,8 +65,8 @@ jobs:
           # Keep in sync with the Dockerfile WASM_PACK_VERSION arg.
           version: 'v0.15.0'
 
-      - name: Build afm-wasm package
-        run: wasm-pack build crates/afm-wasm --target bundler --release --out-dir pkg --out-name afm_wasm
+      - name: Build aozora-flavored-markdown-wasm package
+        run: wasm-pack build crates/aozora-flavored-markdown-wasm --target bundler --release --out-dir pkg --out-name aozora_flavored_markdown_wasm
 
       - name: Install playground deps
         run: cd playground && bun install
@@ -78,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p site
-          cp -r crates/afm-book/book/. site/
+          cp -r crates/aozora-flavored-markdown-book/book/. site/
           mkdir -p site/api
           cp -r target/doc/. site/api/
           mkdir -p site/playground

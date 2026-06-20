@@ -1,6 +1,6 @@
 # Code of Conduct
 
-The afm project adopts the
+The aozora-flavored-markdown project adopts the
 [**Contributor Covenant, version 2.1**](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)
 as its code of conduct. Participation in this project — as a contributor,
 a reviewer, a maintainer, or a participant in the issue tracker or
@@ -31,6 +31,6 @@ the report.
 
 ## Scope
 
-This code of conduct applies to every afm project space — the issue
+This code of conduct applies to every aozora-flavored-markdown project space — the issue
 tracker, pull requests, discussions, documentation, mdbook site, and any
 ancillary channel operated on the project's behalf.

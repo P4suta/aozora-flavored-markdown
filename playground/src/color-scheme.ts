@@ -10,12 +10,12 @@
 // Single source of truth is `<html data-color-scheme="light" | "dark">`.
 // CSS variables switch only through that attribute, so the JS state and
 // the painted DOM never drift. (Mirrors the sibling aozora playground's
-// `theme.ts`; afm keeps the writing-mode toggle on a distinct attribute,
-// `data-afm-theme`, so the two axes never collide.)
+// `theme.ts`; aozora-md keeps the writing-mode toggle on a distinct attribute,
+// `data-aozora-md-theme`, so the two axes never collide.)
 
 import { createEffect, createSignal, type Accessor } from 'solid-js';
 
-const STORAGE_KEY = 'afm-playground:color-scheme';
+const STORAGE_KEY = 'aozora-md-playground:color-scheme';
 const CYCLE = ['auto', 'light', 'dark'] as const;
 
 export type ColorSchemePref = (typeof CYCLE)[number];

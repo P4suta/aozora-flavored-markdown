@@ -14,4 +14,4 @@ contact_links:
 
   - name: CommonMark / GFM spec questions (upstream)
     url: https://spec.commonmark.org/
-    about: afm follows CommonMark and GFM verbatim; questions about the base specs belong upstream.
+    about: aozora-flavored-markdown follows CommonMark and GFM verbatim; questions about the base specs belong upstream.

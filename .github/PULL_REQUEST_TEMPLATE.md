@@ -25,11 +25,11 @@
       ADR-0001).
 - [ ] If this adds a new 青空文庫 notation: filed it in the sibling
       [`P4suta/aozora`](https://github.com/P4suta/aozora) repo first
-      (ADR-0010); afm-side follow-up is usually a one-line mapping in
-      `afm_markdown::ir` plus a test.
+      (ADR-0010); aozora-md-side follow-up is usually a one-line mapping in
+      `aozora_flavored_markdown::ir` plus a test.
 - [ ] If this adds a renderer-emitted class: updated
-      `afm-markdown-test-support`'s `AFM_CLASSES` and both afm-book
-      themes (`afm-horizontal.css` / `afm-vertical.css`).
+      `aozora-flavored-markdown-test-support`'s `AOZORA_MD_CLASSES` and both aozora-flavored-markdown-book
+      themes (`aozora-md-horizontal.css` / `aozora-md-vertical.css`).
 
 ## Related
 

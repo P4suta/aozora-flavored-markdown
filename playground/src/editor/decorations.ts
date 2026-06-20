@@ -1,13 +1,13 @@
-// Structure highlighting for the afm playground editor.
+// Structure highlighting for the aozora-md playground editor.
 //
 // Ported from aozora's playground/src/editor/decorations.ts. The structure is
 // kept intact: a viewport-windowed ViewPlugin reads the parsed node list out of
 // the shared ParserState (populated from Document.nodesJson) and turns each
-// NodeEntry into a Decoration.mark with a cm-aozora-* class. afm reuses the
+// NodeEntry into a Decoration.mark with a cm-aozora-* class. aozora-md reuses the
 // cm-aozora-* class names verbatim because they are an editor-decoration
 // detail, not a brand contract.
 //
-// In afm this lives alongside the legacy regex overlay (aozora-syntax.ts); the
+// In aozora-md this lives alongside the legacy regex overlay (aozora-syntax.ts); the
 // intent is for this AST-driven module to eventually replace that overlay, but
 // for now it ships as an independent extension that consumes the parsed node
 // spans (ps.nodes).
@@ -61,7 +61,7 @@ const KIND_TO_CLASS: Record<string, string> = {
  * `nodesJson` entries are emitted in source order, so they are sorted by
  * `span.start` and a binary search is valid. Inlined here (rather than
  * pulled from a shared editor/utils) to keep this module self-contained;
- * if afm later grows an editor/utils with the same helper, import it
+ * if aozora-md later grows an editor/utils with the same helper, import it
  * instead.
  */
 function lowerBoundByStart(entries: NodeEntry[], target: number): number {

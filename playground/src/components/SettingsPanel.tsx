@@ -1,15 +1,15 @@
 // Editor-feature settings panel. Ported from the sibling aozora
-// playground's components/SettingsPanel.tsx, retuned for afm.
+// playground's components/SettingsPanel.tsx, retuned for aozora-md.
 //
 // Differences from the aozora original:
-//   - No theme radio group. afm's light/dark colour scheme lives on the
+//   - No theme radio group. aozora-md's light/dark colour scheme lives on the
 //     toolbar (color-scheme.ts), so this panel is editor features only.
-//   - No "reset storage" action. afm persists source via the share-URL
+//   - No "reset storage" action. aozora-md persists source via the share-URL
 //     hash, not localStorage, so there is nothing to clear here.
-//   - No half→full-width toggle. afm does not port that on-type filter
-//     (its triggers — [ * | # — are Markdown syntax in afm).
+//   - No half→full-width toggle. aozora-md does not port that on-type filter
+//     (its triggers — [ * | # — are Markdown syntax in aozora-md).
 //   - `view` is an Accessor<EditorView | null> to match the rest of the
-//     afm chrome.
+//     aozora-md chrome.
 //
 // The toggles flip CodeMirror Compartments owned by editor.ts; the panel
 // only reconfigures them on the live view, so all CodeMirror wiring stays
@@ -60,10 +60,10 @@ const SettingsPanel: Component<SettingsPanelProps> = (props) => {
   }
 
   return (
-    <div class="afm-pg-settings" ref={rootEl}>
+    <div class="aozora-md-pg-settings" ref={rootEl}>
       <button
         type="button"
-        class="afm-pg-toggle"
+        class="aozora-md-pg-toggle"
         onClick={() => setOpen((v) => !v)}
         title="エディタ設定"
         aria-haspopup="true"
@@ -72,19 +72,19 @@ const SettingsPanel: Component<SettingsPanelProps> = (props) => {
         ⚙ 設定
       </button>
       <Show when={open()}>
-        <div class="afm-pg-settings-popover" role="menu">
-          <label class="afm-pg-settings-row">
+        <div class="aozora-md-pg-settings-popover" role="menu">
+          <label class="aozora-md-pg-settings-row">
             <input type="checkbox" checked={structure()} onChange={toggleStructure} />
-            <span class="afm-pg-settings-label">
+            <span class="aozora-md-pg-settings-label">
               構造ハイライト
-              <span class="afm-pg-settings-sub">見出し・ルビ・傍点・注記を色分け表示</span>
+              <span class="aozora-md-pg-settings-sub">見出し・ルビ・傍点・注記を色分け表示</span>
             </span>
           </label>
-          <label class="afm-pg-settings-row">
+          <label class="aozora-md-pg-settings-row">
             <input type="checkbox" checked={inlay()} onChange={toggleInlay} />
-            <span class="afm-pg-settings-label">
+            <span class="aozora-md-pg-settings-label">
               外字インレイヒント
-              <span class="afm-pg-settings-sub">※［＃...］の後ろに →解決字 を表示</span>
+              <span class="aozora-md-pg-settings-sub">※［＃...］の後ろに →解決字 を表示</span>
             </span>
           </label>
         </div>

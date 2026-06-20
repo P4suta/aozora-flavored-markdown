@@ -1,10 +1,10 @@
-// Slug completion + structured snippets for the afm editor.
+// Slug completion + structured snippets for the aozora-md editor.
 //
 // Ported from aozora's editor/completion.ts (with editor/slugCatalog.ts
-// inlined into this single file, as the afm task requires). The structure
-// is kept intact; only the project identity, the WASM import (afm uses the
-// camelCase `slugsJson()` re-export), and the warn() helper (afm has no
-// logger module, so we fall back to console.warn) are adapted to afm.
+// inlined into this single file, as the aozora-md task requires). The structure
+// is kept intact; only the project identity, the WASM import (aozora-md uses the
+// camelCase `slugsJson()` re-export), and the warn() helper (aozora-md has no
+// logger module, so we fall back to console.warn) are adapted to aozora-md.
 //
 // Two completion behaviours, exactly as in aozora:
 //   1) Slug catalogue completion right after a ［＃ / [# annotation opener,
@@ -13,7 +13,7 @@
 //   2) Single-character structured snippets (＃ / ｜ / 《 / ※) that expand
 //      into parameterised Aozora-notation templates the user can tab
 //      through. The annotation notation itself is the shared Aozora-bunko
-//      syntax that afm's parser understands, so the snippet bodies carry
+//      syntax that aozora-md's parser understands, so the snippet bodies carry
 //      over verbatim.
 
 import {
@@ -44,7 +44,7 @@ let cache: SlugEntry[] | null = null;
 
 /**
  * Load the slug catalogue from the WASM module. Idempotent: the first call
- * serialises via `afm-wasm`'s `slugsJson()` and parses the shared envelope
+ * serialises via `aozora-flavored-markdown-wasm`'s `slugsJson()` and parses the shared envelope
  * (`{ schema_version, data }`); subsequent calls return the cached array.
  *
  * Must be called after the wasm bundle has booted (the editor is created
@@ -59,7 +59,7 @@ export function loadSlugCatalog(): SlugEntry[] {
     };
     cache = env.data ?? [];
   } catch (err) {
-    // afm has no logger module; surface the failure on the console so an
+    // aozora-md has no logger module; surface the failure on the console so an
     // empty catalogue is never silently swallowed.
     console.warn('Failed to load slug catalog from WASM:', err);
     cache = [];
@@ -222,7 +222,7 @@ function isInsideSlugBody(context: CompletionContext): boolean {
   return before === '［＃';
 }
 
-const afmCompletionSource: CompletionSource = (
+const aozoraMdCompletionSource: CompletionSource = (
   context: CompletionContext,
 ): CompletionResult | null => {
   // 1) スラグ補完: ［＃ もしくは [# の直後（カーソルが本体テキストにある間）
@@ -260,8 +260,8 @@ const afmCompletionSource: CompletionSource = (
   return null;
 };
 
-export const afmCompletion = autocompletion({
-  override: [afmCompletionSource],
+export const aozoraMdCompletion = autocompletion({
+  override: [aozoraMdCompletionSource],
   // Aozora notation has no whitespace-delimited words; the default
   // closeOnBlur=true is fine, but we make activate-on-typing snappy.
   activateOnTyping: true,

@@ -1,4 +1,4 @@
-# cargo-deny configuration for the afm workspace.
+# cargo-deny configuration for the aozora-flavored-markdown workspace.
 
 [graph]
 all-features = true
@@ -31,7 +31,7 @@ confidence-threshold = 0.9
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# Path-only internal dev-deps (e.g. afm-markdown-test-support) resolve as
+# Path-only internal dev-deps (e.g. aozora-flavored-markdown-test-support) resolve as
 # `*` version requirements. This keeps `wildcards = "deny"` rejecting real
 # registry wildcards while permitting the in-workspace path form — the
 # idiomatic cargo-deny handling, matching aozora, and required once

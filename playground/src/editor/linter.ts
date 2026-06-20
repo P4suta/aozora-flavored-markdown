@@ -1,13 +1,13 @@
 // Ported from aozora's playground/src/editor/linter.ts.
 //
-// In-editor diagnostics for the afm playground. The parserStateField
-// owns the single afm-wasm Document and exposes the parsed
+// In-editor diagnostics for the aozora-md playground. The parserStateField
+// owns the single aozora-flavored-markdown-wasm Document and exposes the parsed
 // `diagnostics_json` payload as `ps.diagnostics` (DiagnosticEntry[],
 // spans in UTF-8 byte offsets). This module translates those entries
 // into CodeMirror lint Diagnostics so they render as squigglies plus
 // a gutter marker.
 //
-// afm is "Aozora Flavored Markdown" and embeds the aozora parser, so
+// aozora-md is "Aozora Flavored Markdown" and embeds the aozora parser, so
 // the diagnostic `kind`s arriving over the wire are aozora-notation
 // diagnostics. The wording below is tuned for casual playground use
 // rather than typesetter precision.
@@ -21,7 +21,7 @@ import {
 } from './parserState';
 
 /**
- * Map a raw diagnostic `kind` from afm-wasm to a CM6 severity + a
+ * Map a raw diagnostic `kind` from aozora-flavored-markdown-wasm to a CM6 severity + a
  * Japanese message. The kinds originate from the embedded aozora
  * parser's `diagnostics_json`. Unknown kinds fall through as `info`
  * with the raw kind name displayed so nothing is silently dropped.
@@ -67,16 +67,16 @@ function lintSource(view: EditorView): readonly Diagnostic[] {
       else if (from > 0) from = to - 1;
     }
     if (from > to) continue;
-    out.push({ from, to, severity, message, source: 'afm' });
+    out.push({ from, to, severity, message, source: 'aozora-md' });
   }
   return out;
 }
 
-export const afmLinter = linter(lintSource, {
+export const aozoraMdLinter = linter(lintSource, {
   // The parse runs synchronously in parserStateField. We do not want
   // to throttle squigglies; latency stays sub-millisecond on typical
   // playground documents. Override the default 750ms.
   delay: 50,
 });
 
-export const afmLintGutter = lintGutter();
+export const aozoraMdLintGutter = lintGutter();

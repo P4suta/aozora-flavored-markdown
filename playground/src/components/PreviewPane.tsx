@@ -1,7 +1,7 @@
 // Preview pane with tabs: HTML preview / IR JSON.
 //
-// The HTML is trusted output from afm's own renderer, mounted via
-// innerHTML; the `.afm-root` wrapper scopes the book theme. The JSON tab
+// The HTML is trusted output from aozora-md's own renderer, mounted via
+// innerHTML; the `.aozora-md-root` wrapper scopes the book theme. The JSON tab
 // renders the same IR the renderer already produced. The heading outline
 // is a separate always-on left column (OutlinePanel), not a tab here.
 // The active tab persists to localStorage.
@@ -18,7 +18,7 @@ const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
   { id: 'json', label: 'IR JSON' },
 ];
 
-const STORAGE_KEY = 'afm-playground:preview-tab';
+const STORAGE_KEY = 'aozora-md-playground:preview-tab';
 
 function loadTab(): TabId {
   try {
@@ -46,14 +46,14 @@ const PreviewPane: Component<PreviewPaneProps> = (props) => {
   }
 
   return (
-    <div class="afm-pg-preview">
-      <div class="afm-pg-tab-bar" role="tablist">
+    <div class="aozora-md-pg-preview">
+      <div class="aozora-md-pg-tab-bar" role="tablist">
         <For each={TABS}>
           {(t) => (
             <button
               type="button"
               role="tab"
-              class="afm-pg-tab"
+              class="aozora-md-pg-tab"
               aria-selected={tab() === t.id ? 'true' : 'false'}
               onClick={() => selectTab(t.id)}
             >
@@ -62,9 +62,9 @@ const PreviewPane: Component<PreviewPaneProps> = (props) => {
           )}
         </For>
       </div>
-      <div class="afm-pg-preview-content" data-tab={tab()}>
+      <div class="aozora-md-pg-preview-content" data-tab={tab()}>
         <Show when={tab() === 'html'}>
-          <div class="afm-root" innerHTML={props.html()} />
+          <div class="aozora-md-root" innerHTML={props.html()} />
         </Show>
         <Show when={tab() === 'json'}>
           <CodeView value={props.ir() ? JSON.stringify(props.ir(), null, 2) : ''} />

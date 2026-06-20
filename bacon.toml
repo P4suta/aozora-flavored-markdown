@@ -1,4 +1,4 @@
-# bacon config for afm. Launch with `just watch` (runs in the dev container,
+# bacon config for aozora-flavored-markdown. Launch with `just watch` (runs in the dev container,
 # ADR-0002). Reference: https://dystroy.org/bacon/config/
 
 default_job = "check"

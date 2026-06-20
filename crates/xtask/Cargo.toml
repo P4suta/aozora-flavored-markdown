@@ -1,6 +1,6 @@
 [package]
 name        = "xtask"
-description = "Development automation for the afm workspace"
+description = "Development automation for the aozora-flavored-markdown workspace"
 version.workspace     = true
 edition.workspace     = true
 rust-version.workspace = true
@@ -20,7 +20,7 @@ clap       = { workspace = true }
 regex      = { workspace = true }
 serde      = { workspace = true }
 serde_json = { workspace = true }
-# The IR type tree (`afm_markdown::ir::{IrDocument, IrBlock, IrInline, …}`)
+# The IR type tree (`aozora_flavored_markdown::ir::{IrDocument, IrBlock, IrInline, …}`)
 # is the single source of truth for the generated TypeScript artefact and
 # the compile-time variant-completeness pins in `types.rs`.
-afm-markdown = { workspace = true }
+aozora-flavored-markdown = { workspace = true }

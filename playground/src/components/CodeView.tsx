@@ -8,7 +8,7 @@ interface CodeViewProps {
 }
 
 const CodeView: Component<CodeViewProps> = (props) => {
-  return <pre class="afm-pg-code-view">{props.value}</pre>;
+  return <pre class="aozora-md-pg-code-view">{props.value}</pre>;
 };
 
 export default CodeView;

@@ -1,9 +1,9 @@
 {
-  "name": "afm-playground",
+  "name": "aozora-md-playground",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Browser playground for aozora-flavored-markdown (afm). Solid + Vite frontend over the afm-wasm crate, managed by bun.",
+  "description": "Browser playground for aozora-flavored-markdown (aozora-md). Solid + Vite frontend over the aozora-flavored-markdown-wasm crate, managed by bun.",
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "vite",
@@ -20,7 +20,7 @@
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.36.0",
     "@lezer/highlight": "^1.2.1",
-    "afm-wasm": "file:../crates/afm-wasm/pkg",
+    "aozora-flavored-markdown-wasm": "file:../crates/aozora-flavored-markdown-wasm/pkg",
     "codemirror": "^6.0.1",
     "lz-string": "^1.5.0",
     "marked": "^14.1.3",

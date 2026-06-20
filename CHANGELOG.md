@@ -1,11 +1,23 @@
 # Changelog
 
-All notable changes to Aozora Flavored Markdown (afm) are recorded in
+All notable changes to Aozora Flavored Markdown are recorded in
 this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.4.1] - 2026-06-21
+
+The project was **renamed from `afm` to `aozora-flavored-markdown`** and cut its
+first crates.io release. The descriptive crate name (`aozora-flavored-markdown`,
+binary `aozora-flavored-markdown`) is decoupled from the short, stable
+`aozora-md` brand used for the rendered HTML CSS classes (`aozora-md-*`), env
+vars (`AOZORA_MD_*`), Docker tags, and the `aozora-md.diagnostics.v1`
+diagnostics schema — see
+[ADR-0016](docs/adr/0016-rebrand-to-aozora-flavored-markdown.md). The version is
+aligned with the sibling `aozora` crate at 0.4.1, and `Options::afm_default()`
+is replaced by `Options::default()` (the dialect preset is now the `Default`).
 
 ### Added
 
@@ -27,11 +39,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **PR area auto-labeler** (`actions/labeler`) — tags a PR `area: cli` /
   `markdown` / `wasm` / `book` / `dev` / `ci` / `documentation` from the
   paths it touches. Non-blocking and not a required check.
-- **stdin input for `afm render` / `afm check`** — pass `-` as the input
-  path to read the document from standard input (`cat in.md | afm render
+- **stdin input for `aozora-flavored-markdown render` / `aozora-flavored-markdown check`** — pass `-` as the input
+  path to read the document from standard input (`cat in.md | aozora-flavored-markdown render
   -`), honouring `--encoding sjis` on the piped byte stream. The `-`
   placeholder was already documented but previously errored.
-- **`afm render -o <file>` / `--output`** — write HTML straight to a file
+- **`aozora-flavored-markdown render -o <file>` / `--output`** — write HTML straight to a file
   instead of redirecting stdout (`-` keeps stdout); strict failures write
   nothing.
 - **`--color auto|always|never`** for error reports — `auto` honours
@@ -40,27 +52,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`-v`/`-q` verbosity flags** — set the default log level without
   reaching for `RUST_LOG` (which still overrides them when set).
 - **`--format human|json` machine-readable diagnostics** — `json` emits a
-  stable `afm.diagnostics.v1` envelope (`code` / `severity` / `source` /
+  stable `aozora-md.diagnostics.v1` envelope (`code` / `severity` / `source` /
   `message` / `span` / `line` / `column`) for editors, CI gates, and LSP
   bridges. `check` writes it to stdout (pipe into `jq`); `render` keeps
   stdout for HTML and writes JSON to stderr. Schema and stability are
   pinned by [ADR-0012](docs/adr/0012-diagnostic-json-output-schema-and-stability.md).
-- **`afm completions <shell>`** — generate a completion script for bash,
+- **`aozora-flavored-markdown completions <shell>`** — generate a completion script for bash,
   zsh, fish, powershell, or elvish.
 - **`--help` now shows an `EXAMPLES` section** covering stdin, `-o`,
   strict JSON checks, and completion install.
-- **Release archives now bundle the shell completions and the `afm.1`
+- **Release archives now bundle the shell completions and the `aozora-flavored-markdown.1`
   man page** (under `completions/` and `man/`). Regenerate the committed
   assets with `just dist-assets`; `just ci` drift-checks them.
-- **Runnable doctests on the `afm-markdown` public API** — every public
+- **Runnable doctests on the `aozora-flavored-markdown` public API** — every public
   entry point (`render_to_string`, `render_to_ir`, `render_blocks_to_ir`,
-  `serialize`, `Options::afm_default`, `html::render_to_string`) now
+  `serialize`, `Options::default`, `html::render_to_string`) now
   carries a compiled, asserted example. `just test-doc` is wired into
   `just ci` and a CI job so the examples can never silently rot.
-- **crates.io publication readiness** — `afm-markdown` and `afm-cli` are now
+- **crates.io publication readiness** — `aozora-flavored-markdown` and `aozora-flavored-markdown-cli` are now
   publishable to crates.io (verified via `cargo publish --dry-run`). A manual
   `publish-crates.yml` workflow publishes the two-crate ladder
-  (`afm-markdown` → `afm-cli`). Policy is captured in
+  (`aozora-flavored-markdown` → `aozora-flavored-markdown-cli`). Policy is captured in
   [ADR-0014](docs/adr/0014-comrak-vendoring-upgrade-policy.md) and
   [ADR-0015](docs/adr/0015-crates-io-publication-and-semver.md).
 
@@ -75,7 +87,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lock).
 - **`just` recipes are container-aware — no more docker-in-docker.** Run
   inside the dev/ci image (a `just shell`, a VS Code devcontainer, or a
-  GitHub Codespace, where `AFM_IN_CONTAINER=1`), recipes invoke their
+  GitHub Codespace, where `AOZORA_MD_IN_CONTAINER=1`), recipes invoke their
   tool directly instead of nesting a second `docker compose run`. The
   devcontainer now targets the full-tool `ci` image, so the complete
   `just ci` runs inside Codespaces, and `postCreateCommand` installs the
@@ -84,7 +96,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (Rust 1.81+) and forbids only bare `#[allow]` — matching the
   `clippy::allow_attributes_without_reason` lint the workspace already
   enforces, which the previous blanket ban contradicted. It also adds an
-  `.expect()` regression tripwire over `afm-markdown` source (baseline 8)
+  `.expect()` regression tripwire over `aozora-flavored-markdown` source (baseline 8)
   and the `cargo-deny` `allow-wildcard-paths` policy for path-only
   internal dev-deps.
 - **CI collapses to a single `ci-success` required check.** A
@@ -99,10 +111,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ([ADR-0013](docs/adr/0013-public-ir-enums-non-exhaustive.md)) so a future
   青空文庫 notation can be added as a new variant without breaking external
   Rust `match`es. The serde/JSON contract is unchanged; the variant-
-  completeness witnesses moved into `afm-markdown` (the owning crate). The
+  completeness witnesses moved into `aozora-flavored-markdown` (the owning crate). The
   ADR index now also lists the previously-missing ADR-0012.
 - **`aozora` is now a crates.io registry dependency** (`0.4.1`) instead of a
-  git-rev pin — required for afm-markdown to be publishable. `comrak` keeps its
+  git-rev pin — required for aozora-flavored-markdown to be publishable. `comrak` keeps its
   vendored path locally but publishes against the identical registry `0.52.0`.
   `cargo xtask new-adr` now renders `docs/adr/0000-template.md` (full MADR
   section set) instead of a hard-coded subset.
@@ -114,7 +126,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **`afm --strict` now exits with code 2**, distinct from generic
+- **`aozora-flavored-markdown --strict` now exits with code 2**, distinct from generic
   failures (code 1), matching the documented exit-code table; its
   `--help` text now describes "any lexer diagnostic" instead of the
   stale "unknown annotation" wording.
@@ -135,16 +147,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `actions/attest-build-provenance`: every archive is verifiable with
   `gh attestation verify <archive> --repo P4suta/afm`, no certificates.
   (#64, #66)
-- **aozora pin advanced to the tagged v0.4.0 release** (`df0f64b`) — afm
+- **aozora pin advanced to the tagged v0.4.0 release** (`df0f64b`) — aozora-flavored-markdown
   v0.4.0 builds against the provenance-attested aozora v0.4.0.
-- **Browser playground at `/afm/playground/`** — Solid + Vite frontend
-  over `crates/afm-wasm`, deployed to
+- **Browser playground at `/aozora-flavored-markdown/playground/`** — Solid + Vite frontend
+  over `crates/aozora-flavored-markdown-wasm`, deployed to
   <https://p4suta.github.io/afm/playground/>. CodeMirror 6 editor with
   a small Aozora syntax overlay (`｜《》`, 連結ルビ, `［＃...］`,
   `※［＃...］`); 縦書き / 横書き toggle that swaps stylesheets without
   re-rendering; seven curated example snippets; URL-shareable state
   via `lz-string`; diagnostics drawer surfacing every lexer warning /
-  error. CSS imported from the existing `crates/afm-book/theme/` —
+  error. CSS imported from the existing `crates/aozora-flavored-markdown-book/theme/` —
   single source of truth, no duplication. (#27)
 - **`just check`** — `cargo check --workspace --all-targets` for a
   sub-second warm "does it still compile" gate. (#27)
@@ -225,7 +237,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Prevented a deep-nesting stack overflow** and hardened the public
   API surface + CI for release (#65).
-- Repaired 4 broken intra-doc links in `afm-markdown` that turned
+- Repaired 4 broken intra-doc links in `aozora-flavored-markdown` that turned
   `cargo doc --workspace` into a hard failure under the
   `broken_intra_doc_links = "deny"` workspace lint, blocking the
   Pages deploy. (`tests::indent_of_four_spaces_disables_the_fence`
@@ -243,10 +255,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   CJK content. JS-side consumers (afm-obsidian's CodeMirror bridge)
   no longer need to redo UTF-8 byte arithmetic. TS contract on the
   consumer side must be updated to match.
-- **`pub use aozora_pipeline::*_SENTINEL`** from `afm_markdown` is
-  removed in favour of the afm-side wrapper module
-  `afm_markdown::sentinels` (`INLINE` / `BLOCK_LEAF` / `BLOCK_OPEN` /
-  `BLOCK_CLOSE`). The afm public API no longer names sibling-crate
+- **`pub use aozora_pipeline::*_SENTINEL`** from `aozora_flavored_markdown` is
+  removed in favour of the aozora-md-side wrapper module
+  `aozora_flavored_markdown::sentinels` (`INLINE` / `BLOCK_LEAF` / `BLOCK_OPEN` /
+  `BLOCK_CLOSE`). The aozora-flavored-markdown public API no longer names sibling-crate
   constants, so upstream renames surface in this module rather than
   breaking every consumer.
 - **`Options<'c>` lifetime parameter** removed. `Options` now wraps
@@ -255,7 +267,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **`crates/afm-markdown/src/post_process.rs`** redesigned around
+- **`crates/aozora-flavored-markdown/src/post_process.rs`** redesigned around
   `Cow<'_, str>` so the three secondary passes
   (`rebrand_aozora_classes_to_afm`, `wrap_orphan_brackets_in_place`,
   `balance_inline_tags_in_paragraphs`) borrow the previous pass'
@@ -269,7 +281,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`splice_into`'s `<p>` matcher** now matches both `<p>` and
   `<p attr=…>` openings (taking the earliest of the two). Previously
   only `<p>` was matched, so source-line-anchor injection
-  (`<p data-afm-source-line="N">`) could leak through the splicer
+  (`<p data-aozora-md-source-line="N">`) could leak through the splicer
   unspliced. Fixes a long-standing asymmetry against
   `balance_inline_tags_in_paragraphs:127` which already handled both
   forms.
@@ -285,7 +297,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   char), the masking pass returns `Cow::Borrowed(input)` and skips
   allocation entirely. CRLF line breaks are now preserved through
   the mask/unmask round trip.
-- **`ir.rs` (1318 L)** split into a `crates/afm-markdown/src/ir/`
+- **`ir.rs` (1318 L)** split into a `crates/aozora-flavored-markdown/src/ir/`
   module: `types.rs` (public IR enum/struct definitions),
   `projection.rs` (pure conversion helpers and enum→string
   mappers), and `mod.rs` (the stateful walker + streaming builder).
@@ -294,7 +306,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   invariant `Node` lifetime. The shared `SentinelCursor` now owns
   its `Vec<NodeRef>` rather than borrowing a slice, removing the
   slice-lifetime entirely from the walker's signature.
-- **`crates/afm-markdown/src/sentinel_stream.rs`** (renamed from
+- **`crates/aozora-flavored-markdown/src/sentinel_stream.rs`** (renamed from
   `sentinels.rs`) consolidates `walk_text_only_descendants` and
   `for_each_text_descendant` into a single
   `visit_text_leaves<F>(node, mode, f)` returning
@@ -307,15 +319,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Internal
 
-- **`crates/afm-markdown-test-support/`** new sub-crate holds the
+- **`crates/aozora-flavored-markdown-test-support/`** new sub-crate holds the
   test predicates and invariant helpers that previously lived in
-  `afm-markdown::test_support` (1426 L behind `#[doc(hidden)] pub
+  `aozora-flavored-markdown::test_support` (1426 L behind `#[doc(hidden)] pub
   mod`). The hack is removed and the helpers are no longer part of
-  `afm-markdown`'s public surface; the integration tests pull them
+  `aozora-flavored-markdown`'s public surface; the integration tests pull them
   in via `[dev-dependencies]` instead.
 - **`saturating_u32`** centralised in `sentinel_stream` (was
   duplicated in `ir.rs` and `lib.rs`).
-- **`AFM_CLASSES`** drift detection moved into the existing
+- **`AOZORA_MD_CLASSES`** drift detection moved into the existing
   `css_class_contract.rs` integration test; the manual mirror in
   `test_support` carries a comment cross-referencing the sibling
   `aozora-render` source. (No build.rs codegen — the test is the
@@ -325,7 +337,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Aozora-side IR projection.** `afm_markdown::render_to_ir` and
+- **Aozora-side IR projection.** `aozora_flavored_markdown::render_to_ir` and
   `render_blocks_to_ir` now emit every Aozora variant
   (`Ruby`, `DoubleRuby`, `Bouten`, `Tcy`, `Gaiji`, `Annotation`,
   `Container`, `PageBreak`, `SectionBreak`) into the typed
@@ -333,12 +345,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   hints (`［＃「X」は大見出し］`) promote their host paragraph to
   `IrBlock::Heading` directly. `IrInline::Image` is also added so
   CommonMark images survive the IR boundary.
-- **`afm_markdown::ir::StreamingIrBuilder`.** Public stateful
+- **`aozora_flavored_markdown::ir::StreamingIrBuilder`.** Public stateful
   per-block IR builder that threads the sentinel-stream cursor
   across `walk_block` calls. afm-obsidian's chunked-cancellation
   path uses this to checkpoint between blocks without losing
   Aozora projection lockstep.
-- **`crates/afm-markdown/src/sentinels.rs`.** New shared module
+- **`crates/aozora-flavored-markdown/src/sentinels.rs`.** New shared module
   that owns `BlockSentinelKind`, `is_sentinel_char` (subtraction-
   based fast check), `sole_block_sentinel`,
   `flatten_registry_in_source_order`, and `SentinelCursor`
@@ -346,13 +358,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   splicer and the IR builder consume from this single source of
   truth.
 - **ADR-0011 — brand boundary CSS class rewrite.** Codifies the
-  decision to keep the `aozora-*` → `afm-*` HTML rewrite on the
-  afm side rather than parameterising upstream `aozora-render`,
-  preserving the one-way `afm → aozora` dependency direction.
+  decision to keep the `aozora-*` → `aozora-md-*` HTML rewrite on the
+  aozora-flavored-markdown side rather than parameterising upstream `aozora-render`,
+  preserving the one-way `aozora-flavored-markdown → aozora` dependency direction.
 - **`cargo xtask upstream-sync <tag>`** is now implemented as a
   pure tree-replace: shallow-clones the upstream comrak tag, drops
   the old vendored tree, copies the new source over, and updates
-  `COMRAK_SHA`. The `afm-side` metadata (`COMRAK_SHA`,
+  `COMRAK_SHA`. The `aozora-md-side` metadata (`COMRAK_SHA`,
   `UPSTREAM_DIFF.md`) is preserved across the wipe.
 
 ### Changed (breaking)
@@ -370,21 +382,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Some("unknown")` in `IrInline::Annotation::resolved` instead
   of `None`. Future `#[non_exhaustive]` variants of
   `AnnotationKind` upstream will surface as `None`, so consumers
-  can distinguish "the parser tried and gave up" from "afm
+  can distinguish "the parser tried and gave up" from "aozora-flavored-markdown
   doesn't know about this kind yet".
 - **`pub use comrak::Options as ComrakOptions`** removed from
   the public surface. Consumers who tweak comrak's options
-  directly should import comrak themselves; the afm public API
+  directly should import comrak themselves; the aozora-flavored-markdown public API
   no longer pins comrak's version into its surface.
 
 ### Changed
 
-- **`afm-wasm` diagnostic projection** now uses
+- **`aozora-flavored-markdown-wasm` diagnostic projection** now uses
   `Diagnostic::severity` / `source` / `code` plus the `Display`
   impl, replacing the hardcoded `"info"` level and `"{d:?}"`
   debug-format message. Wire shape is
   `{ level, source, code, message }`.
-- **`afm_markdown::post_process`** now consumes the shared
+- **`aozora_flavored_markdown::post_process`** now consumes the shared
   `SentinelCursor` instead of carrying its own cursor fields.
 - **`UPSTREAM_DIFF_BUDGET_LINES`** in `xtask` lowered from 200
   to 0, matching ADR-0001 v0.2.4.
@@ -396,33 +408,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   repo per ADR-0010.
 - **`aozora-corpus`** dropped from `[workspace.dependencies]`
   (not used by any member crate after ADR-0010).
-- **`afm_markdown::ir::walk_block_public`** removed in favour of
+- **`aozora_flavored_markdown::ir::walk_block_public`** removed in favour of
   `StreamingIrBuilder` so multi-block streaming consumers can't
   accidentally restart the cursor between blocks.
 
 ### Documentation
 
-- **afm-book** refreshed top-to-bottom: `library.md` rewritten
-  with current `afm_markdown` API examples (3-tier:
+- **aozora-flavored-markdown-book** refreshed top-to-bottom: `library.md` rewritten
+  with current `aozora_flavored_markdown` API examples (3-tier:
   `render_to_string`, `render_to_ir`, `render_blocks_to_ir`,
   plus `serialize`); `arch/pipeline.md` replaced with the
   current 3-layer + shared-cursor architecture; `arch/adr.md`
   expanded to the full 0001-0011 set with current statuses;
-  `ref/api.md` re-targeted at `afm_markdown` / `afm_wasm` and
+  `ref/api.md` re-targeted at `aozora_flavored_markdown` / `aozora_flavored_markdown_wasm` and
   the sibling `aozora-*` crates.
 - **CONTRIBUTING.md** rewritten around the post-v0.2.0 glue-
   layer responsibility. The 5-step "How to add an invariant"
-  flow is now afm-markdown-internal; new 青空文庫 notations
+  flow is now aozora-md-internal; new 青空文庫 notations
   redirect to the sibling repo.
 - **README.md / README.ja.md / SECURITY.md / PR template** —
-  stale `afm-parser` / `afm-lexer` / `afm-syntax` / `afm-encoding`
+  stale `aozora-md-parser` / `aozora-md-lexer` / `aozora-md-syntax` / `aozora-md-encoding`
   references and the obsolete `200-line` budget removed.
-- **ADR-0003** (afm-parser architecture) and **ADR-0005**
+- **ADR-0003** (aozora-md-parser architecture) and **ADR-0005**
   (paired-block container hook) statuses updated to
   `Superseded by ADR-0010` / `Superseded by ADR-0008` with
   v0.2.0 / v0.2.4 historical context appended.
-- **Stale code comments** in `afm_markdown::lib`,
-  `afm_markdown::examples::{render-utf8,render-sjis}`, and
+- **Stale code comments** in `aozora_flavored_markdown::lib`,
+  `aozora_flavored_markdown::examples::{render-utf8,render-sjis}`, and
   `xtask::spec_refresh` updated to match current crate names.
 
 ### Internal
@@ -442,21 +454,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Major release. Tracks aozora `0.2.6` (released same day) and locks in
 the **brand boundary** between `aozora-*` (pure 青空文庫記法) and
-`afm-*` (Aozora Flavored Markdown).
+`aozora-md-*` (Aozora Flavored Markdown).
 
 ### Changed (breaking)
 
 - **Bumped pinned `aozora-*` crates from v0.2.5 → v0.2.6.** Picks up
-  upstream PR #4 (afm-* → aozora-* class prefix flip + gaiji
+  upstream PR #4 (aozora-md-* → aozora-* class prefix flip + gaiji
   `data-codepoint` / `data-description` attrs + wasm-pack pipe fix),
   PR #5 (docs overhaul / driver build integration / ADR cleanup),
   PR #6 (pymodule rename for maturin).
 - **Brand boundary in `post_process::splice_aozora_html`.** The
   upstream `aozora-render` crate now emits `aozora-*` CSS classes;
-  afm-markdown's HTML output continues to carry the `afm-*` brand
+  aozora-flavored-markdown's HTML output continues to carry the `aozora-md-*` brand
   (Aozora Flavored Markdown). A new
   `rebrand_aozora_classes_to_afm` post-process pass rewrites every
-  `aozora-*` class token in the spliced HTML to its `afm-*`
+  `aozora-*` class token in the spliced HTML to its `aozora-md-*`
   counterpart. Touches only `class="..."` attribute values; data-*
   attributes, link targets and text bodies are preserved verbatim.
 
@@ -491,7 +503,7 @@ true assertion.
   any bare `［＃…］` that the upstream lexer fails to claim (e.g.
   empty annotation `［＃］` nested inside a baseless ruby pair `《》`,
   which `aozora-lex` Phase 3's replay path drops) is auto-wrapped in
-  an `afm-annotation` hidden span. The Tier-A canary now holds for
+  an `aozora-md-annotation` hidden span. The Tier-A canary now holds for
   every input the property tests can generate, including the three
   pathological seeds (`［＃`, `］［＃`, `《［＃］》`) that v0.2.5
   could not satisfy.
@@ -511,7 +523,7 @@ true assertion.
 - **CLAUDE.md** Open-follow-ups section reframed: Aozora-only
   fixtures (`spec-aozora` / `spec-golden-56656` / `corpus-sweep`)
   now correctly point to the sibling `P4suta/aozora` repo (they
-  moved there at v0.2.0 — afm only keeps the CommonMark/GFM spec
+  moved there at v0.2.0 — aozora-flavored-markdown only keeps the CommonMark/GFM spec
   runners).
 - **ADR-0001** carries a v0.2.4 status update documenting the diff
   budget collapse (200 → 0).
@@ -522,7 +534,7 @@ true assertion.
 
 - aozora-tools (225 tests + ADRs) and afm-epub (placeholder) verified
   unchanged after this release: the only modifications live in
-  afm-markdown's own surface plus tooling, so the sibling repos pass
+  aozora-flavored-markdown's own surface plus tooling, so the sibling repos pass
   unchanged.
 
 ## [0.2.5] - 2026-04-30
@@ -546,9 +558,9 @@ full 159-test suite.
   holds for malformed inputs too.
 - **Family-suffix CSS class recognition.** `is_recognised_afm_class`
   now accepts any `<base>-<suffix>` where `<base>` is in
-  `AFM_CLASSES`, covering both numeric modifiers (`afm-indent-2`,
-  `afm-container-indent-3`) and slug modifiers (`afm-section-break-
-  choho`, `afm-bouten-goma`-suffixed forms) without expanding the
+  `AOZORA_MD_CLASSES`, covering both numeric modifiers (`aozora-md-indent-2`,
+  `aozora-md-container-indent-3`) and slug modifiers (`aozora-md-section-break-
+  choho`, `aozora-md-bouten-goma`-suffixed forms) without expanding the
   pinned list per variant.
 
 ### Re-enabled
@@ -576,7 +588,7 @@ full 159-test suite.
 ## [0.2.4] - 2026-04-30
 
 This release follows aozora `0.2.5` and completes the borrowed-AST
-migration that began with the v0.2.0 split. afm-markdown is now a thin
+migration that began with the v0.2.0 split. aozora-flavored-markdown is now a thin
 glue crate that composes a vanilla comrak with `aozora-render` /
 `aozora-lex` on a string-level sentinel substitution; comrak no longer
 carries any Aozora-aware patches.
@@ -588,12 +600,12 @@ carries any Aozora-aware patches.
   `fn` pointer + arms in cm/xml/html/sourcepos) has been removed, and
   the ADR-0001 200-line diff budget is now **0 lines**. Upstream syncs
   no longer need patch reapplication.
-- **afm-markdown switched from owned-AST AST surgery to HTML
+- **aozora-flavored-markdown switched from owned-AST AST surgery to HTML
   post-processing.** The pipeline is now `aozora_lex::lex_into_arena` →
   `comrak::parse_document` (against the normalized text) →
   `comrak::format_html` → in-process sentinel substitution that calls
   `aozora_render::render_node` for every PUA-sentinel hit. See the
-  module-level docs in `crates/afm-markdown/src/post_process.rs`.
+  module-level docs in `crates/aozora-flavored-markdown/src/post_process.rs`.
 - **Public API simplification.** The arena-coupled
   `parse(arena, input, options) -> ParseResult` and
   `serialize_from_artifacts(...)` entry points are replaced by
@@ -606,7 +618,7 @@ carries any Aozora-aware patches.
 
 - `aozora-parser` dependency (the crate was retired in aozora 0.2.0
   Phase F.1).
-- `aozora-lexer` direct dependency (afm-markdown only consumes
+- `aozora-lexer` direct dependency (aozora-flavored-markdown only consumes
   `aozora-lex` now; the underlying `aozora-lexer` is pulled in
   transitively).
 - `comrak::Options::extension::render_aozora` and `serialize_aozora`
@@ -628,10 +640,10 @@ Initial public preview release of Aozora Flavored Markdown.
 
 #### Parse pipeline
 
-- Seven-phase pure-functional lexer (`afm-lexer`) — sanitize / events /
+- Seven-phase pure-functional lexer (`aozora-md-lexer`) — sanitize / events /
   pair / classify / normalize / registry / validate — that resolves
   Aozora notations before the CommonMark parser runs (ADR-0008).
-- Post-process AST splice in `afm-parser` — inline, block-leaf, and
+- Post-process AST splice in `aozora-md-parser` — inline, block-leaf, and
   paired-container surgery that reinstates Aozora nodes after vanilla
   comrak parsing.
 - Round-trip serializer — inverts the lexer via sentinel registry
@@ -656,12 +668,12 @@ Initial public preview release of Aozora Flavored Markdown.
 
 #### Encoding
 
-- Transparent Shift_JIS decoding via `afm-encoding`.
+- Transparent Shift_JIS decoding via `aozora-md-encoding`.
 - UTF-8 BOM sniff and strip.
 
 #### CLI
 
-- `afm render` / `afm check` subcommands.
+- `aozora-flavored-markdown render` / `aozora-flavored-markdown check` subcommands.
 - Global `--encoding {utf8,sjis}` and `--strict` flags.
 
 ### Quality gates
@@ -681,5 +693,6 @@ Initial public preview release of Aozora Flavored Markdown.
   strict-code grep gate that rejects `#[allow(...)]`, nightly feature
   gates, and raw `println!` in library crates.
 
-[Unreleased]: https://github.com/P4suta/afm/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/P4suta/afm/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/P4suta/afm/compare/v0.4.0...v0.4.1
 [0.1.0]: https://github.com/P4suta/afm/releases/tag/v0.1.0

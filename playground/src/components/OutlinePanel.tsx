@@ -15,15 +15,15 @@ const OutlinePanel: Component<OutlinePanelProps> = (props) => {
   return (
     <Show
       when={props.entries.length > 0}
-      fallback={<div class="afm-pg-outline-empty">見出しがありません</div>}
+      fallback={<div class="aozora-md-pg-outline-empty">見出しがありません</div>}
     >
-      <ul class="afm-pg-outline-list">
+      <ul class="aozora-md-pg-outline-list">
         <For each={props.entries}>
           {(h) => (
-            <li class={`afm-pg-outline-item afm-pg-outline-l${h.level}`}>
+            <li class={`aozora-md-pg-outline-item aozora-md-pg-outline-l${h.level}`}>
               <button
                 type="button"
-                class="afm-pg-outline-link"
+                class="aozora-md-pg-outline-link"
                 disabled={h.sourceLine === null}
                 onClick={() => {
                   if (h.sourceLine !== null) props.onJump(h.sourceLine);

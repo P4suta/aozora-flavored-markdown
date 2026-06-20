@@ -27,21 +27,21 @@ const COLOR_SCHEME_LABEL: Record<ColorSchemePref, string> = {
 
 const Toolbar: Component<ToolbarProps> = (props) => {
   return (
-    <header class="afm-pg-toolbar">
+    <header class="aozora-md-pg-toolbar">
       <a
-        class="afm-pg-brand"
+        class="aozora-md-pg-brand"
         href="https://github.com/P4suta/afm"
         target="_blank"
         rel="noopener"
       >
-        <span class="afm-pg-brand-mark">afm</span>
-        <span class="afm-pg-brand-sub">playground</span>
+        <span class="aozora-md-pg-brand-mark">aozora-md</span>
+        <span class="aozora-md-pg-brand-sub">playground</span>
       </a>
-      <div class="afm-pg-toolbar-group" role="group" aria-label="表示モード">
-        <span class="afm-pg-label">表示</span>
+      <div class="aozora-md-pg-toolbar-group" role="group" aria-label="表示モード">
+        <span class="aozora-md-pg-label">表示</span>
         <button
           type="button"
-          class="afm-pg-toggle"
+          class="aozora-md-pg-toggle"
           aria-pressed={props.themeMode() === 'vertical' ? 'true' : 'false'}
           onClick={() => props.onThemeChange('vertical')}
         >
@@ -49,20 +49,20 @@ const Toolbar: Component<ToolbarProps> = (props) => {
         </button>
         <button
           type="button"
-          class="afm-pg-toggle"
+          class="aozora-md-pg-toggle"
           aria-pressed={props.themeMode() === 'horizontal' ? 'true' : 'false'}
           onClick={() => props.onThemeChange('horizontal')}
         >
           横書き
         </button>
       </div>
-      <div class="afm-pg-toolbar-group">
-        <label class="afm-pg-label" for="afm-pg-example">
+      <div class="aozora-md-pg-toolbar-group">
+        <label class="aozora-md-pg-label" for="aozora-md-pg-example">
           例文
         </label>
         <select
-          id="afm-pg-example"
-          class="afm-pg-select"
+          id="aozora-md-pg-example"
+          class="aozora-md-pg-select"
           onChange={(event) => {
             const target = event.currentTarget;
             const slug = target.value;
@@ -77,13 +77,13 @@ const Toolbar: Component<ToolbarProps> = (props) => {
           </For>
         </select>
       </div>
-      <div class="afm-pg-toolbar-group">
-        <label class="afm-pg-label" for="afm-pg-wrap">
+      <div class="aozora-md-pg-toolbar-group">
+        <label class="aozora-md-pg-label" for="aozora-md-pg-wrap">
           囲む
         </label>
         <select
-          id="afm-pg-wrap"
-          class="afm-pg-select afm-pg-select-wrap"
+          id="aozora-md-pg-wrap"
+          class="aozora-md-pg-select aozora-md-pg-select-wrap"
           title="選択範囲を青空文庫記法で囲む"
           onChange={(event) => {
             const target = event.currentTarget;
@@ -103,10 +103,10 @@ const Toolbar: Component<ToolbarProps> = (props) => {
           </For>
         </select>
       </div>
-      <div class="afm-pg-toolbar-spacer" />
+      <div class="aozora-md-pg-toolbar-spacer" />
       <button
         type="button"
-        class="afm-pg-toggle"
+        class="aozora-md-pg-toggle"
         title="記法リファレンスを開く"
         onClick={() => props.onShowGuide()}
       >
@@ -114,7 +114,7 @@ const Toolbar: Component<ToolbarProps> = (props) => {
       </button>
       <button
         type="button"
-        class="afm-pg-toggle"
+        class="aozora-md-pg-toggle"
         title="配色を切り替え（自動 / ライト / ダーク）"
         aria-label={`配色: ${COLOR_SCHEME_LABEL[props.colorSchemePref()]}`}
         onClick={() => props.onCycleColorScheme()}
@@ -122,7 +122,7 @@ const Toolbar: Component<ToolbarProps> = (props) => {
         {COLOR_SCHEME_LABEL[props.colorSchemePref()]}
       </button>
       <SettingsPanel view={props.editorView} />
-      <button type="button" class="afm-pg-share" onClick={() => props.onShare()}>
+      <button type="button" class="aozora-md-pg-share" onClick={() => props.onShare()}>
         共有リンクをコピー
       </button>
     </header>

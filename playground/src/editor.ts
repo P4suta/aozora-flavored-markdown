@@ -3,7 +3,7 @@
 // Beyond the base editor (line numbers, history, bracket matching,
 // folding), this assembles the 青空文庫 editor assists ported from the
 // sibling aozora playground. They all hang off `parserStateField`, which
-// owns one afm-wasm `Document` per source revision and exposes the parse
+// owns one aozora-flavored-markdown-wasm `Document` per source revision and exposes the parse
 // results (nodes / pairs / diagnostics / gaiji) in source coordinates.
 //
 // Toggleable features (structural highlight, gaiji inlay hints) live in
@@ -29,16 +29,16 @@ import {
   lineNumbers,
 } from '@codemirror/view';
 
-import { afmEditorTheme } from './cm-theme';
-import { afmCompletion } from './editor/completion';
+import { aozoraMdEditorTheme } from './cm-theme';
+import { aozoraMdCompletion } from './editor/completion';
 import { aozoraDecorations } from './editor/decorations';
 import { aozoraFolding } from './editor/folding';
-import { afmHover } from './editor/hover';
+import { aozoraMdHover } from './editor/hover';
 import { aozoraInlayHints } from './editor/inlayHints';
 import { linkedRangesFilter } from './editor/linkedRanges';
-import { afmLintGutter, afmLinter } from './editor/linter';
+import { aozoraMdLintGutter, aozoraMdLinter } from './editor/linter';
 import { parserStateField } from './editor/parserState';
-import { afmWrapKeymap } from './editor/wrapCommands';
+import { aozoraMdWrapKeymap } from './editor/wrapCommands';
 
 // Toggleable features (flipped by the settings panel). Default ON so the
 // editor's initial state matches the panel's initial signal values.
@@ -72,21 +72,21 @@ export function createEditor(
         foldGutter(),
         EditorView.lineWrapping,
         keymap.of([
-          ...afmWrapKeymap,
+          ...aozoraMdWrapKeymap,
           ...defaultKeymap,
           ...historyKeymap,
           ...searchKeymap,
           ...foldKeymap,
         ]),
         markdown(),
-        afmEditorTheme,
+        aozoraMdEditorTheme,
         // Parser backbone — every assist below reads from this field.
         parserStateField,
         structureHighlightCompartment.of(aozoraDecorations),
-        afmLinter,
-        afmLintGutter,
-        afmCompletion,
-        afmHover,
+        aozoraMdLinter,
+        aozoraMdLintGutter,
+        aozoraMdCompletion,
+        aozoraMdHover,
         aozoraFolding,
         linkedRangesFilter,
         inlayHintsCompartment.of(aozoraInlayHints),

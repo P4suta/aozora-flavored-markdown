@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a parser crash, render regression, or spec non-conformance in afm.
+description: Report a parser crash, render regression, or spec non-conformance in aozora-flavored-markdown.
 title: "[bug] "
 labels: ["bug"]
 body:
@@ -17,7 +17,7 @@ body:
     attributes:
       label: Minimal reproducing input
       description: |
-        Paste the shortest afm source that triggers the bug. If the
+        Paste the shortest aozora-flavored-markdown source that triggers the bug. If the
         input is Shift_JIS, include a hex dump (e.g. `xxd foo.txt`)
         rather than pasted glyphs, since the issue tracker will
         transcode the bytes on display.
@@ -59,9 +59,9 @@ body:
       required: true
 
   - type: input
-    id: afm-version
+    id: aozora-md-version
     attributes:
-      label: "afm version (`afm --version` or commit hash)"
+      label: "aozora-flavored-markdown version (`aozora-flavored-markdown --version` or commit hash)"
     validations:
       required: true
 

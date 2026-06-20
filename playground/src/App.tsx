@@ -21,7 +21,7 @@ import { createTheme } from './theme-toggle';
 import { hashSource, renderAfm, type Diagnostic, type IrDocument } from './wasm-loader';
 
 const FALLBACK_SOURCE =
-  '# afm playground\n\nここに ｜文章《ぶんしょう》 を書いてみてください。\n';
+  '# aozora-md playground\n\nここに ｜文章《ぶんしょう》 を書いてみてください。\n';
 
 interface Rendered {
   readonly html: string;
@@ -134,7 +134,7 @@ const App: Component = () => {
     // index.html therefore survives the mount and (because shell.css
     // styles it `position: fixed; inset: 0; z-index: 10`) covers the
     // whole viewport until we explicitly take it down. Removing it here
-    // means the user keeps seeing the "afm を読み込み中…" message until
+    // means the user keeps seeing the "aozora-md を読み込み中…" message until
     // the first render lands; once we reach this callback the editor +
     // preview are already in the DOM and the overlay's job is done.
     document.getElementById('boot-overlay')?.remove();
@@ -177,11 +177,11 @@ const App: Component = () => {
         editorView={editorView}
         onShowGuide={() => setGuideOpen(true)}
       />
-      <main class="afm-pg-panes">
-        <aside class="afm-pg-outline" aria-label="アウトライン">
+      <main class="aozora-md-pg-panes">
+        <aside class="aozora-md-pg-outline" aria-label="アウトライン">
           <OutlinePanel entries={outline()} onJump={jumpToLine} />
         </aside>
-        <section class="afm-pg-pane afm-pg-pane-editor" aria-label="エディタ">
+        <section class="aozora-md-pg-pane aozora-md-pg-pane-editor" aria-label="エディタ">
           <EditorPane
             value={source()}
             onChange={(value) => {
@@ -191,7 +191,7 @@ const App: Component = () => {
             onReady={setEditorView}
           />
         </section>
-        <section class="afm-pg-pane afm-pg-pane-preview" aria-label="プレビュー">
+        <section class="aozora-md-pg-pane aozora-md-pg-pane-preview" aria-label="プレビュー">
           <PreviewPane html={html} ir={ir} />
           <DiagnosticsDrawer
             diagnostics={diagnostics}
@@ -200,17 +200,17 @@ const App: Component = () => {
           />
         </section>
       </main>
-      <footer class="afm-pg-footer">
+      <footer class="aozora-md-pg-footer">
         <span>
           Powered by{' '}
           <a href="https://github.com/P4suta/afm" target="_blank" rel="noopener">
-            afm
+            aozora-md
           </a>{' '}
           — Aozora Flavored Markdown
         </span>
       </footer>
       {toast() !== null && (
-        <div class="afm-pg-toast" data-ok={toast()!.ok ? '1' : '0'}>
+        <div class="aozora-md-pg-toast" data-ok={toast()!.ok ? '1' : '0'}>
           {toast()!.message}
         </div>
       )}

@@ -1,5 +1,5 @@
 {
-  "name": "afm dev",
+  "name": "aozora-flavored-markdown dev",
   "dockerComposeFile": ["../docker-compose.yml"],
   "service": "devcontainer",
   "workspaceFolder": "/workspace",
@@ -9,7 +9,7 @@
 
   "overrideCommand": true,
 
-  // Inside the image, `just` runs tools directly (AFM_IN_CONTAINER=1), so this
+  // Inside the image, `just` runs tools directly (AOZORA_MD_IN_CONTAINER=1), so this
   // installs the git hooks without nesting a container.
   "postCreateCommand": "just hooks",
 

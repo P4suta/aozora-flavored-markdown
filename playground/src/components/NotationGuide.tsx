@@ -1,5 +1,5 @@
 // Notation reference modal, ported from the sibling aozora playground's
-// components/NotationGuide.tsx. Renders `notation-guide.md` (afm-specific:
+// components/NotationGuide.tsx. Renders `notation-guide.md` (aozora-md-specific:
 // CommonMark + GFM + aozora) to HTML once via `marked`, with a TOC, a
 // focus trap, body-scroll lock, and Escape / backdrop close.
 
@@ -112,42 +112,42 @@ export default function NotationGuide(props: NotationGuideProps) {
   return (
     <Show when={props.open}>
       <div
-        class="afm-pg-guide-backdrop"
+        class="aozora-md-pg-guide-backdrop"
         onClick={(e) => {
           if (e.target === e.currentTarget) props.onClose();
         }}
       >
         <div
-          class="afm-pg-guide-modal"
+          class="aozora-md-pg-guide-modal"
           role="dialog"
           aria-modal="true"
-          aria-label="afm 記法リファレンス"
+          aria-label="aozora-md 記法リファレンス"
           ref={modalRef}
         >
-          <header class="afm-pg-guide-header">
-            <h2>📖 afm 記法リファレンス</h2>
+          <header class="aozora-md-pg-guide-header">
+            <h2>📖 aozora-md 記法リファレンス</h2>
             <button
               type="button"
-              class="afm-pg-guide-close"
+              class="aozora-md-pg-guide-close"
               onClick={props.onClose}
               aria-label="閉じる"
             >
               ×
             </button>
           </header>
-          <div class="afm-pg-guide-content">
+          <div class="aozora-md-pg-guide-content">
             <Show when={TOC.length > 0}>
-              <nav class="afm-pg-guide-toc" aria-label="目次">
+              <nav class="aozora-md-pg-guide-toc" aria-label="目次">
                 <ul>
                   <For each={TOC}>
                     {(entry) => (
-                      <li class={`afm-pg-toc-l${entry.level}`}>
+                      <li class={`aozora-md-pg-toc-l${entry.level}`}>
                         <button
                           type="button"
                           class={
                             activeId() === entry.id
-                              ? 'afm-pg-toc-link active'
-                              : 'afm-pg-toc-link'
+                              ? 'aozora-md-pg-toc-link active'
+                              : 'aozora-md-pg-toc-link'
                           }
                           onClick={() => jumpTo(entry.id)}
                         >
@@ -159,7 +159,7 @@ export default function NotationGuide(props: NotationGuideProps) {
                 </ul>
               </nav>
             </Show>
-            <div class="afm-pg-guide-body" ref={bodyRef} innerHTML={html()} />
+            <div class="aozora-md-pg-guide-body" ref={bodyRef} innerHTML={html()} />
           </div>
         </div>
       </div>

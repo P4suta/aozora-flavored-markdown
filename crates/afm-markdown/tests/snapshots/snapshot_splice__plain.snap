@@ -1,5 +1,0 @@
----
-source: crates/afm-markdown/tests/snapshot_splice.rs
-expression: "render(\"hello, world\")"
----
-<p>hello, world</p>

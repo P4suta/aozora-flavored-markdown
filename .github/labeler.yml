@@ -6,24 +6,24 @@
 "area: markdown":
   - changed-files:
       - any-glob-to-any-file:
-          - "crates/afm-markdown/**"
-          - "crates/afm-markdown-test-support/**"
+          - "crates/aozora-flavored-markdown/**"
+          - "crates/aozora-flavored-markdown-test-support/**"
 
 "area: cli":
   - changed-files:
       - any-glob-to-any-file:
-          - "crates/afm-cli/**"
+          - "crates/aozora-flavored-markdown-cli/**"
 
 "area: wasm":
   - changed-files:
       - any-glob-to-any-file:
-          - "crates/afm-wasm/**"
+          - "crates/aozora-flavored-markdown-wasm/**"
           - "playground/**"
 
 "area: book":
   - changed-files:
       - any-glob-to-any-file:
-          - "crates/afm-book/**"
+          - "crates/aozora-flavored-markdown-book/**"
 
 "area: dev":
   - changed-files:

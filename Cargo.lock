@@ -18,63 +18,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "afm-cli"
-version = "0.4.0"
-dependencies = [
- "afm-markdown",
- "aozora",
- "clap",
- "clap_complete",
- "clap_mangen",
- "miette",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "afm-markdown"
-version = "0.4.0"
-dependencies = [
- "afm-markdown-test-support",
- "aozora",
- "comrak",
- "criterion",
- "dhat",
- "insta",
- "miette",
- "pretty_assertions",
- "proptest",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "afm-markdown-test-support"
-version = "0.4.0"
-dependencies = [
- "aozora",
-]
-
-[[package]]
-name = "afm-wasm"
-version = "0.4.0"
-dependencies = [
- "afm-markdown",
- "aozora",
- "console_error_panic_hook",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "twox-hash",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -182,6 +125,63 @@ dependencies = [
  "phf",
  "phf_codegen",
  "thiserror",
+]
+
+[[package]]
+name = "aozora-flavored-markdown"
+version = "0.4.1"
+dependencies = [
+ "aozora",
+ "aozora-flavored-markdown-test-support",
+ "comrak",
+ "criterion",
+ "dhat",
+ "insta",
+ "miette",
+ "pretty_assertions",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "aozora-flavored-markdown-cli"
+version = "0.4.1"
+dependencies = [
+ "aozora",
+ "aozora-flavored-markdown",
+ "clap",
+ "clap_complete",
+ "clap_mangen",
+ "miette",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "aozora-flavored-markdown-test-support"
+version = "0.4.1"
+dependencies = [
+ "aozora",
+]
+
+[[package]]
+name = "aozora-flavored-markdown-wasm"
+version = "0.4.1"
+dependencies = [
+ "aozora",
+ "aozora-flavored-markdown",
+ "console_error_panic_hook",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "twox-hash",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -1731,10 +1731,10 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "xtask"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
- "afm-markdown",
  "anyhow",
+ "aozora-flavored-markdown",
  "clap",
  "regex",
  "serde",

@@ -1,4 +1,4 @@
-# afm workspace task runner.
+# aozora-flavored-markdown workspace task runner.
 # The ONE entry point for every development operation. Every target runs inside Docker;
 # never invoke cargo, mdbook, or playwright on the host directly.
 
@@ -7,13 +7,13 @@ set dotenv-load := false
 
 # --- internal helpers ---------------------------------------------------------
 
-# `AFM_IN_CONTAINER=1` is baked into the dev/fuzz/ci images (see Dockerfile). On
+# `AOZORA_MD_IN_CONTAINER=1` is baked into the dev/fuzz/ci images (see Dockerfile). On
 # the host it is unset, so every recipe wraps its tool in `docker compose run`
 # (ADR-0002). Inside one of those images — a `just shell`, a devcontainer, or a
 # Codespace — it is "1", so recipes run the tool DIRECTLY rather than nesting a
 # second container (there is no Docker daemon in there). One Justfile, both
 # worlds; no docker-in-docker.
-_in := env_var_or_default("AFM_IN_CONTAINER", "0")
+_in := env_var_or_default("AOZORA_MD_IN_CONTAINER", "0")
 
 # Default run prefix for the interactive dev container (TTY attached)
 _dev := if _in == "1" { "" } else { "docker compose run --rm dev" }
@@ -64,10 +64,10 @@ build-release:
 shell:
     {{_dev}} bash
 
-# Run the afm CLI with arbitrary args (same as ./bin/afm ARGS)
+# Run the aozora-flavored-markdown CLI with arbitrary args (same as ./bin/aozora-flavored-markdown ARGS)
 [group('build')]
 run *ARGS:
-    {{_dev}} cargo run --package afm-cli --quiet -- {{ARGS}}
+    {{_dev}} cargo run --package aozora-flavored-markdown-cli --quiet -- {{ARGS}}
 
 # --- tests --------------------------------------------------------------------
 
@@ -115,17 +115,17 @@ prop-seed SEED TARGET="property_*":
 # that skips the full proptest sweep.
 [group('test')]
 invariants:
-    {{_dev}} cargo nextest run --package afm-markdown --lib -E 'test(invariant_unit_)'
+    {{_dev}} cargo nextest run --package aozora-flavored-markdown --lib -E 'test(invariant_unit_)'
 
 # CommonMark 0.31.2 spec compliance (652 cases, pass = 652/652)
 [group('test')]
 spec-commonmark:
-    {{_dev}} cargo nextest run --package afm-markdown --test commonmark_spec
+    {{_dev}} cargo nextest run --package aozora-flavored-markdown --test commonmark_spec
 
 # GitHub Flavored Markdown spec compliance
 [group('test')]
 spec-gfm:
-    {{_dev}} cargo nextest run --package afm-markdown --test gfm_spec
+    {{_dev}} cargo nextest run --package aozora-flavored-markdown --test gfm_spec
 
 # Aozora-layer fixtures (annotation cases, golden 56656, corpus sweep)
 # now live in the sibling `aozora` repo; run `just spec-aozora`
@@ -134,29 +134,29 @@ spec-gfm:
 # --- fuzzing -----------------------------------------------------------------
 #
 # libFuzzer harnesses (`parse_render` / `serialize_round_trip` / `sjis_decode`)
-# live in `crates/afm-markdown/fuzz/`; they run under nightly in the dev
+# live in `crates/aozora-flavored-markdown/fuzz/`; they run under nightly in the dev
 # container. Triaged crashes are promoted into `tests/fuzz_regressions/` so
 # `just test` replays them with no nightly required.
 
 # Run the named fuzz target with arbitrary args (escape hatch for advanced use).
 [group('fuzz')]
 fuzz *ARGS:
-    {{_fuzz}} bash -c 'cd crates/afm-markdown && cargo +nightly fuzz run {{ARGS}}'
+    {{_fuzz}} bash -c 'cd crates/aozora-flavored-markdown && cargo +nightly fuzz run {{ARGS}}'
 
 # 60-second smoke fuzz. `timeout` is a hard backstop if libFuzzer ever hangs.
 [group('fuzz')]
 fuzz-quick TARGET:
-    {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 90s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
+    {{_fuzz}} bash -c 'cd crates/aozora-flavored-markdown && timeout --kill-after=10s 90s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=60'
 
 # 5-minute deep fuzz — the gate to clear before tagging a release.
 [group('fuzz')]
 fuzz-deep TARGET:
-    {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 360s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
+    {{_fuzz}} bash -c 'cd crates/aozora-flavored-markdown && timeout --kill-after=10s 360s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=300'
 
 # 15-minute marathon fuzz — strongest single-target soak; exits cleanly at 15 min.
 [group('fuzz')]
 fuzz-marathon TARGET:
-    {{_fuzz}} bash -c 'cd crates/afm-markdown && timeout --kill-after=10s 1000s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
+    {{_fuzz}} bash -c 'cd crates/aozora-flavored-markdown && timeout --kill-after=10s 1000s cargo +nightly fuzz run {{TARGET}} -- -max_total_time=900'
 
 # Reproduce every artifact under `fuzz/artifacts/<target>/` and print
 # (bytes, panic-message) for each. Exit status is the count of artifacts
@@ -167,7 +167,7 @@ fuzz-triage TARGET:
     #!/usr/bin/env bash
     set -euo pipefail
     target="{{TARGET}}"
-    art_dir="crates/afm-markdown/fuzz/artifacts/${target}"
+    art_dir="crates/aozora-flavored-markdown/fuzz/artifacts/${target}"
     if [[ ! -d "$art_dir" ]]; then
         echo "fuzz-triage: no artifacts for target ${target}"
         exit 0
@@ -175,12 +175,12 @@ fuzz-triage TARGET:
     failed=0
     for art in $(find "$art_dir" -type f -name 'crash-*' -o -name 'leak-*' -o -name 'oom-*' | sort); do
         # `cargo fuzz run` resolves relative paths against the crate's
-        # own directory (we cd into `crates/afm-markdown` before
-        # invoking it), so strip only the `crates/afm-markdown/`
+        # own directory (we cd into `crates/aozora-flavored-markdown` before
+        # invoking it), so strip only the `crates/aozora-flavored-markdown/`
         # prefix — `fuzz/artifacts/...` is the form cargo-fuzz wants.
-        rel="${art#crates/afm-markdown/}"
+        rel="${art#crates/aozora-flavored-markdown/}"
         echo "==> ${rel}"
-        out=$({{_fuzz}} bash -c "cd crates/afm-markdown && cargo +nightly fuzz run ${target} ${rel} 2>&1" || true)
+        out=$({{_fuzz}} bash -c "cd crates/aozora-flavored-markdown && cargo +nightly fuzz run ${target} ${rel} 2>&1" || true)
         # Slice out the panic block: from the `thread … panicked` line
         # through the line just before the stack trace begins. That is
         # exactly where `assert_html_invariants` prints its tier label
@@ -218,8 +218,8 @@ fuzz-triage TARGET:
 fuzz-promote TARGET ARTIFACT:
     #!/usr/bin/env bash
     set -euo pipefail
-    src="crates/afm-markdown/fuzz/artifacts/{{TARGET}}/{{ARTIFACT}}"
-    dst_dir="crates/afm-markdown/tests/fuzz_regressions/{{TARGET}}"
+    src="crates/aozora-flavored-markdown/fuzz/artifacts/{{TARGET}}/{{ARTIFACT}}"
+    dst_dir="crates/aozora-flavored-markdown/tests/fuzz_regressions/{{TARGET}}"
     if [[ ! -f "$src" ]]; then
         echo "fuzz-promote: artifact not found: $src" >&2
         exit 1
@@ -231,8 +231,8 @@ fuzz-promote TARGET ARTIFACT:
     echo "promoted ${src} -> ${dst_dir}/{{ARTIFACT}}"
 
 # Run every registered fuzz target in turn for 60 s each. Smoke pass:
-# typically used after touching anything in `crates/afm-markdown/src/`
-# or `crates/afm-markdown-test-support/src/`.
+# typically used after touching anything in `crates/aozora-flavored-markdown/src/`
+# or `crates/aozora-flavored-markdown-test-support/src/`.
 [group('fuzz')]
 fuzz-all-quick:
     just fuzz-quick parse_render
@@ -260,11 +260,11 @@ fuzz-status:
     for t in "${targets[@]}"; do
         crashes=0
         regressions=0
-        if [[ -d "crates/afm-markdown/fuzz/artifacts/${t}" ]]; then
-            crashes=$(find "crates/afm-markdown/fuzz/artifacts/${t}" -maxdepth 1 -type f \( -name 'crash-*' -o -name 'leak-*' -o -name 'oom-*' \) 2>/dev/null | wc -l | tr -d ' ')
+        if [[ -d "crates/aozora-flavored-markdown/fuzz/artifacts/${t}" ]]; then
+            crashes=$(find "crates/aozora-flavored-markdown/fuzz/artifacts/${t}" -maxdepth 1 -type f \( -name 'crash-*' -o -name 'leak-*' -o -name 'oom-*' \) 2>/dev/null | wc -l | tr -d ' ')
         fi
-        if [[ -d "crates/afm-markdown/tests/fuzz_regressions/${t}" ]]; then
-            regressions=$(find "crates/afm-markdown/tests/fuzz_regressions/${t}" -maxdepth 1 -type f ! -name '*.txt' ! -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+        if [[ -d "crates/aozora-flavored-markdown/tests/fuzz_regressions/${t}" ]]; then
+            regressions=$(find "crates/aozora-flavored-markdown/tests/fuzz_regressions/${t}" -maxdepth 1 -type f ! -name '*.txt' ! -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
         fi
         printf "%-22s  %-10s  %-12s\n" "$t" "$crashes" "$regressions"
     done
@@ -290,22 +290,22 @@ bench-compare NAME="pre-opt":
 # + peak resident bytes, and a dhat-heap.json for the dh_view viewer.
 [group('bench')]
 dhat:
-    {{_dev}} cargo run --release --example dhat_render -p afm-markdown
+    {{_dev}} cargo run --release --example dhat_render -p aozora-flavored-markdown
 
 # Small-document render latency percentiles (p50/p90/p99/max).
 [group('bench')]
 latency:
-    {{_dev}} cargo run --release --example latency_hist -p afm-markdown
+    {{_dev}} cargo run --release --example latency_hist -p aozora-flavored-markdown
 
 # Host-only CPU flamegraph of a render hot loop. samply needs
 # perf_event_open(2), which Docker's seccomp blocks, so it records on the host
 # (the ADR-0002 profiling exception). Built `--profile bench` to keep symbols.
 # Needs `samply` on PATH and perf_event_paranoid <= 1; writes
-# /tmp/afm-render.json.gz (open at https://profiler.firefox.com).
+# /tmp/aozora-md-render.json.gz (open at https://profiler.firefox.com).
 [group('bench')]
 samply-render REPEAT="200":
-    cargo build --profile bench --example samply_render -p afm-markdown
-    samply record --save-only --no-open -o /tmp/afm-render.json.gz -r 4000 -- target/release/examples/samply_render {{REPEAT}}
+    cargo build --profile bench --example samply_render -p aozora-flavored-markdown
+    samply record --save-only --no-open -o /tmp/aozora-md-render.json.gz -r 4000 -- target/release/examples/samply_render {{REPEAT}}
 
 # --- coverage -----------------------------------------------------------------
 
@@ -316,10 +316,10 @@ samply-render REPEAT="200":
 # than branches, so a region threshold implies the branch one on stable.
 #
 # Excludes (`_COV_IGNORE`): vendored comrak (ADR-0001), build artefacts, CLI
-# `main.rs` entrypoints, xtask tooling, test-support, and afm-wasm (exercised
+# `main.rs` entrypoints, xtask tooling, test-support, and aozora-flavored-markdown-wasm (exercised
 # by `wasm-pack test`, which native llvm-cov can't reach).
 _COV_FLOOR := "96"
-_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|afm-markdown-test-support/|afm-wasm/)"
+_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|aozora-flavored-markdown-test-support/|aozora-flavored-markdown-wasm/)"
 
 [group('coverage')]
 coverage:
@@ -392,7 +392,7 @@ strict-code:
     #
     # `build.rs` files are excluded: their string literals can embed
     # `#[allow(...)]` snippets emitted as generated code, which are not real
-    # attributes under strict-code's purview. (afm has no build.rs today;
+    # attributes under strict-code's purview. (aozora-flavored-markdown has no build.rs today;
     # the carve-out keeps parity with aozora and is future-proof.)
     src_files=()
     for f in "${files[@]}"; do
@@ -470,13 +470,13 @@ strict-code:
 
     # ---- println! / eprintln! in library crates ----------------------------
     # Library crates should emit observability via `tracing`, not raw print.
-    # CLI crates (afm-cli, xtask) are expected to print, so they are scoped
+    # CLI crates (aozora-flavored-markdown-cli, xtask) are expected to print, so they are scoped
     # out. Examples (`crates/*/examples/`) and fuzz targets
     # (`crates/*/fuzz/fuzz_targets/`) are also exempt — they're binary-style
     # demos, not library code. This complements clippy::print_stdout /
     # clippy::print_stderr, which cannot be selectively enabled per-crate
     # while still inheriting [workspace.lints] (rust-lang/cargo#12697).
-    lib_files=(crates/afm-markdown/**/*.rs)
+    lib_files=(crates/aozora-flavored-markdown/**/*.rs)
     print_hits=$(grep -nE '(^|[^[:alnum:]_])e?print(ln)?!\s*\(' "${lib_files[@]}" 2>/dev/null \
         | grep -vE '/(tests|benches|examples|fuzz_targets)/' || true)
     if [[ -n "$print_hits" ]]; then
@@ -485,9 +485,9 @@ strict-code:
         failed=1
     fi
 
-    # ---- expect() regression gate (afm-markdown library source) ------------
+    # ---- expect() regression gate (aozora-flavored-markdown library source) ------------
     # Coarse tripwire: counts every `.expect(` under
-    # `crates/afm-markdown/src/**` (test modules included — this is a
+    # `crates/aozora-flavored-markdown/src/**` (test modules included — this is a
     # no-regression ratchet, not a precise audit). The current baseline is
     # all locally-justified: `String`/`fmt::Write` sinks that cannot fail,
     # a `u32::try_from` bounded by the Phase-0 cap, and the forward-range
@@ -495,12 +495,12 @@ strict-code:
     # production path should be lifted into the type system or pinned by a
     # property test instead of pushed to runtime. Mirrors aozora-pipeline's
     # baseline tripwire; bump the baseline only when you remove an expect.
-    expect_files=(crates/afm-markdown/src/**/*.rs)
+    expect_files=(crates/aozora-flavored-markdown/src/**/*.rs)
     expect_count=$(grep -hcE '\.expect\(' "${expect_files[@]}" 2>/dev/null \
         | awk '{s+=$1} END {print s+0}')
     expect_baseline=8
     if [[ "$expect_count" -gt "$expect_baseline" ]]; then
-        echo "==> forbidden: expect() count in afm-markdown source grew" >&2
+        echo "==> forbidden: expect() count in aozora-flavored-markdown source grew" >&2
         echo "    baseline: $expect_baseline, found: $expect_count" >&2
         echo "    Lift the invariant into the type system or a property test" >&2
         echo "    instead of pushing it to runtime." >&2
@@ -670,30 +670,30 @@ spec-refresh:
 # a container we build directly; on the host we use the dedicated `book` service.
 [group('docs')]
 book-build:
-    {{ if _in == "1" { "cd crates/afm-book && mdbook build" } else { "docker compose run --rm book mdbook build" } }}
+    {{ if _in == "1" { "cd crates/aozora-flavored-markdown-book && mdbook build" } else { "docker compose run --rm book mdbook build" } }}
 
 # Serve the mdbook site at http://localhost:3000
 [group('docs')]
 book-serve:
-    {{ if _in == "1" { "cd crates/afm-book && mdbook serve --hostname 0.0.0.0 --port 3000" } else { "docker compose up book" } }}
+    {{ if _in == "1" { "cd crates/aozora-flavored-markdown-book && mdbook serve --hostname 0.0.0.0 --port 3000" } else { "docker compose up book" } }}
 
 # Check documentation links
 [group('docs')]
 book-linkcheck:
-    {{ if _in == "1" { "cd crates/afm-book && mdbook-linkcheck" } else { "docker compose run --rm book mdbook-linkcheck" } }}
+    {{ if _in == "1" { "cd crates/aozora-flavored-markdown-book && mdbook-linkcheck" } else { "docker compose run --rm book mdbook-linkcheck" } }}
 
 # New Architecture Decision Record (MADR template)
 [group('docs')]
 adr TITLE:
     {{_dev}} cargo run --package xtask --quiet -- new-adr {{TITLE}}
 
-# Regenerate crates/afm-wasm/types/afm_types.d.ts from the live IR +
+# Regenerate crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types.d.ts from the live IR +
 # wasm envelope types. Commit the diff so `types-check` stays green.
 [group('docs')]
 types:
     {{_dev}} cargo run --package xtask --quiet -- types ts
 
-# Drift gate: fail if the committed afm_types.d.ts disagrees with fresh
+# Drift gate: fail if the committed aozora_flavored_markdown_types.d.ts disagrees with fresh
 # codegen. Wired into `just ci` (and the `types-check` CI job); run after
 # touching the IR types.
 [group('docs')]
@@ -709,18 +709,18 @@ changelog:
 
 # Regenerate the shell completions + man page bundled into the release
 # archives (under dist/assets/, shipped via dist-workspace.toml `include`).
-# Built from the live `afm` CLI, so re-run after changing flags/subcommands
+# Built from the live `aozora-flavored-markdown` CLI, so re-run after changing flags/subcommands
 # (and on a version bump — the man page embeds the version). Commit the diff.
 [group('release')]
 dist-assets:
-    {{_dev}} cargo build --package afm-cli --quiet
+    {{_dev}} cargo build --package aozora-flavored-markdown-cli --quiet
     {{_dev}} cargo run --package xtask --quiet -- gen-dist-assets
 
 # Drift gate: fail if the committed dist assets differ from fresh generation.
 # Wired into `just ci` (mirrors `types-check`); run `just dist-assets` to fix.
 [group('release')]
 dist-assets-check:
-    {{_dev}} cargo build --package afm-cli --quiet
+    {{_dev}} cargo build --package aozora-flavored-markdown-cli --quiet
     {{_dev}} cargo run --package xtask --quiet -- gen-dist-assets --check
 
 # --- end-to-end (M3 onward) --------------------------------------------------
@@ -729,7 +729,7 @@ dist-assets-check:
 [group('e2e')]
 e2e *ARGS:
     docker compose run --rm browser \
-        bash -c 'cd crates/afm-book && npm ci && npx playwright test {{ARGS}}'
+        bash -c 'cd crates/aozora-flavored-markdown-book && npm ci && npx playwright test {{ARGS}}'
 
 # --- playground (browser try-it-online) --------------------------------------
 
@@ -743,15 +743,15 @@ _pg := "docker compose run --rm --service-ports playground"
 # Vite or dev server is bound to 5173 on the host.
 _pg_install := "docker compose run --rm playground"
 
-# Build the afm-wasm package for the playground; output to `crates/afm-wasm/pkg/`
-# (referenced by `playground/package.json` as `file:../crates/afm-wasm/pkg`).
+# Build the aozora-flavored-markdown-wasm package for the playground; output to `crates/aozora-flavored-markdown-wasm/pkg/`
+# (referenced by `playground/package.json` as `file:../crates/aozora-flavored-markdown-wasm/pkg`).
 # `RUSTC_WRAPPER=` bypasses sccache, which wasm-pack's `rustup target add`
 # subprocess corrupts (SCCACHE_GHA_ENABLED); the wasm cache benefit is marginal.
 [group('playground')]
 wasm-build:
-    {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
+    {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/aozora-flavored-markdown-wasm \
         --target bundler --release \
-        --out-dir pkg --out-name afm_wasm'
+        --out-dir pkg --out-name aozora_flavored_markdown_wasm'
 
 # Dev-profile wasm build for playground iteration. Skips wasm-opt and uses
 # the `dev` cargo profile; output is 3-5× bigger and slower at runtime but
@@ -760,9 +760,9 @@ wasm-build:
 # workflow both use the release `wasm-build` recipe instead.
 [group('playground')]
 wasm-build-dev:
-    {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/afm-wasm \
+    {{_dev}} bash -c 'RUSTC_WRAPPER= wasm-pack build crates/aozora-flavored-markdown-wasm \
         --target bundler --dev \
-        --out-dir pkg --out-name afm_wasm'
+        --out-dir pkg --out-name aozora_flavored_markdown_wasm'
 
 # Install playground deps via bun. Depends on `wasm-build` because the
 # `file:` link requires the target directory to exist before `bun install`
@@ -937,22 +937,22 @@ doctor:
     # interpolator; parse the human-readable table with awk instead.
     # Output columns: REPOSITORY TAG IMAGE-ID CREATED SIZE. NR==2 picks
     # the first data row; awk's last field is the size.
-    for tag in afm-dev:local afm-fuzz:local afm-ci:local; do
+    for tag in aozora-md-dev:local aozora-md-fuzz:local aozora-md-ci:local; do
         size=$(docker images "$tag" 2>/dev/null | awk 'NR==2 {print $NF}')
         if [ -n "$size" ]; then
             printf '%b image %s (%s)\n' "$OK" "$tag" "$size"
         else
             case "$tag" in
-                afm-dev:local)   hint='just check        # auto-builds dev' ;;
-                afm-fuzz:local)  hint='docker compose build fuzz' ;;
-                afm-ci:local)    hint='docker compose build ci  # superset' ;;
+                aozora-md-dev:local)   hint='just check        # auto-builds dev' ;;
+                aozora-md-fuzz:local)  hint='docker compose build fuzz' ;;
+                aozora-md-ci:local)    hint='docker compose build ci  # superset' ;;
             esac
             printf '%b image %s missing  →  %s\n' "$WARN" "$tag" "$hint"
         fi
     done
 
     # --- Volumes ---------------------------------------------------------
-    for vol in afm_cargo-registry afm_cargo-git afm_cargo-target afm_sccache; do
+    for vol in aozora-md_cargo-registry aozora-md_cargo-git aozora-md_cargo-target aozora-md_sccache; do
         if docker volume inspect "$vol" >/dev/null 2>&1; then
             printf '%b volume %s\n' "$OK" "$vol"
         else
@@ -977,11 +977,11 @@ doctor:
     fi
 
     # --- Playground prerequisites ----------------------------------------
-    if [ -f crates/afm-wasm/pkg/afm_wasm_bg.wasm ]; then
-        pkg_size=$(du -h crates/afm-wasm/pkg/afm_wasm_bg.wasm | awk '{print $1}')
-        printf '%b crates/afm-wasm/pkg (%s)\n' "$OK" "$pkg_size"
+    if [ -f crates/aozora-flavored-markdown-wasm/pkg/aozora_flavored_markdown_wasm_bg.wasm ]; then
+        pkg_size=$(du -h crates/aozora-flavored-markdown-wasm/pkg/aozora_flavored_markdown_wasm_bg.wasm | awk '{print $1}')
+        printf '%b crates/aozora-flavored-markdown-wasm/pkg (%s)\n' "$OK" "$pkg_size"
     else
-        printf '%b crates/afm-wasm/pkg missing  →  just wasm-build  (or just wasm-build-dev for fast iter)\n' "$WARN"
+        printf '%b crates/aozora-flavored-markdown-wasm/pkg missing  →  just wasm-build  (or just wasm-build-dev for fast iter)\n' "$WARN"
     fi
     if [ -d playground/node_modules ]; then
         printf '%b playground/node_modules\n' "$OK"
