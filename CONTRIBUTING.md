@@ -94,6 +94,59 @@ corpus sweep, fuzz) live in the sibling
 [`P4suta/aozora`](https://github.com/P4suta/aozora) repo. Run them
 from there.
 
+## Your first change
+
+A quick lap to confirm the loop works end to end:
+
+1. `just setup` — once per clone (build image, hooks, doctor, tests).
+2. `just watch` in one terminal — bacon recompiles on every save.
+3. Make a small edit in `crates/afm-markdown/` and add a test next to
+   it (a `#[cfg(test)]` case, or a row in the relevant `tests/*.rs`).
+   The watcher stays red until it passes.
+4. `just test` for the whole suite, `just lint` for fmt + clippy.
+5. `just ci` before you push — it is exactly the gate CI runs, so a
+   green `just ci` means a green PR. The `pre-push` hook runs it for you.
+6. Commit with a Conventional Commits subject (`feat(markdown): …`);
+   the `commit-msg` hook rejects anything else.
+
+New 青空文庫 notation does **not** start here — it lands in the sibling
+[`P4suta/aozora`](https://github.com/P4suta/aozora) repo first (ADR-0010).
+
+## Troubleshooting
+
+Run **`just doctor`** first — it audits images, cache volumes, the
+`aozora` pin, and playground prerequisites, and prints a fix hint for
+anything missing.
+
+- **First `docker compose build dev` is slow (~2–5 min).** Expected; it
+  is cached afterwards. A flaky download usually fixes itself on a
+  re-run (`CARGO_NET_RETRY=10` rides out transient registry blips).
+- **`Blocking waiting for file lock on build directory`.** Two cargo
+  commands are sharing the one `cargo-target` volume — e.g. `just watch`
+  while you run `just test`. Let one finish; they serialise on the lock,
+  they do not deadlock.
+- **rust-analyzer shows "cannot find Cargo" / red squiggles everywhere.**
+  The host has no Rust toolchain (ADR-0002) — rust-analyzer must run
+  *inside* the image. Open the repo in the devcontainer / a Codespace
+  (it boots `rust-analyzer` in-container), or work from `just shell`. A
+  host-side rust-analyzer cannot see the toolchain and never will.
+- **`just <recipe>` fails with a Docker error from inside a container.**
+  Your image predates the container-aware Justfile. Rebuild it
+  (`docker compose build dev`) so `AFM_IN_CONTAINER=1` is baked in and
+  recipes run their tool directly instead of nesting a container.
+- **sccache looks cold (slow rebuilds).** `just sccache-stats` shows the
+  hit ratio; a stray `RUSTC_WRAPPER` override or profile tweak can defeat
+  it. `just sccache-zero && just clean && just build && just sccache-stats`
+  gives a clean measurement window.
+- **Root-owned files in the tree / permission denied.** The dev image
+  runs as UID 1000 so bind-mount writes stay host-owned; if a CI run
+  left root-owned artefacts behind, `just clean` (or `just nuke` to also
+  drop the cache volumes) resets them.
+- **Docker Desktop / WSL feels slow.** The cargo registry, target, and
+  sccache caches plus the playground `node_modules` live in *named
+  volumes* outside the `/workspace` bind mount on purpose — don't move
+  them into the tree, that is the slow path.
+
 ## How to make a change
 
 ### afm-markdown (the glue layer)

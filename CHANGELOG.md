@@ -20,6 +20,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Grouped `just` menu** — every recipe carries a `[group(...)]`, so a
   bare `just` lists recipes by area (build / test / lint / docs / …);
   the destructive `nuke` is now guarded behind `[confirm]`.
+- **Contributor `Troubleshooting` + `Your first change` guide** in
+  `CONTRIBUTING.md` — the common Docker / cargo-lock / sccache /
+  rust-analyzer-in-container / WSL snags with their fixes, and a six-step
+  first lap through the inner loop.
+- **PR area auto-labeler** (`actions/labeler`) — tags a PR `area: cli` /
+  `markdown` / `wasm` / `book` / `dev` / `ci` / `documentation` from the
+  paths it touches. Non-blocking and not a required check.
 
 ### Changed
 
