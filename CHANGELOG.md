@@ -81,6 +81,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.expect()` regression tripwire over `afm-markdown` source (baseline 8)
   and the `cargo-deny` `allow-wildcard-paths` policy for path-only
   internal dev-deps.
+- **CI collapses to a single `ci-success` required check.** A
+  `dorny/paths-filter` `changes` job skips the Rust compile/test/lint
+  matrix on docs-only PRs, and a terminal `ci-success` aggregator gates
+  on every job's result, so branch protection requires just `ci-success`
+  (plus CodeQL) — adding or renaming a job no longer needs a settings
+  change. The `lint` job is now a parallel matrix (fmt-check / clippy /
+  typos / strict-code), and the completions/man drift check
+  (`dist-assets-check`) and doctests (`test-doc`) are first-class CI jobs.
 
 ### Fixed
 
