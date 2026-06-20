@@ -818,6 +818,11 @@ ci:
     #     bare `cargo check` pass was redundant. The text gates `lint` bundles
     #     (fmt-check/typos/strict-code) run once on their own instead of a second
     #     time inside `lint`; only `clippy` is left to run from `lint`.
+    #   * playground-build (wasm-pack + the in-repo playground's tsc/vite) runs
+    #     LAST in the foreground lane: wasm-pack invokes rustc and shares the
+    #     target dir. It mirrors CI's `wasm-build` job, so a wasm / IR /
+    #     diagnostic type change can no longer pass `just ci` while silently
+    #     breaking the playground's TypeScript — `just ci` is a superset of CI.
 
     pipeline_start=$(date +%s)
     rc=0
@@ -848,7 +853,7 @@ ci:
     # --- then the compile pipeline (sequential — shared target dir). ---------
     fg_steps=(typos fmt-check strict-code verify-version-pins \
               upstream-diff types-check clippy build dist-assets-check test test-doc prop \
-              spec-commonmark spec-gfm doc coverage udeps)
+              spec-commonmark spec-gfm doc coverage udeps playground-build)
     halted=""
     for step in "${fg_steps[@]}"; do
         start=$(date +%s)
