@@ -29,6 +29,7 @@ jobs:
 
           # Keep in sync with deny.toml's license allow-list.
           # BSD-2-Clause is required for the vendored comrak tree.
+          # Zlib covers zlib-rs, pulled by the EPUB generator's zip dependency.
           # CC-BY-SA-4.0 covers spec/*.json fixtures that inherit it
           # from the CommonMark / GFM specs (test data, not runtime deps).
           allow-licenses: >-
@@ -41,6 +42,7 @@ jobs:
             Unicode-3.0,
             CC0-1.0,
             MPL-2.0,
+            Zlib,
             CC-BY-SA-4.0
 
           # CI-only actions are build-time tooling, never linked into or
