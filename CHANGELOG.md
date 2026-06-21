@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Internal
+
+- **Aozora sentinel splicing moved from byte-stream post-processing to
+  AST-level mutation** (`crates/aozora-flavored-markdown/src/post_process.rs`
+  → `ast_splice.rs`). The splicer now mutates comrak's typed AST in place
+  (replacing each sentinel with a `NodeValue::Raw` node) and lets
+  `comrak::format_html` emit the final HTML in one pass, rather than
+  re-scanning a flat HTML byte stream with the former multi-pass Cow
+  pipeline. This supersedes the multi-pass design described under
+  [0.4.0] and **withdraws** the fully-fused aho-corasick follow-up noted
+  there — the separate secondary passes it would have fused no longer
+  exist as distinct scans.
+
 ## [0.4.1] - 2026-06-21
 
 The project was **renamed from `afm` to `aozora-flavored-markdown`** and cut its
@@ -274,10 +287,11 @@ is replaced by `Options::default()` (the dialect preset is now the `Default`).
   output on the common path and only allocate when their trigger
   pattern is present. Splicer Pass 1 is now the only mandatory
   allocation; Passes 2-4 are zero-allocation no-ops on well-formed
-  input. The fully-fused 1-pass aho-corasick state-machine is
-  documented as a follow-up in the module docstring; the Cow
-  threading already removes the redundant *allocations* on the
-  common path.
+  input. The Cow threading already removes the redundant
+  *allocations* on the common path; a fully-fused 1-pass
+  aho-corasick splicer was noted as a possible follow-up (later
+  withdrawn when the byte-stream post-processor was replaced by the
+  AST-level splicer — see [Unreleased]).
 - **`splice_into`'s `<p>` matcher** now matches both `<p>` and
   `<p attr=…>` openings (taking the earliest of the two). Previously
   only `<p>` was matched, so source-line-anchor injection
