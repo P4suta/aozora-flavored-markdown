@@ -135,6 +135,33 @@ fn short_setext_heading_still_works() {
 }
 
 #[test]
+fn empty_title_heading_hint_never_emits_an_empty_heading() {
+    // Tier L (no empty promoted heading), pinned at the unit level
+    // because it has no sound rendered-HTML witness: an empty *promoted*
+    // heading `<hN></hN>` is byte-identical to a legitimate empty ATX
+    // heading (`##`), so an always-on HTML predicate cannot tell them
+    // apart (see the catalog note in aozora-flavored-markdown-test-support).
+    //
+    // A degenerate hint with an empty target `「」` must not promote the
+    // host paragraph into an empty heading. The target-exists gate has
+    // no non-empty preceding run to match, so the hint stays an
+    // annotation — never `<hN></hN>`.
+    for input in [
+        "［＃「」は大見出し］",
+        "本文［＃「」は中見出し］",
+        "　［＃「　」は小見出し］",
+    ] {
+        let out = html::render_to_string(input);
+        for level in 1..=6 {
+            assert!(
+                !out.contains(&format!("<h{level}></h{level}>")),
+                "empty <h{level}> heading leaked for input {input:?}; got: {out}"
+            );
+        }
+    }
+}
+
+#[test]
 fn heading_hint_round_trips_through_serialize() {
     // I3 (serialize ∘ parse fixed point) demands that a heading hint
     // reconstructs its original `［＃「…」は…見出し］` form through
