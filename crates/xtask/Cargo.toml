@@ -20,7 +20,3 @@ clap       = { workspace = true }
 regex      = { workspace = true }
 serde      = { workspace = true }
 serde_json = { workspace = true }
-# The IR type tree (`aozora_flavored_markdown::ir::{IrDocument, IrBlock, IrInline, …}`)
-# is the single source of truth for the generated TypeScript artefact and
-# the compile-time variant-completeness pins in `types.rs`.
-aozora-flavored-markdown = { workspace = true }

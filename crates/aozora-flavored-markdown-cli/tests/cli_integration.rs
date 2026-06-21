@@ -1,6 +1,6 @@
 //! End-to-end integration tests for the `aozora-flavored-markdown` CLI binary.
 //!
-//! Uses `CARGO_BIN_EXE_afm` (set by cargo for each `[[bin]]` target
+//! Uses `CARGO_BIN_EXE_aozora-flavored-markdown` (set by cargo for each `[[bin]]` target
 //! during `cargo test`) so no `assert_cmd` dependency is pulled in.
 //! Each test writes a temp file, invokes the binary with a specific
 //! argument shape, and asserts on stdout / stderr / exit status.

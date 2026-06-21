@@ -45,6 +45,14 @@
 
 #![forbid(unsafe_code)]
 
+// Compile every fenced `rust` block in README.md as a doctest (run by
+// `just test-doc`) so the published quick-start can't drift from the API —
+// the drift this guards against actually happened once. `#[cfg(doctest)]`
+// keeps the `include_str!` out of normal builds and `cargo package`.
+#[cfg(doctest)]
+#[doc = include_str!("../../../README.md")]
+struct ReadmeDoctests;
+
 mod ast_splice;
 mod code_block_mask;
 pub mod diagnostics;
@@ -757,6 +765,18 @@ mod tests {
         assert!(opts.comrak.extension.tasklist);
         assert!(opts.comrak.extension.tagfilter);
         assert!(opts.comrak.render.r#unsafe);
+    }
+
+    #[test]
+    fn options_builders_and_getters_round_trip() {
+        // Exercise the public builder / getter surface (doctested, but run
+        // here too so the coverage gate counts it).
+        let opts = Options::default()
+            .with_aozora_enabled(false)
+            .with_source_line_anchors(true);
+        assert!(!opts.aozora_enabled());
+        assert!(opts.source_line_anchors());
+        assert!(opts.comrak().extension.table);
     }
 
     #[test]

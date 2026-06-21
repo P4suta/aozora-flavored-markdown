@@ -33,13 +33,13 @@ aozora-flavored-markdown-vX.Y.Z-x86_64-unknown-linux-gnu/aozora-flavored-markdow
 ### Shell completions and man page
 
 The archive's `completions/` directory holds scripts for bash (`aozora-flavored-markdown.bash`),
-zsh (`_afm`), fish (`aozora-flavored-markdown.fish`), powershell (`_afm.ps1`), and elvish
+zsh (`_aozora-flavored-markdown`), fish (`aozora-flavored-markdown.fish`), powershell (`_aozora-flavored-markdown.ps1`), and elvish
 (`aozora-flavored-markdown.elv`); install the one for your shell where it looks for
 completions. The man page is `man/aozora-flavored-markdown.1`:
 
 ```sh
-# zsh: copy `_afm` to a directory on your $fpath
-cp completions/_afm ~/.zfunc/_afm
+# zsh: copy `_aozora-flavored-markdown` to a directory on your $fpath
+cp completions/_aozora-flavored-markdown ~/.zfunc/_aozora-flavored-markdown
 # man page
 sudo cp man/aozora-flavored-markdown.1 /usr/local/share/man/man1/aozora-flavored-markdown.1 && man aozora-flavored-markdown
 ```

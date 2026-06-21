@@ -2,7 +2,7 @@
 //!
 //! Exposes a thin set of `#[wasm_bindgen]` exports that
 //! aozora-flavored-markdown-obsidian (and other browser hosts) call across the WASM
-//! boundary. The IR shape returned by `render_afm` and
+//! boundary. The IR shape returned by `render` and
 //! `render_aozora_only` mirrors the TS `IRDocument` defined in
 //! `aozora-flavored-markdown-obsidian/src/ir/types.ts` and is validated on the JS side
 //! by `from-wasm.ts`.
@@ -16,7 +16,7 @@
 //! # Surface
 //!
 //! - [`init_panic_hook`] — opt-in panic forwarder (debug builds).
-//! - [`render_afm`] — full aozora-flavored-markdown pipeline (CommonMark + GFM + aozora).
+//! - [`render`] — full aozora-flavored-markdown pipeline (CommonMark + GFM + aozora).
 //! - [`render_aozora_only`] — aozora-only inline mode (used by
 //!   aozora-flavored-markdown-obsidian's inline post-processor; bypasses comrak).
 //! - [`hash_source`] — xxh3-64 over the source, returned as `u64`
@@ -28,6 +28,7 @@ use aozora::{Document as AozoraDoc, SLUGS, SlugFamily, encoding::gaiji, wire};
 use aozora_flavored_markdown::ir::{IrBlock, IrDocument};
 use aozora_flavored_markdown::{Diagnostic, Options, render_blocks_to_ir, render_to_ir};
 use serde::Serialize;
+use tsify::Tsify;
 use twox_hash::XxHash3_64;
 use wasm_bindgen::prelude::*;
 
@@ -41,10 +42,14 @@ pub fn init_panic_hook() {
     }
 }
 
-/// Result envelope returned to JS. Matches the shape consumed by
-/// `aozora-flavored-markdown-obsidian/src/ir/from-wasm.ts`.
-#[derive(Serialize)]
-struct RenderResult {
+/// Result envelope returned to JS.
+///
+/// Matches the shape consumed by
+/// `aozora-flavored-markdown-obsidian/src/ir/from-wasm.ts`. `tsify` derives
+/// its `.d.ts` straight from this struct, so the TS shape can't drift.
+#[derive(Debug, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct RenderResult {
     /// Structured IR — see `aozora_flavored_markdown::ir` for the type tree.
     /// Mirrors the TS `IRDocument` (camelCase fields, discriminated
     /// unions on `kind`).
@@ -60,14 +65,15 @@ struct RenderResult {
 /// Optional render configuration accepted from JS. All fields are
 /// optional; missing fields fall back to `Options::default()`
 /// (aozora on, anchors off).
-#[derive(serde::Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize, Tsify)]
+#[tsify(from_wasm_abi)]
 #[serde(rename_all = "camelCase")]
-struct RenderOptions {
+pub struct RenderOptions {
     aozora_enabled: Option<bool>,
     source_line_anchors: Option<bool>,
 }
 
-fn build_options(opts: &RenderOptions) -> Options {
+fn build_options(opts: RenderOptions) -> Options {
     let mut base = Options::default();
     if let Some(v) = opts.aozora_enabled {
         base = base.with_aozora_enabled(v);
@@ -124,33 +130,27 @@ fn guard_source_len(source: &str) -> Result<(), JsValue> {
 ///
 /// # Errors
 ///
-/// Returns `Err(JsValue::String)` when `source` exceeds the parser
-/// core's `u32` span limit (~4 GiB), when `options` cannot be
-/// deserialized from JS, or when the resulting `RenderResult` cannot be
-/// serialized back to JS.
-#[wasm_bindgen(js_name = renderAfm)]
-pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+/// Returns `Err(JsValue::String)` when `source` exceeds the parser core's
+/// `u32` span limit (~4 GiB). `options` decoding and `RenderResult`
+/// encoding are handled by `tsify`'s wasm ABI (a malformed `options`
+/// surfaces as a wasm-bindgen `TypeError`, not an `Err`).
+#[wasm_bindgen(js_name = render)]
+pub fn render(source: &str, options: Option<RenderOptions>) -> Result<RenderResult, JsValue> {
     guard_source_len(source)?;
-    let opts: RenderOptions = if options.is_undefined() || options.is_null() {
-        RenderOptions::default()
-    } else {
-        serde_wasm_bindgen::from_value(options).map_err(|e| JsValue::from_str(&e.to_string()))?
-    };
-    let resolved = build_options(&opts);
+    let resolved = build_options(options.unwrap_or_default());
     let rendered = render_to_ir(source, &resolved);
-    let result = RenderResult {
+    Ok(RenderResult {
         ir: rendered.ir,
         html: rendered.html,
         diagnostics: rendered.diagnostics,
-    };
-    serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
+    })
 }
 
 /// Render aozora-only inline text (no markdown re-parse).
 ///
 /// Routes through the full aozora-flavored-markdown pipeline with default options.
 /// The naming preserves an entry point that callers can target
-/// without committing to the `renderAfm` shape; the implementation
+/// without committing to the `render` shape; the implementation
 /// is intentionally a thin wrapper because the `aozora-render`
 /// boundary lives in the sibling repo (ADR-0010) and aozora-flavored-markdown
 /// composes — never extends — its public API.
@@ -158,11 +158,10 @@ pub fn render_afm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Returns `Err(JsValue::String)` when `text` exceeds the parser core's
-/// `u32` span limit (~4 GiB; delegated to [`render_afm`]) or when the
-/// resulting `RenderResult` cannot be serialized back to JS.
+/// `u32` span limit (~4 GiB; delegated to [`render`]).
 #[wasm_bindgen(js_name = renderAozoraOnly)]
-pub fn render_aozora_only(text: &str) -> Result<JsValue, JsValue> {
-    render_afm(text, JsValue::UNDEFINED)
+pub fn render_aozora_only(text: &str) -> Result<RenderResult, JsValue> {
+    render(text, None)
 }
 
 /// xxh3-64 over the source, returned as a `u64` (JS receives a
@@ -173,19 +172,21 @@ pub fn hash_source(source: &str) -> u64 {
     XxHash3_64::oneshot_with_seed(0, source.as_bytes())
 }
 
-#[derive(Serialize)]
-struct BlockResult {
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockResult {
     /// IR blocks for this comrak top-level child. Usually one entry;
     /// may be empty (comrak constructs without an IR projection) or
     /// multiple (paired-container drain at the call boundary).
     ir: Vec<IrBlock>,
     html: String,
-    /// 1-based source line.
+    /// 1-based source line (serialised as `sourceLine`).
     source_line: u32,
 }
 
-#[derive(Serialize)]
-struct BlocksResult {
+#[derive(Debug, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct BlocksResult {
     blocks: Vec<BlockResult>,
     diagnostics: Vec<Diagnostic>,
 }
@@ -199,21 +200,18 @@ struct BlocksResult {
 ///
 /// # Errors
 ///
-/// Returns `Err(JsValue::String)` when `source` exceeds the parser
-/// core's `u32` span limit (~4 GiB), when `options` cannot be
-/// deserialized from JS, or when the resulting `BlocksResult` cannot be
-/// serialized back to JS.
+/// Returns `Err(JsValue::String)` when `source` exceeds the parser core's
+/// `u32` span limit (~4 GiB). `options` decoding and `BlocksResult`
+/// encoding are handled by `tsify`'s wasm ABI.
 #[wasm_bindgen(js_name = renderBlocks)]
-pub fn render_blocks(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+pub fn render_blocks(
+    source: &str,
+    options: Option<RenderOptions>,
+) -> Result<BlocksResult, JsValue> {
     guard_source_len(source)?;
-    let opts: RenderOptions = if options.is_undefined() || options.is_null() {
-        RenderOptions::default()
-    } else {
-        serde_wasm_bindgen::from_value(options).map_err(|e| JsValue::from_str(&e.to_string()))?
-    };
-    let resolved = build_options(&opts);
+    let resolved = build_options(options.unwrap_or_default());
     let (blocks, diagnostics) = render_blocks_to_ir(source, &resolved);
-    let result = BlocksResult {
+    Ok(BlocksResult {
         blocks: blocks
             .into_iter()
             .map(|b| BlockResult {
@@ -223,15 +221,14 @@ pub fn render_blocks(source: &str, options: JsValue) -> Result<JsValue, JsValue>
             })
             .collect(),
         diagnostics,
-    };
-    serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
+    })
 }
 
 // =====================================================================
 // Editor-assist surface
 //
 // Everything below is for the playground's *editor*, not its renderer.
-// `renderAfm` (above) is the full aozora-flavored-markdown pipeline: source → aozora
+// `render` (above) is the full aozora-flavored-markdown pipeline: source → aozora
 // normalize → comrak → IR → HTML. That path is correct for output but
 // drops the source byte offsets the editor needs for hover / inlay /
 // fold / structural-highlight.
@@ -557,8 +554,8 @@ mod tests {
     /// The boundary guard accepts in-range lengths (including the
     /// inclusive `u32::MAX` upper bound) and rejects anything larger,
     /// matching the `u32::MAX` assert the aozora parser core enforces in
-    /// `tokenize_in`. The Wasm render entry points (`renderAfm`,
-    /// `renderBlocks`, and `renderAozoraOnly` via `renderAfm`) call the
+    /// `tokenize_in`. The Wasm render entry points (`render`,
+    /// `renderBlocks`, and `renderAozoraOnly` via `render`) call the
     /// guard so an oversize source surfaces as `Err(JsValue)` instead of
     /// a `panic = "abort"` teardown of the Wasm instance.
     #[test]

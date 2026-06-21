@@ -15,12 +15,12 @@ aozora-flavored-markdown is not on crates.io yet; depend on it directly by git U
 aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
 ```
 
-The `aozora-encoding` sibling crate provides Shift_JIS decoding when
-you need it; pin it from the same repo set:
+The `aozora` sibling crate provides Shift_JIS decoding through its
+`aozora::encoding` module when you need it; it is published on crates.io:
 
 ```toml
 [dependencies]
-aozora-encoding = { git = "https://github.com/P4suta/aozora" }
+aozora = "0.4.1"
 ```
 
 ## Render to HTML — the simple path
@@ -118,13 +118,13 @@ more than one (a container that finally closes).
 
 ## Reading Shift_JIS input
 
-Aozora Bunko ships its text files in Shift_JIS. `aozora-encoding`
+Aozora Bunko ships its text files in Shift_JIS. `aozora::encoding`
 exposes a transparent decoder so your pipeline doesn't need to know
 the encoding ahead of time:
 
 ```rust
 use aozora_flavored_markdown::{Options, render};
-use aozora_encoding::decode_sjis;
+use aozora::encoding::decode_sjis;
 
 fn main() -> std::io::Result<()> {
     let bytes = std::fs::read("tsumito_batsu.txt")?;
@@ -160,7 +160,7 @@ End-to-end snippets live under
 in the repository:
 
 - `render-utf8.rs` — UTF-8 source → HTML on stdout.
-- `render-sjis.rs` — Shift_JIS source via `aozora-encoding`.
+- `render-sjis.rs` — Shift_JIS source via `aozora::encoding`.
 - `ast-walk.rs` — walk the parsed AST and tally `AozoraNode`
   variants.
 - `serialize-round-trip.rs` — verify `serialize ∘ lex ≡ id` on one

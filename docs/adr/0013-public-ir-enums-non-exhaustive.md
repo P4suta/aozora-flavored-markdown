@@ -5,6 +5,12 @@
 - Deciders: @P4suta
 - Tags: api, ir, stability, semver
 
+> **Amendment (ADR-0017, 2026-06-21):** the hand-written TypeScript union and
+> the `assert_*_variants` completeness witnesses described below were removed
+> when the IR↔TS codegen moved to `tsify` derives. The `#[non_exhaustive]`
+> decision itself stands unchanged; only the witness / codegen mechanism this
+> ADR mentions is superseded.
+
 ## Context
 
 `aozora_flavored_markdown::ir::{IrBlock, IrInline}` are the public, `serde`-serialised IR

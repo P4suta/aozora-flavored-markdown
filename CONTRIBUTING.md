@@ -42,9 +42,15 @@ per ADR-0009.
    workflows, and similar escape hatches are rejected by
    `just strict-code`. Refactor the real issue instead.
 4. **TDD with C1 100% branch coverage as the goal.** A failing
-   test lands first, then the fix. The CI floor is currently 96%
+   test lands first, then the fix. The CI floor is currently 97%
    regions (`_COV_FLOOR` in `Justfile`), ratcheted upward as gaps
    close.
+5. **No unused dependencies.** A dependency declared in any
+   `Cargo.toml` — including `[workspace.dependencies]` — that no
+   crate actually `use`s is rejected by `just shear` (cargo-shear).
+   Delete the dead entry, or — for a macro- or `cfg`-only use
+   cargo-shear's `syn` pass can't see — record a documented
+   `[workspace.metadata.cargo-shear] ignored = [...]`.
 
 ## First-time setup
 

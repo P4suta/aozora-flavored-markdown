@@ -21,13 +21,18 @@ workspace = true
 # `publish = false` build-block crates. See the workspace manifest.
 aozora    = { workspace = true }
 comrak    = { workspace = true }
-miette    = { workspace = true }
-thiserror = { workspace = true }
 # Used by the IR module to derive Serialize on `IrDocument`. Pulled
 # in as a regular dep so downstream consumers (aozora-flavored-markdown-wasm, aozora-flavored-markdown-epub)
 # can round-trip the IR via serde-wasm-bindgen / serde_json without
 # extra adapters.
 serde     = { workspace = true }
+# Feature-gated TypeScript-binding derives. The `tsify` feature (enabled only
+# by aozora-flavored-markdown-wasm) makes the IR + diagnostic types derive
+# `tsify::Tsify`, so wasm-pack emits their `.d.ts` directly — no separate
+# codegen step (ADR-0017). Off by default, so host builds (CLI / epub / tests)
+# never pull wasm-bindgen.
+tsify   = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 aozora-flavored-markdown-test-support = { workspace = true }
@@ -50,6 +55,17 @@ default = ["html"]
 # HTML renderer. Enabled by default but kept behind a feature so
 # downstream tools can parse without pulling in the renderer.
 html = []
+# TypeScript-binding derives (see `tsify` / `wasm-bindgen` above).
+# Enabled by aozora-flavored-markdown-wasm so wasm-pack emits the IR +
+# diagnostic `.d.ts` directly (ADR-0017). Off by default — host builds
+# never pull wasm-bindgen.
+tsify = ["dep:tsify", "dep:wasm-bindgen"]
+
+[package.metadata.cargo-shear]
+# `wasm-bindgen` is pulled by the `tsify` feature and used only by the code
+# `tsify::Tsify` expands into (no source-level `use`), so cargo-shear's
+# `syn` pass can't see it. It is genuinely required whenever `tsify` is on.
+ignored = ["wasm-bindgen"]
 
 [[bench]]
 name    = "render_to_string"

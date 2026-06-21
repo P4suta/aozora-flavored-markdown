@@ -25,7 +25,7 @@ layer.
 
 ## Sibling crates (aozora repo)
 
-Pulled in as a git dependency from
+Pulled in as a crates.io dependency on the umbrella `aozora` crate from
 [`P4suta/aozora`](https://github.com/P4suta/aozora). Their published
 rustdoc lives on that repo's GitHub Pages site; aozora-flavored-markdown just embeds the
 returned types in its own surface.
