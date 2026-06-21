@@ -28,7 +28,7 @@ aozora-flavored-markdown   = { workspace = true, features = ["tsify"] }
 # Document API used by the playground's hover / inlay / outline / fold
 # features). aozora-flavored-markdown composes aozora; here it also re-exposes aozora's own
 # Document/wire so the editor can query 青空文庫 spans in source
-# coordinates — a separate path from `renderAfm` (which goes through
+# coordinates — a separate path from `render` (which goes through
 # comrak and loses source offsets). The `wire` feature pulls in the
 # `aozora::wire::serialize_*` JSON projection (and serde/serde_json).
 aozora         = { workspace = true, features = ["wire"] }

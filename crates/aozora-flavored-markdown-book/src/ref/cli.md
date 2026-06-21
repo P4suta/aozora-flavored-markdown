@@ -141,7 +141,7 @@ completions, for example:
 # bash
 aozora-flavored-markdown completions bash | sudo tee /etc/bash_completion.d/aozora-flavored-markdown > /dev/null
 # zsh (a directory on your $fpath)
-aozora-flavored-markdown completions zsh > ~/.zfunc/_afm
+aozora-flavored-markdown completions zsh > ~/.zfunc/_aozora-flavored-markdown
 # fish
 aozora-flavored-markdown completions fish > ~/.config/fish/completions/aozora-flavored-markdown.fish
 ```
