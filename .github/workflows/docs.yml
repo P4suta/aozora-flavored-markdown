@@ -1,7 +1,7 @@
 # Publish the aozora-flavored-markdown book + rustdoc to GitHub Pages.
 #
-# aozora-flavored-markdown is not on crates.io, so there is no docs.rs; build rustdoc locally
-# and layer it under the mdbook site at `/aozora-flavored-markdown/api/`.
+# aozora-flavored-markdown publishes to docs.rs; this job also builds rustdoc locally
+# and layers it under the mdbook site at `/aozora-flavored-markdown/api/`.
 #
 # Docs builds use the native runner toolchain, not the dev Docker image:
 # the Pages deploy actions expect artefacts on the runner filesystem.

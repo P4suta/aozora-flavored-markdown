@@ -157,8 +157,13 @@ cargo run --example <name> -p aozora-flavored-markdown -- <path/to/input.md>
 
 ### CLI
 
-crates.io には未公開です(公開は延期中 —— ADR-0015)。それまでは GitHub
-Release のビルド済みバイナリ、または git からインストールしてください。
+crates.io から最新リリースをインストールできます:
+
+```sh
+cargo install aozora-flavored-markdown-cli --locked
+```
+
+GitHub Release のビルド済みバイナリ、または git からのインストールも利用できます。
 
 **Linux x86_64**, **macOS arm64**, **Windows x86_64** 用のビルド済み
 バイナリが各 GitHub Release に添付されています ——
@@ -175,11 +180,15 @@ cargo install --git https://github.com/P4suta/aozora-flavored-markdown --locked 
 
 ### ライブラリ
 
-crates.io には未公開です(公開は延期中 —— ADR-0015)。git から追加してください:
+```sh
+cargo add aozora-flavored-markdown
+```
+
+または `Cargo.toml` に直接記述します:
 
 ```toml
 [dependencies]
-aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
+aozora-flavored-markdown = "0.4.1"
 ```
 
 ```rust
@@ -189,7 +198,7 @@ let rendered = render("彼は｜青梅《おうめ》に行った。", &Options:
 assert!(rendered.html.contains("<ruby>"));
 ```
 
-完全な API は手元で `cargo doc --open` で生成できます(docs.rs には未掲載)。
+API リファレンスは [docs.rs](https://docs.rs/aozora-flavored-markdown) で公開されています。手元で `cargo doc --open` でも生成できます。
 出力 HTML は安定した `aozora-md-*` CSS クラスを持ちます（[ADR-0011](docs/adr/0011-brand-boundary-css-class-rewrite.md)）。
 
 ## セキュリティ

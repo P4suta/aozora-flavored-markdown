@@ -172,8 +172,13 @@ cargo run --example <name> -p aozora-flavored-markdown -- <path/to/input.md>
 
 ### CLI
 
-Not on crates.io yet (publication pending — ADR-0015). Until then, grab a
-pre-built binary from a GitHub Release or install from git.
+Install the latest release from crates.io:
+
+```sh
+cargo install aozora-flavored-markdown-cli --locked
+```
+
+You can also grab a pre-built binary from a GitHub Release or install from git.
 
 Pre-built binaries for **Linux x86_64**, **macOS arm64**, and **Windows
 x86_64** are attached to every GitHub Release — see
@@ -190,11 +195,15 @@ cargo install --git https://github.com/P4suta/aozora-flavored-markdown --locked 
 
 ### Library
 
-Not on crates.io yet (publication pending — ADR-0015). Add it from git:
+```sh
+cargo add aozora-flavored-markdown
+```
+
+Or pin it in `Cargo.toml`:
 
 ```toml
 [dependencies]
-aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
+aozora-flavored-markdown = "0.4.1"
 ```
 
 ```rust
@@ -204,7 +213,7 @@ let rendered = render("彼は｜青梅《おうめ》に行った。", &Options:
 assert!(rendered.html.contains("<ruby>"));
 ```
 
-Build the API docs locally with `cargo doc --open` (not on docs.rs yet). The
+The API reference is on [docs.rs](https://docs.rs/aozora-flavored-markdown), or build it locally with `cargo doc --open`. The
 rendered HTML carries stable `aozora-md-*` CSS classes (see
 [ADR-0011](docs/adr/0011-brand-boundary-css-class-rewrite.md)).
 
