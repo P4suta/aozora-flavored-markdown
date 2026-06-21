@@ -22,8 +22,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.1] - 2026-06-21
 
-The project was **renamed from `afm` to `aozora-flavored-markdown`** and cut its
-first crates.io release. The descriptive crate name (`aozora-flavored-markdown`,
+The project was **renamed from `afm` to `aozora-flavored-markdown`** ahead of its
+first crates.io release (publication is still postponed — ADR-0015). The
+descriptive crate name (`aozora-flavored-markdown`,
 binary `aozora-flavored-markdown`) is decoupled from the short, stable
 `aozora-md` brand used for the rendered HTML CSS classes (`aozora-md-*`), env
 vars (`AOZORA_MD_*`), Docker tags, and the `aozora-md.diagnostics.v1`

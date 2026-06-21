@@ -52,7 +52,7 @@ Generate a shell completion script (bash / zsh / fish / powershell /
 elvish):
 
 ```sh
-aozora-flavored-markdown completions zsh > ~/.zfunc/_afm
+aozora-flavored-markdown completions zsh > ~/.zfunc/_aozora-flavored-markdown
 ```
 
 See [CLI Reference](ref/cli.md) for the full flag listing, color and

@@ -43,7 +43,7 @@ implementation** — the same split GFM uses.
 Each dialect in the Markdown family extends the one before it. aozora-flavored-markdown is the
 Japanese-typography layer:
 
-```
+```text
 CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 (structural       (tables,     (ruby, bouten, 縦中横, 字下げ, 外字,
  Markdown)         task lists,  返り点, 割注, アクセント分解, …)
@@ -86,7 +86,7 @@ result in any pipeline that speaks CommonMark.
 
 ## Workspace layout
 
-```
+```text
 aozora-flavored-markdown/
   upstream/comrak/           # vendored comrak 0.52.0, verbatim (0-line diff)
   crates/
@@ -102,7 +102,8 @@ The Aozora-specific lexer / AST / renderer (`aozora-syntax`,
 `aozora-pipeline`, `aozora-render`, `aozora-encoding`, `aozora-spec`,
 `aozora-proptest`) live in the sibling
 [`P4suta/aozora`](https://github.com/P4suta/aozora) repository and are
-consumed here as a `git` dependency (ADR-0010).
+consumed here through the umbrella `aozora` crate, a crates.io dependency
+(ADR-0015).
 
 ## Sibling repositories
 
@@ -171,11 +172,8 @@ cargo run --example <name> -p aozora-flavored-markdown -- <path/to/input.md>
 
 ### CLI
 
-From crates.io:
-
-```sh
-cargo install aozora-flavored-markdown-cli
-```
+Not on crates.io yet (publication pending — ADR-0015). Until then, grab a
+pre-built binary from a GitHub Release or install from git.
 
 Pre-built binaries for **Linux x86_64**, **macOS arm64**, and **Windows
 x86_64** are attached to every GitHub Release — see
@@ -192,18 +190,21 @@ cargo install --git https://github.com/P4suta/aozora-flavored-markdown --locked 
 
 ### Library
 
-```sh
-cargo add aozora-flavored-markdown
+Not on crates.io yet (publication pending — ADR-0015). Add it from git:
+
+```toml
+[dependencies]
+aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
 ```
 
 ```rust
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 
-let rendered = render_to_string("彼は｜青梅《おうめ》に行った。", &Options::default());
+let rendered = render("彼は｜青梅《おうめ》に行った。", &Options::default());
 assert!(rendered.html.contains("<ruby>"));
 ```
 
-The full API is on [docs.rs](https://docs.rs/aozora-flavored-markdown). The
+Build the API docs locally with `cargo doc --open` (not on docs.rs yet). The
 rendered HTML carries stable `aozora-md-*` CSS classes (see
 [ADR-0011](docs/adr/0011-brand-boundary-css-class-rewrite.md)).
 

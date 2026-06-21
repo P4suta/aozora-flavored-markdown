@@ -230,7 +230,7 @@ pub(super) const fn container_indent_level(kind: ContainerKind) -> Option<u32> {
 }
 
 pub(super) const fn annotation_resolved(k: AozoraAnnotationKind) -> Option<AnnotationKind> {
-    // Named annotation kinds project to their afm `AnnotationKind`.
+    // Named annotation kinds project to their aozora-flavored-markdown `AnnotationKind`.
     // `Unknown` deliberately differs from a future-variant hit:
     // `Some(Unknown)` says the upstream classifier saw the annotation but
     // couldn't classify it, whereas `None` says aozora-flavored-markdown doesn't

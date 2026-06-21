@@ -32,7 +32,7 @@ use miette::{IntoDiagnostic, Result, WrapErr};
         aozora-flavored-markdown render input.md -o out.html\n  \
         cat input.md | aozora-flavored-markdown render -\n  \
         aozora-flavored-markdown check --strict --format json input.md\n  \
-        aozora-flavored-markdown completions zsh > _afm",
+        aozora-flavored-markdown completions zsh > _aozora-flavored-markdown",
 )]
 struct Cli {
     #[command(subcommand)]
@@ -214,9 +214,9 @@ impl DiagnosticReport {
     }
 }
 
-/// CLI-local adapter that renders an afm [`Diagnostic`] through miette's
+/// CLI-local adapter that renders an aozora-flavored-markdown [`Diagnostic`] through miette's
 /// graphical handler. The orphan rule forbids `impl miette::Diagnostic` on the
-/// foreign afm type directly, so we carry the data miette needs here.
+/// foreign aozora-flavored-markdown type directly, so we carry the data miette needs here.
 #[derive(Debug, thiserror::Error)]
 #[error("{message}")]
 struct CliDiagnostic {

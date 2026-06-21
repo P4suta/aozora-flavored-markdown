@@ -41,7 +41,7 @@ GFM と同様、aozora-flavored-markdown は CommonMark + GFM の **strict super
 Markdown 方言は、前の方言を拡張する形で積み重なってきました。aozora-flavored-markdown は
 その上に日本語組版の層を載せています。
 
-```
+```text
 CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 (構造的な          (表、タスクリスト、  (ルビ、傍点、縦中横、字下げ、
  Markdown)          ~打ち消し線~)        外字、返り点、割注、
@@ -84,7 +84,7 @@ CommonMark  ──▶  GFM  ──▶  Aozora Flavored Markdown
 
 ## ワークスペース構成
 
-```
+```text
 aozora-flavored-markdown/
   upstream/comrak/           # vendored comrak 0.52.0、verbatim (0 行 diff)
   crates/
@@ -97,10 +97,10 @@ aozora-flavored-markdown/
 ```
 
 青空文庫記法の lex / 借用 AST / per-node HTML / serialize は sibling
-repo [`P4suta/aozora`](https://github.com/P4suta/aozora) の
-`aozora-syntax` / `aozora-pipeline` / `aozora-render` /
-`aozora-encoding` / `aozora-spec` / `aozora-proptest` から git
-依存で引いています(ADR-0010)。`Cargo.toml` の
+repo [`P4suta/aozora`](https://github.com/P4suta/aozora)(`aozora-syntax` /
+`aozora-pipeline` / `aozora-render` / `aozora-encoding` / `aozora-spec` /
+`aozora-proptest`)に置かれ、aozora-flavored-markdown は umbrella crate
+`aozora`(crates.io)経由でまとめて引いています(ADR-0015)。`Cargo.toml` の
 `[workspace.dependencies]` が依存設定の単一の真実です。
 
 ## Sibling リポジトリ
@@ -131,8 +131,7 @@ just book-serve        # mdbook 即時プレビュー
 [`P4suta/aozora`](https://github.com/P4suta/aozora) に置かれています。
 そちらから実行してください。
 
-詳しくは [CLAUDE.md](./CLAUDE.md) (プロジェクトガイド)、
-[docs/adr/](./docs/adr/) (Architecture Decisions)、
+詳しくは [docs/adr/](./docs/adr/) (Architecture Decisions) と
 [CONTRIBUTING.md](./CONTRIBUTING.md) (貢献方法)を参照してください。
 
 ## サンプル
@@ -158,11 +157,8 @@ cargo run --example <name> -p aozora-flavored-markdown -- <path/to/input.md>
 
 ### CLI
 
-crates.io から:
-
-```sh
-cargo install aozora-flavored-markdown-cli
-```
+crates.io には未公開です(公開は延期中 —— ADR-0015)。それまでは GitHub
+Release のビルド済みバイナリ、または git からインストールしてください。
 
 **Linux x86_64**, **macOS arm64**, **Windows x86_64** 用のビルド済み
 バイナリが各 GitHub Release に添付されています ——
@@ -179,18 +175,21 @@ cargo install --git https://github.com/P4suta/aozora-flavored-markdown --locked 
 
 ### ライブラリ
 
-```sh
-cargo add aozora-flavored-markdown
+crates.io には未公開です(公開は延期中 —— ADR-0015)。git から追加してください:
+
+```toml
+[dependencies]
+aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
 ```
 
 ```rust
-use aozora_flavored_markdown::{Options, render_to_string};
+use aozora_flavored_markdown::{Options, render};
 
-let rendered = render_to_string("彼は｜青梅《おうめ》に行った。", &Options::default());
+let rendered = render("彼は｜青梅《おうめ》に行った。", &Options::default());
 assert!(rendered.html.contains("<ruby>"));
 ```
 
-完全な API は [docs.rs](https://docs.rs/aozora-flavored-markdown) にあります。
+完全な API は手元で `cargo doc --open` で生成できます(docs.rs には未掲載)。
 出力 HTML は安定した `aozora-md-*` CSS クラスを持ちます（[ADR-0011](docs/adr/0011-brand-boundary-css-class-rewrite.md)）。
 
 ## セキュリティ
