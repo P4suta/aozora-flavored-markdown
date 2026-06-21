@@ -592,9 +592,17 @@ deny:
 # graph both miss. Mirrors the sibling aozora-tools `shear` gate. On a hit:
 # delete the dead dependency, or record a documented
 # `[workspace.metadata.cargo-shear] ignored = [...]` for a macro/cfg-only use.
+#
+# Self-bootstraps cargo-shear when absent: CI's `setup-dev-image` pulls the
+# published `aozora-md-dev:latest`, which lags a Dockerfile tool addition by
+# one merge, so the gate binstalls the tool into the pulled image until the
+# image republishes. A local dev image already ships it, so the bootstrap is
+# a no-op there.
 [group('lint')]
 shear:
-    {{_dev}} cargo shear
+    {{_dev}} bash -c 'command -v cargo-shear >/dev/null 2>&1 \
+        || cargo binstall --no-confirm --locked --root /usr/local cargo-shear; \
+        cargo shear'
 
 # RustSec advisory scan. Depends on `audit-comrak` because comrak is a PATH
 # dep (ADR-0001) absent from Cargo.lock, so plain `cargo audit` can't see it.
