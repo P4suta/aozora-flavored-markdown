@@ -67,19 +67,22 @@ use crate::sentinel_stream::{
 /// into the comrak AST. After this returns, the AST contains no PUA
 /// sentinel character: `comrak::format_html` will emit fully resolved
 /// HTML in a single verbatim pass.
-/// `source` is the lexer input (the code-block-masked source). The
-/// splicer slices it via the registry's parallel `source_nodes` table to
-/// recover a sentinel's original Aozora source for literal markdown
-/// contexts (inline code spans, link destinations), where the notation
-/// must render verbatim rather than as interpreted Aozora HTML.
+/// `sanitized` is the lexer's Phase-0 sanitized source (see
+/// `aozora::pipeline::lexer::sanitize`). The splicer slices it via the
+/// registry's parallel `source_nodes` table to recover a sentinel's
+/// original Aozora source for literal markdown contexts (inline code
+/// spans, link destinations), where the notation must render verbatim
+/// rather than as interpreted Aozora HTML. It must be the *sanitized*
+/// source, not the raw input, because `source_span` coordinates are in
+/// sanitized-source bytes.
 pub(crate) fn splice_into_ast<'a, 'src>(
     root: &'a AstNode<'a>,
     arena: &'a Arena<'a>,
     lex_out: &BorrowedLexOutput<'src>,
-    source: &'src str,
+    sanitized: &str,
 ) {
     let mut splicer = AstSplicer::<'a, 'src> {
-        cursor: SentinelCursor::from_lex_out_with_source(Some(lex_out), source),
+        cursor: SentinelCursor::from_lex_out_with_source(Some(lex_out), sanitized),
         container_stack: Vec::new(),
         in_heading_depth: 0,
         arena,
@@ -357,7 +360,7 @@ impl<'a, 'src> AstSplicer<'a, 'src> {
         let mut out = String::with_capacity(s.len());
         for ch in s.chars() {
             if is_sentinel_char(ch) {
-                if let Some((_node, literal)) = self.cursor.next_literal() {
+                if let Some(literal) = self.cursor.next_literal() {
                     out.push_str(literal);
                 }
             } else {
@@ -576,13 +579,15 @@ mod tests {
     /// exactly so the unit tests exercise the same code-block-mask
     /// boundary the production renderer uses.
     fn render_via_ast_splice(input: &str) -> String {
+        use aozora::pipeline::lexer::sanitize;
         let (masked, originals) = code_block_mask::mask_code_block_triggers(input);
+        let sanitized = sanitize(&masked);
         let aozora_arena = AozoraArena::new();
         let lex_out = lex_into_arena(&masked, &aozora_arena);
         let comrak_arena: Arena<'_> = Arena::new();
         let opts = comrak::Options::default();
         let root = comrak::parse_document(&comrak_arena, lex_out.normalized, &opts);
-        splice_into_ast(root, &comrak_arena, &lex_out, &masked);
+        splice_into_ast(root, &comrak_arena, &lex_out, &sanitized.text);
         let mut html = String::new();
         comrak::format_html(root, &opts, &mut html).expect("formatting to a String never fails");
         code_block_mask::unmask_html(&html, &originals).into_owned()

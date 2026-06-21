@@ -376,6 +376,53 @@ fn inline_code_projects_with_literal_value() {
 }
 
 #[test]
+fn ruby_inside_inline_code_projects_literal_source() {
+    // A notation written inside backticks is literal markdown: the IR
+    // must carry the original Aozora source in `Code.value`, not an
+    // interpreted Ruby node, and must not leak the PUA sentinel.
+    let blocks = ir("`｜青梅《おうめ》`");
+    let inlines = first_paragraph_inlines(&blocks);
+    let saw_literal = inlines
+        .iter()
+        .any(|c| matches!(c, IrInline::Code { value, .. } if value == "｜青梅《おうめ》"));
+    assert!(
+        saw_literal,
+        "inline code must carry the literal Aozora source, got: {inlines:#?}"
+    );
+    assert!(
+        !inlines.iter().any(|c| matches!(c, IrInline::Ruby { .. })),
+        "inline code must not project an interpreted ruby, got: {inlines:#?}"
+    );
+}
+
+#[test]
+fn notation_in_inline_code_does_not_desync_following_ir_node() {
+    // Regression: the code-span notation must consume its own registry
+    // entry so the trailing ｜B《b》 projects B/b, not the code span's A/a.
+    let blocks = ir("`｜A《a》` then ｜B《b》end");
+    let inlines = first_paragraph_inlines(&blocks);
+    assert!(
+        inlines
+            .iter()
+            .any(|c| matches!(c, IrInline::Code { value, .. } if value == "｜A《a》")),
+        "code span keeps its literal, got: {inlines:#?}"
+    );
+    let ruby = inlines
+        .iter()
+        .find_map(|c| match c {
+            IrInline::Ruby { base, reading, .. } => Some((base, reading)),
+            _ => None,
+        })
+        .expect("expected a projected ruby");
+    assert_eq!(ruby.1, "b", "trailing ruby must read its OWN reading (b)");
+    assert!(
+        matches!(ruby.0.as_slice(), [IrInline::Text { value, .. }] if value == "B"),
+        "trailing ruby must carry its OWN base (B), got: {:#?}",
+        ruby.0
+    );
+}
+
+#[test]
 fn ruby_inside_blockquote_projects_under_blockquote() {
     // Sentinels inside a blockquote: walk_block recurses through
     // BlockQuote → Paragraph → Text, projecting the ruby.
@@ -533,12 +580,15 @@ fn streaming_ir_builder_threads_cursor_across_blocks() {
     use aozora_flavored_markdown::ir::StreamingIrBuilder;
     use comrak::parse_document;
 
+    use aozora::pipeline::lexer::sanitize;
+    let src = "｜A《a》\n\n｜B《b》";
+    let sanitized = sanitize(src);
     let arena = Arena::new();
-    let lex_out = lex_into_arena("｜A《a》\n\n｜B《b》", &arena);
+    let lex_out = lex_into_arena(src, &arena);
     let comrak_arena = comrak::Arena::new();
     let opts = comrak::Options::default();
     let root = parse_document(&comrak_arena, lex_out.normalized, &opts);
-    let mut builder = StreamingIrBuilder::new(Some(&lex_out));
+    let mut builder = StreamingIrBuilder::new(Some(&lex_out), &sanitized.text);
     let mut block_iter = root.children();
     let first = block_iter.next().expect("first block");
     let second = block_iter.next().expect("second block");

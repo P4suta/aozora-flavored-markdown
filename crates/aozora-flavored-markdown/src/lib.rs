@@ -77,6 +77,7 @@ pub use diagnostics::{Diagnostic, DiagnosticSource, Severity, Span};
 
 use core::mem;
 
+use aozora::pipeline::lexer::sanitize;
 use aozora::render::serialize as aozora_serialize;
 use aozora::syntax::borrowed::Arena;
 use comrak::nodes::AstNode;
@@ -383,7 +384,7 @@ pub fn render(input: &str, options: &Options) -> Rendered {
             diagnostics: vec![Diagnostic::source_too_large(input.len())],
         };
     }
-    let (html, diagnostics, ()) = drive_pipeline(input, options, |_root, _lex_out| ());
+    let (html, diagnostics, ()) = drive_pipeline(input, options, |_root, _lex_out, _source| ());
     Rendered { html, diagnostics }
 }
 
@@ -450,12 +451,14 @@ pub fn render_to_ir(input: &str, options: &Options) -> RenderedIr {
 /// renderer).
 fn drive_pipeline<F, T>(input: &str, options: &Options, project: F) -> (String, Vec<Diagnostic>, T)
 where
-    F: for<'a> FnOnce(&'a AstNode<'a>, Option<&aozora::BorrowedLexOutput<'a>>) -> T,
+    F: for<'a> FnOnce(&'a AstNode<'a>, Option<&aozora::BorrowedLexOutput<'a>>, &str) -> T,
 {
     if !options.aozora_enabled {
         let comrak_arena = comrak::Arena::new();
         let root = comrak::parse_document(&comrak_arena, input, &options.comrak);
-        let extra = project(root, None);
+        // No lexer pass (no sentinels): the sanitized-source argument is
+        // unused by `project` here (empty cursor), so the raw input stands in.
+        let extra = project(root, None, input);
         let html = format_root(root, options, None);
         return (html, Vec::new(), extra);
     }
@@ -465,6 +468,13 @@ where
     // CommonMark-blind by design (ADR-0010), so this lives here. See
     // `code_block_mask` module docs for the masking scheme.
     let (masked_source, mask_originals) = code_block_mask::mask_code_block_triggers(input);
+
+    // The lexer's `source_nodes` spans are in Phase-0 sanitized-source
+    // bytes (BOM/CRLF/accent-span normalised), so recover that exact text
+    // here to slice literal-context sentinels back to their source. The
+    // lexer re-derives the same sanitization internally; `sanitize` is a
+    // pure function of `masked_source`, so the coordinates line up.
+    let sanitized = sanitize(&masked_source);
 
     let arena = Arena::new();
     let lex_out = aozora::lex_into_arena(&masked_source, &arena);
@@ -477,7 +487,7 @@ where
     // splicer is about to consume. Both walkers share
     // `SentinelCursor` primitives (each materialises its own cursor)
     // so they stay in lockstep without serial coupling.
-    let extra = project(root, Some(&lex_out));
+    let extra = project(root, Some(&lex_out), &sanitized.text);
 
     // Mutate the AST: every PUA sentinel becomes a `NodeValue::Raw`
     // node carrying the rendered Aozora HTML. After this returns,
@@ -485,7 +495,7 @@ where
     // emits final HTML in a single verbatim pass. `masked_source` is
     // passed so sentinels that landed in literal markdown contexts
     // (inline code, link URLs) can be rewritten to their original source.
-    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out, &masked_source);
+    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out, &sanitized.text);
 
     let html = format_root(root, options, Some(mask_originals.as_slice()));
     let diagnostics = lex_out.diagnostics.iter().map(Diagnostic::from).collect();
@@ -588,6 +598,9 @@ pub fn render_blocks_to_ir(
     }
 
     let (masked_source, _mask_originals) = code_block_mask::mask_code_block_triggers(input);
+    // `source_nodes` spans are in sanitized-source bytes; recover that text
+    // to slice literal-context sentinels. See `drive_pipeline`.
+    let sanitized = sanitize(&masked_source);
     let arena = Arena::new();
     let lex_out = aozora::lex_into_arena(&masked_source, &arena);
     let comrak_arena = comrak::Arena::new();
@@ -600,12 +613,12 @@ pub fn render_blocks_to_ir(
     // would restart the cursor at 0 for every block and misalign
     // Aozora projection against the registry.
     let blocks_ir: Vec<Vec<ir::IrBlock>> = {
-        let mut builder = ir::StreamingIrBuilder::new(Some(&lex_out));
+        let mut builder = ir::StreamingIrBuilder::new(Some(&lex_out), &sanitized.text);
         root.children()
             .map(|child| builder.walk_block(child))
             .collect()
     };
-    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out, &masked_source);
+    ast_splice::splice_into_ast(root, &comrak_arena, &lex_out, &sanitized.text);
     let blocks = collect_rendered_blocks(root, options, blocks_ir);
     let diagnostics = lex_out.diagnostics.iter().map(Diagnostic::from).collect();
     (blocks, diagnostics)

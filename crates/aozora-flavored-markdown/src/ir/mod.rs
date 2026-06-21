@@ -109,11 +109,18 @@ use projection::{
 /// [`IrBlock`] / [`IrInline`] variant; when `None`, the walker
 /// degrades to markdown-only behaviour (used by
 /// `Options::aozora_enabled = false`).
+/// `sanitized` is the lexer's Phase-0 sanitized source, threaded so a
+/// sentinel that landed in a literal markdown context (inline code,
+/// link/image destination) projects back to its original Aozora source
+/// instead of leaking the PUA char and desyncing the cursor. Must be the
+/// sanitized source (not the raw input) — `source_span` coordinates are
+/// in sanitized-source bytes.
 pub(crate) fn build_ir<'a>(
     root: &'a AstNode<'a>,
-    lex_out: Option<&BorrowedLexOutput<'_>>,
+    lex_out: Option<&BorrowedLexOutput<'a>>,
+    sanitized: &str,
 ) -> IrDocument {
-    let mut walker = IrWalker::new(SentinelCursor::from_lex_out(lex_out));
+    let mut walker = IrWalker::new(SentinelCursor::from_lex_out_with_source(lex_out, sanitized));
     walker.walk_root(root);
     IrDocument {
         blocks: walker.finish(),
@@ -141,11 +148,14 @@ pub struct StreamingIrBuilder<'src> {
 
 impl<'src> StreamingIrBuilder<'src> {
     /// Materialise the registry once. `None` produces an empty
-    /// builder that degrades to markdown-only projection.
+    /// builder that degrades to markdown-only projection. `sanitized` is
+    /// the lexer's Phase-0 sanitized source, used to project literal-context
+    /// sentinels (inline code, link/image URLs) back to their original
+    /// Aozora source.
     #[must_use]
-    pub fn new(lex_out: Option<&BorrowedLexOutput<'src>>) -> Self {
+    pub fn new(lex_out: Option<&BorrowedLexOutput<'src>>, sanitized: &str) -> Self {
         Self {
-            cursor: SentinelCursor::from_lex_out(lex_out),
+            cursor: SentinelCursor::from_lex_out_with_source(lex_out, sanitized),
         }
     }
 
@@ -522,8 +532,13 @@ impl<'src> IrWalker<'src> {
                 self.project_text_with_sentinels(&s, range, out);
             }
             NodeValue::Code(c) => {
-                let value = c.literal.clone();
+                let literal = c.literal.clone();
                 drop(data);
+                // Inline code is literal markdown: a notation written
+                // inside backticks projects as its original source, not an
+                // interpreted node, and must consume its registry entry so
+                // later sentinels stay in lockstep.
+                let value = self.rewrite_literal_context(&literal);
                 out.push(IrInline::Code { value, range });
             }
             NodeValue::Strong => {
@@ -541,24 +556,32 @@ impl<'src> IrWalker<'src> {
                 });
             }
             NodeValue::Link(link) => {
-                let href = link.url.clone();
-                let title = (!link.title.is_empty()).then(|| link.title.clone());
+                let url = link.url.clone();
+                let title = link.title.clone();
                 drop(data);
+                // Children (link text) first, then url/title — source order,
+                // so cursor consumption stays in lockstep.
+                let children = self.collect_inlines(node);
+                let href = self.rewrite_literal_context(&url);
+                let title = self.rewrite_literal_context(&title);
                 out.push(IrInline::Link {
                     href,
-                    title,
-                    children: self.collect_inlines(node),
+                    title: (!title.is_empty()).then_some(title),
+                    children,
                     range,
                 });
             }
             NodeValue::Image(image) => {
                 let url = image.url.clone();
-                let title = (!image.title.is_empty()).then(|| image.title.clone());
+                let title = image.title.clone();
                 drop(data);
+                let alt = self.collect_inlines(node);
+                let url = self.rewrite_literal_context(&url);
+                let title = self.rewrite_literal_context(&title);
                 out.push(IrInline::Image {
                     url,
-                    title,
-                    alt: self.collect_inlines(node),
+                    title: (!title.is_empty()).then_some(title),
+                    alt,
                     range,
                 });
             }
@@ -573,6 +596,30 @@ impl<'src> IrWalker<'src> {
             // Footnote refs, raw HTML, etc. drop quietly.
             _ => {}
         }
+    }
+
+    /// Rewrite each sentinel in `s` to the original Aozora source the
+    /// lexer collapsed into it, leaving non-sentinel chars untouched, and
+    /// advancing the cursor once per sentinel so later entries stay in
+    /// lockstep. Used for literal markdown contexts (inline code, link /
+    /// image URLs) where a notation must surface as its source text rather
+    /// than an interpreted IR node. Mirrors
+    /// `crate::ast_splice::AstSplicer::rewrite_literal_context`.
+    fn rewrite_literal_context(&mut self, s: &str) -> String {
+        if !s.chars().any(is_sentinel_char) {
+            return s.to_owned();
+        }
+        let mut out = String::with_capacity(s.len());
+        for ch in s.chars() {
+            if is_sentinel_char(ch) {
+                if let Some(literal) = self.cursor.next_literal() {
+                    out.push_str(literal);
+                }
+            } else {
+                out.push(ch);
+            }
+        }
+        out
     }
 
     fn project_text_with_sentinels(
