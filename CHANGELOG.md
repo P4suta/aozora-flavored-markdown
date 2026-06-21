@@ -7,23 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Internal
-
-- **Aozora sentinel splicing moved from byte-stream post-processing to
-  AST-level mutation** (`crates/aozora-flavored-markdown/src/post_process.rs`
-  → `ast_splice.rs`). The splicer now mutates comrak's typed AST in place
-  (replacing each sentinel with a `NodeValue::Raw` node) and lets
-  `comrak::format_html` emit the final HTML in one pass, rather than
-  re-scanning a flat HTML byte stream with the former multi-pass Cow
-  pipeline. This supersedes the multi-pass design described under
-  [0.4.0] and **withdraws** the fully-fused aho-corasick follow-up noted
-  there — the separate secondary passes it would have fused no longer
-  exist as distinct scans.
-
 ## [0.4.1] - 2026-06-21
 
-The project was **renamed from `afm` to `aozora-flavored-markdown`** ahead of its
-first crates.io release (publication is still postponed — ADR-0015). The
+The project was **renamed from `afm` to `aozora-flavored-markdown`** for its
+first crates.io release (ADR-0015). The
 descriptive crate name (`aozora-flavored-markdown`,
 binary `aozora-flavored-markdown`) is decoupled from the short, stable
 `aozora-md` brand used for the rendered HTML CSS classes (`aozora-md-*`), env
@@ -146,6 +133,19 @@ is replaced by `Options::default()` (the dialect preset is now the `Default`).
   stale "unknown annotation" wording.
 - **Dead `CLAUDE.md` link in the README** (the file is personal and not
   committed); readers are pointed at `CONTRIBUTING.md` and `docs/adr/`.
+
+### Internal
+
+- **Aozora sentinel splicing moved from byte-stream post-processing to
+  AST-level mutation** (`crates/aozora-flavored-markdown/src/post_process.rs`
+  → `ast_splice.rs`). The splicer now mutates comrak's typed AST in place
+  (replacing each sentinel with a `NodeValue::Raw` node) and lets
+  `comrak::format_html` emit the final HTML in one pass, rather than
+  re-scanning a flat HTML byte stream with the former multi-pass Cow
+  pipeline. This supersedes the multi-pass design described under
+  [0.4.0] and **withdraws** the fully-fused aho-corasick follow-up noted
+  there — the separate secondary passes it would have fused no longer
+  exist as distinct scans.
 
 ## [0.4.0] - 2026-06-14
 

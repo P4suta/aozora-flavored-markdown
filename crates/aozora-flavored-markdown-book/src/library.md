@@ -8,11 +8,11 @@ HTML for the same input.
 
 ## Add the dependency
 
-aozora-flavored-markdown is not on crates.io yet; depend on it directly by git URL:
+Add it from crates.io:
 
 ```toml
 [dependencies]
-aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
+aozora-flavored-markdown = "0.4.1"
 ```
 
 The `aozora` sibling crate provides Shift_JIS decoding through its

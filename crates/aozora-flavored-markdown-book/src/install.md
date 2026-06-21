@@ -4,6 +4,15 @@ aozora-flavored-markdown ships as a single `aozora-flavored-markdown` binary and
 entry points share the same parser core, so a CLI run and a library
 embed produce identical HTML for the same input.
 
+## From crates.io
+
+```sh
+cargo install aozora-flavored-markdown-cli --locked
+```
+
+This builds the `aozora-flavored-markdown` binary from the published crate; for a
+pre-built binary instead, use a GitHub Release below.
+
 ## From GitHub Releases
 
 Pre-built binaries for the following targets are published to
@@ -61,11 +70,11 @@ Rust toolchain installed.
 
 ## As a Rust library
 
-aozora-flavored-markdown is not on crates.io yet; depend on it directly by git URL:
+Add it from crates.io:
 
 ```toml
 [dependencies]
-aozora-flavored-markdown = { git = "https://github.com/P4suta/aozora-flavored-markdown" }
+aozora-flavored-markdown = "0.4.1"
 ```
 
 See [Library Usage](library.md) for a minimal parse + render example.
