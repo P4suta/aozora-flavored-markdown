@@ -137,12 +137,12 @@ dependencies = [
  "criterion",
  "dhat",
  "insta",
- "miette",
  "pretty_assertions",
  "proptest",
  "serde",
  "serde_json",
- "thiserror",
+ "tsify",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -158,7 +158,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "tracing",
  "tracing-subscriber",
 ]
 
@@ -177,8 +176,8 @@ dependencies = [
  "aozora-flavored-markdown",
  "console_error_panic_hook",
  "serde",
- "serde-wasm-bindgen",
  "serde_json",
+ "tsify",
  "twox-hash",
  "wasm-bindgen",
  "web-sys",
@@ -1288,6 +1287,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "serde_json"
 version = "1.0.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1477,19 +1487,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
  "pin-project-lite",
- "tracing-attributes",
  "tracing-core",
-]
-
-[[package]]
-name = "tracing-attributes"
-version = "0.1.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1529,6 +1527,30 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tsify"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ec5505497c87f1c050b4392d3f11b49a04537fcb9dc0da57bc0af168a6331f2"
+dependencies = [
+ "serde",
+ "serde-wasm-bindgen",
+ "tsify-macros",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tsify-macros"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fc2c44dc9fe4baf55b88e032621b7a11b215a1f0a7de8d0aa04367207d915bc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn",
 ]
 
 [[package]]
@@ -1734,7 +1756,6 @@ name = "xtask"
 version = "0.4.1"
 dependencies = [
  "anyhow",
- "aozora-flavored-markdown",
  "clap",
  "regex",
  "serde",

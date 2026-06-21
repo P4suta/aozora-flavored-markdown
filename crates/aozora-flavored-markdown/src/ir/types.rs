@@ -1,21 +1,24 @@
 //! Public IR type definitions.
 //!
-//! Every type here is part of the `aozora_flavored_markdown::ir` public surface
-//! and feeds the TypeScript `IRDocument` consumed by
-//! `aozora-flavored-markdown-obsidian/src/ir/types.ts`. Keeping the names and field
-//! ordering aligned across the FFI boundary makes the
-//! `serde-wasm-bindgen` round-trip a pass-through, no shape
-//! adapters needed.
+//! Every type here is part of the `aozora_flavored_markdown::ir` public
+//! surface. Under the `tsify` feature (enabled by aozora-flavored-markdown-wasm)
+//! each derives `tsify::Tsify`, so wasm-pack emits the matching TypeScript
+//! `IRDocument` — consumed by the playground and aozora-flavored-markdown-obsidian
+//! — straight from these definitions, with no hand-written `.d.ts` to keep in
+//! sync (ADR-0017). The `serde` attributes are the single source of the wire
+//! shape.
 
 use serde::Serialize;
 
 #[derive(Debug, Default, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct IrDocument {
     pub blocks: Vec<IrBlock>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -41,7 +44,7 @@ pub enum IrBlock {
         range: Option<Range>,
     },
     Blockquote {
-        children: Vec<Self>,
+        children: Vec<IrBlock>,
         #[serde(skip_serializing_if = "Option::is_none")]
         source_line: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -87,7 +90,7 @@ pub enum IrBlock {
     /// [`ContainerSubtype::AlignEnd`] (地上げ offset); `None` otherwise.
     Container {
         subtype: ContainerSubtype,
-        children: Vec<Self>,
+        children: Vec<IrBlock>,
         #[serde(skip_serializing_if = "Option::is_none")]
         indent_level: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,6 +116,7 @@ pub enum IrBlock {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 pub struct IrTableRow {
     pub cells: Vec<Vec<IrInline>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -120,6 +124,7 @@ pub struct IrTableRow {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 pub struct IrListItem {
     pub children: Vec<IrBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -127,6 +132,7 @@ pub struct IrListItem {
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum IrTableAlign {
     Left,
@@ -136,6 +142,7 @@ pub enum IrTableAlign {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -156,12 +163,12 @@ pub enum IrInline {
         range: Option<Range>,
     },
     Strong {
-        children: Vec<Self>,
+        children: Vec<IrInline>,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
     Emphasis {
-        children: Vec<Self>,
+        children: Vec<IrInline>,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
@@ -169,7 +176,7 @@ pub enum IrInline {
         href: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         title: Option<String>,
-        children: Vec<Self>,
+        children: Vec<IrInline>,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
@@ -180,7 +187,7 @@ pub enum IrInline {
         url: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         title: Option<String>,
-        alt: Vec<Self>,
+        alt: Vec<IrInline>,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
@@ -194,7 +201,7 @@ pub enum IrInline {
     /// `explicit` is `true` when the source used the explicit
     /// `｜base《reading》` opener.
     Ruby {
-        base: Vec<Self>,
+        base: Vec<IrInline>,
         reading: String,
         explicit: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -207,13 +214,13 @@ pub enum IrInline {
     /// as a new optional field rather than re-using empty strings as
     /// placeholders.
     DoubleRuby {
-        base: Vec<Self>,
+        base: Vec<IrInline>,
         #[serde(skip_serializing_if = "Option::is_none")]
         range: Option<Range>,
     },
     /// Emphasis dots / sidelines. See [`BoutenStyle`] and [`BoutenPosition`].
     Bouten {
-        children: Vec<Self>,
+        children: Vec<IrInline>,
         style: BoutenStyle,
         position: BoutenPosition,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -262,6 +269,7 @@ pub enum IrInline {
 /// (minus the numeric payload, which rides in
 /// [`IrBlock::Container`]'s `indent_level`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum ContainerSubtype {
@@ -279,6 +287,7 @@ pub enum ContainerSubtype {
 
 /// Section-break subtype, mirroring `aozora::syntax::SectionKind`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum SectionSubtype {
@@ -294,6 +303,7 @@ pub enum SectionSubtype {
 
 /// Emphasis-dot / sideline style, mirroring `aozora::syntax::BoutenKind`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum BoutenStyle {
@@ -326,6 +336,7 @@ pub enum BoutenStyle {
 /// Which side of the text a bouten sits on, mirroring
 /// `aozora::syntax::BoutenPosition`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum BoutenPosition {
@@ -344,6 +355,7 @@ pub enum BoutenPosition {
 /// means the upstream lexer produced a variant aozora-flavored-markdown
 /// hasn't seen yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum AnnotationKind {
@@ -369,6 +381,7 @@ pub enum AnnotationKind {
 /// re-doing UTF-8 byte arithmetic, which the previous pseudo-byte
 /// representation silently broke for multi-byte CJK content.
 #[derive(Debug, Clone, Copy, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Range {
     pub start: Position,
@@ -379,142 +392,16 @@ pub struct Range {
 /// column count (matching comrak's `Sourcepos`), so it is suitable
 /// for editor surfaces but not for byte slicing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
     pub line: u32,
     pub column: u32,
 }
 
-// ---------------------------------------------------------------------
-// Variant-completeness witnesses
-//
-// `IrBlock` / `IrInline` and the Aozora classification enums
-// (`ContainerSubtype`, `SectionSubtype`, `BoutenStyle`, `BoutenPosition`,
-// `AnnotationKind`) are all `#[non_exhaustive]` (ADR-0013), so an
-// exhaustive `match` is impossible from another crate — which is exactly
-// why these witnesses live here, in the owning crate, where an exhaustive
-// match is still allowed. Adding a variant makes them a *compile* error
-// until it is listed below; that is the reminder to also extend the
-// hand-written TypeScript union / string-literal alias and its field/tag
-// samples in `crates/xtask/src/types.rs` (the `.d.ts` drift gate). The
-// `const _: fn(...) = ...` coercions reference the functions so they are
-// not dead code.
-const _: fn(&IrBlock) = assert_block_variants;
-const _: fn(&IrInline) = assert_inline_variants;
-const _: fn(ContainerSubtype) = assert_container_subtype_variants;
-const _: fn(SectionSubtype) = assert_section_subtype_variants;
-const _: fn(BoutenStyle) = assert_bouten_style_variants;
-const _: fn(BoutenPosition) = assert_bouten_position_variants;
-const _: fn(AnnotationKind) = assert_annotation_kind_variants;
-
-fn assert_block_variants(block: &IrBlock) {
-    match block {
-        IrBlock::Paragraph { .. }
-        | IrBlock::Heading { .. }
-        | IrBlock::Blockquote { .. }
-        | IrBlock::List { .. }
-        | IrBlock::CodeBlock { .. }
-        | IrBlock::ThematicBreak { .. }
-        | IrBlock::Table { .. }
-        | IrBlock::Container { .. }
-        | IrBlock::PageBreak { .. }
-        | IrBlock::SectionBreak { .. } => {}
-    }
-}
-
-fn assert_inline_variants(inline: &IrInline) {
-    match inline {
-        IrInline::Text { .. }
-        | IrInline::Code { .. }
-        | IrInline::Strong { .. }
-        | IrInline::Emphasis { .. }
-        | IrInline::Link { .. }
-        | IrInline::Image { .. }
-        | IrInline::LineBreak { .. }
-        | IrInline::Ruby { .. }
-        | IrInline::DoubleRuby { .. }
-        | IrInline::Bouten { .. }
-        | IrInline::Gaiji { .. }
-        | IrInline::Tcy { .. }
-        | IrInline::Annotation { .. } => {}
-    }
-}
-
-fn assert_container_subtype_variants(subtype: ContainerSubtype) {
-    match subtype {
-        ContainerSubtype::Indent
-        | ContainerSubtype::AlignEnd
-        | ContainerSubtype::Keigakomi
-        | ContainerSubtype::Warichu
-        | ContainerSubtype::Unknown => {}
-    }
-}
-
-fn assert_section_subtype_variants(subtype: SectionSubtype) {
-    match subtype {
-        SectionSubtype::Choho
-        | SectionSubtype::Dan
-        | SectionSubtype::Spread
-        | SectionSubtype::Unknown => {}
-    }
-}
-
-fn assert_bouten_style_variants(style: BoutenStyle) {
-    match style {
-        BoutenStyle::Goma
-        | BoutenStyle::WhiteSesame
-        | BoutenStyle::Circle
-        | BoutenStyle::WhiteCircle
-        | BoutenStyle::DoubleCircle
-        | BoutenStyle::Janome
-        | BoutenStyle::Cross
-        | BoutenStyle::WhiteTriangle
-        | BoutenStyle::WavyLine
-        | BoutenStyle::UnderLine
-        | BoutenStyle::DoubleUnderLine
-        | BoutenStyle::Unknown => {}
-    }
-}
-
-fn assert_bouten_position_variants(position: BoutenPosition) {
-    match position {
-        BoutenPosition::Right | BoutenPosition::Left | BoutenPosition::Unknown => {}
-    }
-}
-
-fn assert_annotation_kind_variants(kind: AnnotationKind) {
-    match kind {
-        AnnotationKind::Unknown
-        | AnnotationKind::AsIs
-        | AnnotationKind::TextualNote
-        | AnnotationKind::InvalidRubySpan
-        | AnnotationKind::WarichuOpen
-        | AnnotationKind::WarichuClose => {}
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Exercise the compile-time exhaustiveness witnesses at runtime too,
-    /// so a future no-op regression is caught and coverage sees them.
-    #[test]
-    fn variant_witnesses_are_callable() {
-        assert_block_variants(&IrBlock::PageBreak {
-            source_line: None,
-            range: None,
-        });
-        assert_inline_variants(&IrInline::Text {
-            value: String::new(),
-            range: None,
-        });
-        assert_container_subtype_variants(ContainerSubtype::Indent);
-        assert_section_subtype_variants(SectionSubtype::Choho);
-        assert_bouten_style_variants(BoutenStyle::Goma);
-        assert_bouten_position_variants(BoutenPosition::Right);
-        assert_annotation_kind_variants(AnnotationKind::Unknown);
-    }
 
     /// Lock the camelCase wire strings the stringly-typed fields used to
     /// produce, so the enum migration stays byte-identical on the JSON side.

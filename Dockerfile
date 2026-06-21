@@ -99,6 +99,11 @@ RUN cargo install --locked bacon
 # git-cliff for CHANGELOG generation — kept separate for the same reason.
 RUN cargo binstall --no-confirm --locked --root /usr/local git-cliff
 
+# cargo-shear — unused-dependency scanner (`just shear`, the CI audit gate,
+# and the pre-push `just ci`). Kept in its own late layer so adding it never
+# busts the cache for the heavier tool tiers above.
+RUN cargo binstall --no-confirm --locked --root /usr/local cargo-shear
+
 # just (task runner) installed separately; upstream provides an install script
 RUN curl -fsSL https://just.systems/install.sh \
     | bash -s -- --to /usr/local/bin --tag 1.51.0

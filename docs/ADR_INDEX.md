@@ -24,6 +24,7 @@ and removed.
 | [0014](./adr/0014-comrak-vendoring-upgrade-policy.md) | comrak vendoring upgrade & follow policy | accepted |
 | [0015](./adr/0015-crates-io-publication-and-semver.md) | crates.io publication and semver policy | accepted |
 | [0016](./adr/0016-rebrand-to-aozora-flavored-markdown.md) | Rebrand `afm` → `aozora-flavored-markdown` (decouple crate name from `aozora-md-*` output brand) | accepted |
+| [0017](./adr/0017-derive-typescript-types-with-tsify.md) | Derive the TypeScript `.d.ts` with `tsify` (replace hand-written xtask codegen) | accepted |
 
 ## Authoring a new ADR
 

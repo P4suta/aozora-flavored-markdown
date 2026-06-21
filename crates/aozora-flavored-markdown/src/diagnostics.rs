@@ -1,13 +1,13 @@
 //! aozora-flavored-markdown's own diagnostic surface.
 //!
 //! Two kinds of observation flow out of a render: lexer diagnostics from
-//! the upstream `aozora` parser, and host-level ones that afm raises before
+//! the upstream `aozora` parser, and host-level ones that aozora-flavored-markdown raises before
 //! the lexer ever runs (e.g. oversized input). This module is the single
 //! serde-friendly shape both flatten into — the one type the CLI's
 //! `aozora-md.diagnostics.v1` envelope and the wasm bridge serialise.
 //!
 //! Owning the public diagnostic type here (rather than re-exporting
-//! `aozora`'s) keeps afm's API decoupled from `aozora`'s `SemVer`, the same
+//! `aozora`'s) keeps aozora-flavored-markdown's API decoupled from `aozora`'s `SemVer`, the same
 //! way the IR enums and `sentinels` module shield consumers from upstream
 //! churn. `aozora::Diagnostic` is mapped in via [`From`].
 
@@ -16,6 +16,7 @@ use serde::Serialize;
 /// How strictly a host should treat a [`Diagnostic`]. Serialises to the
 /// lowercase wire string (`"error"` / `"warning"` / `"note"`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum Severity {
     /// Genuine error; the parse should be treated as suspect.
@@ -30,6 +31,7 @@ pub enum Severity {
 /// library-internal invariant violation. Serialises to `"source"` /
 /// `"internal"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum DiagnosticSource {
     /// The problem traces back to the user-provided source text.
@@ -40,6 +42,7 @@ pub enum DiagnosticSource {
 
 /// Byte-offset range into the (sanitized) source, end-exclusive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Span {
     /// Inclusive start byte offset.
@@ -52,10 +55,11 @@ pub struct Span {
 ///
 /// Carries the two routing axes ([`Severity`], [`DiagnosticSource`]), a
 /// stable machine-readable [`code`](Self::code) (`aozora::lex::…` for
-/// upstream lexer diagnostics, `aozora-md::…` for afm host-level ones), a
+/// upstream lexer diagnostics, `aozora-md::…` for aozora-flavored-markdown host-level ones), a
 /// human-readable `message`, and the byte [`Span`] it refers to. Construct
 /// from an upstream diagnostic via [`From`]; consumers read the fields.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "tsify", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Diagnostic {
@@ -72,7 +76,7 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    /// afm host-level diagnostic: the input exceeds the lexer's `u32`
+    /// aozora-flavored-markdown host-level diagnostic: the input exceeds the lexer's `u32`
     /// span budget (~4 GiB), so nothing was rendered. Raised by the public
     /// entry points before the core lexer is invoked.
     #[must_use]
@@ -126,5 +130,38 @@ impl From<aozora::DiagnosticSource> for DiagnosticSource {
             aozora::DiagnosticSource::Internal => Self::Internal,
             _ => Self::Source,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_too_large_is_an_error_carrying_the_byte_counts() {
+        let d = Diagnostic::source_too_large(5_000_000_000);
+        assert_eq!(d.severity, Severity::Error);
+        assert_eq!(d.source, DiagnosticSource::Source);
+        assert_eq!(d.code, "aozora-md::source_too_large");
+        assert_eq!(d.span, Span { start: 0, end: 0 });
+        assert!(d.message.contains("5000000000"), "got: {}", d.message);
+        assert!(
+            d.message.contains(&u32::MAX.to_string()),
+            "got: {}",
+            d.message
+        );
+    }
+
+    #[test]
+    fn note_severity_maps_through_from_upstream() {
+        assert_eq!(Severity::from(aozora::Severity::Note), Severity::Note);
+    }
+
+    #[test]
+    fn internal_source_maps_through_from_upstream() {
+        assert_eq!(
+            DiagnosticSource::from(aozora::DiagnosticSource::Internal),
+            DiagnosticSource::Internal
+        );
     }
 }

@@ -21,7 +21,9 @@ workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-aozora-flavored-markdown   = { workspace = true }
+# `tsify` makes the lib's IR + diagnostic types derive `Tsify`, so wasm-pack
+# emits their `.d.ts` alongside this crate's envelope types (ADR-0017).
+aozora-flavored-markdown   = { workspace = true, features = ["tsify"] }
 # Editor-assist surface (completion catalogue + the source-coordinate
 # Document API used by the playground's hover / inlay / outline / fold
 # features). aozora-flavored-markdown composes aozora; here it also re-exposes aozora's own
@@ -30,10 +32,13 @@ aozora-flavored-markdown   = { workspace = true }
 # comrak and loses source offsets). The `wire` feature pulls in the
 # `aozora::wire::serialize_*` JSON projection (and serde/serde_json).
 aozora         = { workspace = true, features = ["wire"] }
-wasm-bindgen   = "0.2"
+wasm-bindgen   = { workspace = true }
+# Derives `Tsify` on this crate's wire-envelope structs so wasm-pack emits
+# their `.d.ts` directly (ADR-0017). The lib's IR/diagnostic types derive it
+# behind the `tsify` feature enabled above.
+tsify     = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
-serde-wasm-bindgen = "0.6"
 console_error_panic_hook = { version = "0.1", optional = true }
 twox-hash      = { version = "2", default-features = false, features = ["xxhash3_64"] }
 

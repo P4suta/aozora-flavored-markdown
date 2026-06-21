@@ -18,7 +18,7 @@ import { loadExamples } from './examples';
 import { createColorScheme } from './color-scheme';
 import { copyShareLink, decodeSourceFromHash } from './share';
 import { createTheme } from './theme-toggle';
-import { hashSource, renderAfm, type Diagnostic, type IrDocument } from './wasm-loader';
+import { hashSource, render, type Diagnostic, type IrDocument } from './wasm-loader';
 
 const FALLBACK_SOURCE =
   '# aozora-md playground\n\nここに ｜文章《ぶんしょう》 を書いてみてください。\n';
@@ -79,7 +79,7 @@ const App: Component = () => {
     lastHash = h;
 
     try {
-      const result = renderAfm(text);
+      const result = render(text);
       setRendered({ html: result.html, diagnostics: result.diagnostics, ir: result.ir });
       if (result.diagnostics.length > 0) setDrawerOpen(true);
     } catch (err) {

@@ -318,7 +318,7 @@ samply-render REPEAT="200":
 # Excludes (`_COV_IGNORE`): vendored comrak (ADR-0001), build artefacts, CLI
 # `main.rs` entrypoints, xtask tooling, test-support, and aozora-flavored-markdown-wasm (exercised
 # by `wasm-pack test`, which native llvm-cov can't reach).
-_COV_FLOOR := "96"
+_COV_FLOOR := "97"
 _COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|aozora-flavored-markdown-test-support/|aozora-flavored-markdown-wasm/)"
 
 [group('coverage')]
@@ -586,6 +586,16 @@ verify-version-pins:
 deny:
     {{_dev}} cargo deny check
 
+# Unused-dependency scan (stable, syn-based). Flags deps declared in any
+# Cargo.toml — including `[workspace.dependencies]` — that no crate actually
+# `use`s, the blind spot rustc's `dead_code` and the nightly `udeps` compile
+# graph both miss. Mirrors the sibling aozora-tools `shear` gate. On a hit:
+# delete the dead dependency, or record a documented
+# `[workspace.metadata.cargo-shear] ignored = [...]` for a macro/cfg-only use.
+[group('lint')]
+shear:
+    {{_dev}} cargo shear
+
 # RustSec advisory scan. Depends on `audit-comrak` because comrak is a PATH
 # dep (ADR-0001) absent from Cargo.lock, so plain `cargo audit` can't see it.
 [group('lint')]
@@ -686,19 +696,6 @@ book-linkcheck:
 [group('docs')]
 adr TITLE:
     {{_dev}} cargo run --package xtask --quiet -- new-adr {{TITLE}}
-
-# Regenerate crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types.d.ts from the live IR +
-# wasm envelope types. Commit the diff so `types-check` stays green.
-[group('docs')]
-types:
-    {{_dev}} cargo run --package xtask --quiet -- types ts
-
-# Drift gate: fail if the committed aozora_flavored_markdown_types.d.ts disagrees with fresh
-# codegen. Wired into `just ci` (and the `types-check` CI job); run after
-# touching the IR types.
-[group('docs')]
-types-check:
-    {{_dev}} cargo run --package xtask --quiet -- types check
 
 # Regenerate CHANGELOG.md from Conventional-Commits history (see cliff.toml).
 [group('docs')]
@@ -834,9 +831,10 @@ ci:
                    "$(date +%T)" "$1" "$2" "$3"; }
 
     # --- background lane: slow gates that take no cargo build lock ----------
-    # deny / audit / book-build overlap the compile lane. Output is buffered to
-    # a log and only replayed on failure so the terminal stays readable.
-    bg_steps=(deny audit book-build)
+    # deny / shear / audit / book-build overlap the compile lane. Output is
+    # buffered to a log and only replayed on failure so the terminal stays
+    # readable. (shear is syn-based, so it takes no cargo build lock either.)
+    bg_steps=(deny shear audit book-build)
     declare -A bg_pid
     for step in "${bg_steps[@]}"; do
         # Each job records its own (exit-code, duration) so the reap below can
@@ -852,7 +850,7 @@ ci:
     # --- foreground lane: instant text gates first (fail-fast in seconds),
     # --- then the compile pipeline (sequential — shared target dir). ---------
     fg_steps=(typos fmt-check strict-code verify-version-pins \
-              upstream-diff types-check clippy build dist-assets-check test test-doc prop \
+              upstream-diff clippy build dist-assets-check test test-doc prop \
               spec-commonmark spec-gfm doc coverage udeps playground-build)
     halted=""
     for step in "${fg_steps[@]}"; do

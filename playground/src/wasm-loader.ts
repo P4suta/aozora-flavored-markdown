@@ -9,7 +9,7 @@ import * as aozoraMdWasm from 'aozora-flavored-markdown-wasm';
 // The raw 青空文庫 Document handle + slug catalogue, re-exported for the
 // editor-assist layer (completion / hover / inlay / outline / fold /
 // linter / structural highlight). These talk to the Aozora parser
-// directly — a separate path from `renderAfm` (which goes through comrak
+// directly — a separate path from `render` (which goes through comrak
 // and loses source offsets). See `crates/aozora-flavored-markdown-wasm/src/lib.rs`.
 //
 // `Document` is re-exported as both a value (the constructor) and a type
@@ -22,15 +22,15 @@ export function slugsJson(): string {
   return aozoraMdWasm.slugsJson();
 }
 
-// Wire types are generated from the Rust IR + aozora-flavored-markdown-wasm envelope by
-// `just types` (xtask) and drift-gated in CI, so the `ir` field below is
-// the real `IrDocument` tree rather than `unknown`. Re-exported here so
-// existing consumers (diagnostics.ts, App.tsx) keep importing them from
-// this module.
+// Wire types come straight from the wasm-pack `.d.ts`, which `tsify`
+// derives from the Rust IR + envelope types (ADR-0017) — so the `ir`
+// field below is the real `IrDocument` tree rather than `unknown`, with no
+// separate codegen step that could drift. Re-exported here so existing
+// consumers (diagnostics.ts, App.tsx) keep importing them from this module.
 import type {
   RenderOptions,
   RenderResult,
-} from '../../crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types';
+} from 'aozora-flavored-markdown-wasm';
 
 export type {
   Diagnostic,
@@ -39,7 +39,7 @@ export type {
   IrBlock,
   IrDocument,
   IrInline,
-} from '../../crates/aozora-flavored-markdown-wasm/types/aozora_flavored_markdown_types';
+} from 'aozora-flavored-markdown-wasm';
 export type { RenderOptions, RenderResult };
 
 let initialised = false;
@@ -55,9 +55,9 @@ function ensureInit(): void {
   initialised = true;
 }
 
-export function renderAfm(source: string, options?: RenderOptions): RenderResult {
+export function render(source: string, options?: RenderOptions): RenderResult {
   ensureInit();
-  return aozoraMdWasm.renderAfm(source, options as unknown) as RenderResult;
+  return aozoraMdWasm.render(source, options);
 }
 
 export function hashSource(source: string): bigint {

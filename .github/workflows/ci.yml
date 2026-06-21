@@ -135,20 +135,9 @@ jobs:
       - uses: ./.github/actions/setup-dev-image
       - run: just doc
 
-  # Phase-2 (needs check). IR→TS codegen drift gate (`xtask types check`):
-  # fails if aozora_flavored_markdown_types.d.ts wasn't regenerated after an IR change.
-  types-check:
-    runs-on: ubuntu-latest
-    needs: [changes, check]
-    if: needs.changes.outputs.rust == 'true'
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: ./.github/actions/setup-dev-image
-      - run: just types-check
-
   # Phase-2 (needs check). Shell completions + man page drift gate: fails if the
   # committed dist/assets weren't regenerated (`just dist-assets`) after a CLI
-  # change. Mirrors types-check; previously only enforced inside `just ci`.
+  # change. Enforced here and inside `just ci`.
   dist-assets-check:
     runs-on: ubuntu-latest
     needs: [changes, check]
@@ -261,7 +250,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [deny, audit, audit-comrak, udeps]
+        target: [deny, shear, audit, audit-comrak, udeps]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - uses: ./.github/actions/setup-dev-image
@@ -296,7 +285,6 @@ jobs:
       - commitlint
       - check
       - doc
-      - types-check
       - dist-assets-check
       - wasm-build
       - lint
