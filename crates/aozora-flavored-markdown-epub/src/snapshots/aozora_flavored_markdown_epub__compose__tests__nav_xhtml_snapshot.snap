@@ -1,0 +1,25 @@
+---
+source: crates/aozora-flavored-markdown-epub/src/compose.rs
+expression: nav
+---
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE  html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ja" lang="ja">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Snapshot Book</title>
+  </head>
+  <body>
+    <nav epub:type="toc" id="toc">
+      <h1>目次</h1>
+      <ol>
+        <li>
+          <a href="chapter-001.xhtml">First</a>
+        </li>
+        <li>
+          <a href="chapter-002.xhtml">Second</a>
+        </li>
+      </ol>
+    </nav>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+---
+source: crates/aozora-flavored-markdown-epub/src/compose.rs
+expression: opf
+---
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="ja">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="bookid">urn:uuid:00000000-0000-0000-0000-000000000000</dc:identifier>
+    <dc:title>Snapshot Book</dc:title>
+    <dc:creator>Snapshot Author</dc:creator>
+    <dc:language>ja</dc:language>
+    <meta property="dcterms:modified">2026-01-01T00:00:00Z</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="css" href="css/aozora-md.css" media-type="text/css"/>
+    <item id="ch001" href="chapter-001.xhtml" media-type="application/xhtml+xml"/>
+    <item id="ch002" href="chapter-002.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine page-progression-direction="ltr">
+    <itemref idref="ch001"/>
+    <itemref idref="ch002"/>
+  </spine>
+</package>

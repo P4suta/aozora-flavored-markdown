@@ -1,0 +1,34 @@
+[package]
+name          = "aozora-flavored-markdown-epub-cli"
+version       = "0.1.0"            # independent of the workspace 0.4.x line (ADR-0018)
+edition       = { workspace = true }
+rust-version  = { workspace = true }
+license       = { workspace = true }
+description   = "CLI front-end for the aozora-flavored-markdown-epub library"
+repository    = { workspace = true }
+homepage      = { workspace = true }
+authors       = { workspace = true }
+readme        = { workspace = true }
+keywords      = ["epub", "epub3", "markdown", "aozora", "japanese"]
+categories    = ["command-line-utilities"]
+
+# Binary distribution via cargo-dist is deferred: the epub CLI is independently
+# versioned (0.1.x) and not yet part of the workspace's cargo-dist release
+# (ADR-0018). It still publishes to crates.io as an ordinary crate.
+[package.metadata.dist]
+dist = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "aozora-flavored-markdown-epub"
+path = "src/main.rs"
+
+[dependencies]
+aozora-flavored-markdown-epub = { version = "0.1.0", path = "../aozora-flavored-markdown-epub" }
+clap      = { workspace = true }
+miette    = { workspace = true }
+
+[dev-dependencies]
+tempfile  = { workspace = true }

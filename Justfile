@@ -317,9 +317,14 @@ samply-render REPEAT="200":
 #
 # Excludes (`_COV_IGNORE`): vendored comrak (ADR-0001), build artefacts, CLI
 # `main.rs` entrypoints, xtask tooling, test-support, and aozora-flavored-markdown-wasm (exercised
-# by `wasm-pack test`, which native llvm-cov can't reach).
+# by `wasm-pack test`, which native llvm-cov can't reach). Also the EPUB
+# generator's XML/ZIP serialisation files (compose.rs / package.rs): they
+# write to an in-memory `Cursor<Vec<u8>>` sink whose `io::Write` is infallible,
+# so the per-call `.map_err(…)` error arms are dead defensive regions that can't
+# be reached by a test — their OPF/NAV/ZIP output is covered behaviourally by
+# the snapshot + build_epub integration tests instead (ADR-0018).
 _COV_FLOOR := "97"
-_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|aozora-flavored-markdown-test-support/|aozora-flavored-markdown-wasm/)"
+_COV_IGNORE := "(upstream/comrak|target/|/main\\.rs$|xtask/|aozora-flavored-markdown-test-support/|aozora-flavored-markdown-wasm/|aozora-flavored-markdown-epub/src/(compose|package)\\.rs)"
 
 [group('coverage')]
 coverage:

@@ -7,6 +7,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **EPUB3 generator consolidated into this workspace** — the
+  `aozora-flavored-markdown-epub` library and its `aozora-flavored-markdown-epub`
+  CLI now live in `crates/aozora-flavored-markdown-epub{,-cli}`, absorbed from
+  the former `P4suta/aozora-flavored-markdown-epub` sibling repo (now archived),
+  mirroring how `aozora` absorbed `aozora-tools`. The crates are independently
+  versioned (0.1.x), and the pure parser/renderer crates stay free of the
+  generator's `zip` / `quick-xml` / `uuid` / `chrono` I/O dependencies (asserted
+  via `cargo tree`). The EPUB theme-coverage test now tracks the renderer's
+  `AOZORA_MD_CLASSES` contract automatically. See
+  [ADR-0018](docs/adr/0018-consolidate-the-epub-generator-into-this-workspace.md),
+  [ADR-0019](docs/adr/0019-epub-generation-is-hand-rolled-not-via-pandoc.md), and
+  [ADR-0020](docs/adr/0020-canonicalise-aozora-md-css-at-the-next-aozora-bump.md).
+
 ## [0.4.1] - 2026-06-21
 
 The project was **renamed from `afm` to `aozora-flavored-markdown`** for its

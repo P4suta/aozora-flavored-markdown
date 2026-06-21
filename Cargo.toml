@@ -5,6 +5,10 @@ members = [
     "crates/aozora-flavored-markdown-test-support",
     "crates/aozora-flavored-markdown-cli",
     "crates/aozora-flavored-markdown-wasm",
+    # EPUB3 generator, consolidated from the former aozora-flavored-markdown-epub
+    # sibling repo (ADR-0018). Independently versioned (see each crate's manifest).
+    "crates/aozora-flavored-markdown-epub",
+    "crates/aozora-flavored-markdown-epub-cli",
     "crates/xtask",
 ]
 # aozora-flavored-markdown-book (mdbook site) and upstream/comrak (vendored verbatim) are not crates.
@@ -181,6 +185,17 @@ insta             = "1.47"
 # Benchmarking / profiling
 criterion = { version = "0.8", features = ["html_reports"] }
 dhat      = "0.3"
+
+# EPUB output. Consumed only by aozora-flavored-markdown-epub (+ its CLI),
+# consolidated from the former sibling repo (ADR-0018). The pure parser /
+# renderer crates never pull these — they stay isolated in the epub crate.
+aozora-encoding = "0.4.1" # SJIS input decoding; aozora-flavored-markdown does not re-export it
+quick-xml = { version = "0.39", features = ["serialize"] }
+zip       = { version = "5", default-features = false, features = ["deflate"] }
+uuid      = { version = "1", features = ["v4"] }
+chrono    = { version = "0.4", features = ["serde"] }
+toml      = "1.1"
+tempfile  = "3"
 
 [profile.release]
 lto           = "thin"
