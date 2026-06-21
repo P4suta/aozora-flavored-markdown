@@ -1,0 +1,37 @@
+[package]
+name          = "aozora-flavored-markdown-epub"
+version       = "0.1.0"            # independent of the workspace 0.4.x line (ADR-0018)
+edition       = { workspace = true }
+rust-version  = { workspace = true }
+license       = { workspace = true }
+description   = "Library API for converting Aozora Flavored Markdown into an EPUB3 package"
+repository    = { workspace = true }
+homepage      = { workspace = true }
+authors       = { workspace = true }
+readme        = { workspace = true }
+keywords      = ["epub", "epub3", "markdown", "aozora", "japanese"]
+categories    = ["text-processing"]
+
+[lints]
+workspace = true
+
+[dependencies]
+aozora-flavored-markdown = { workspace = true }
+aozora-encoding          = { workspace = true }
+miette          = { workspace = true }
+thiserror       = { workspace = true }
+serde           = { workspace = true }
+toml            = { workspace = true }
+quick-xml       = { workspace = true }
+zip             = { workspace = true }
+uuid            = { workspace = true }
+chrono          = { workspace = true }
+
+[dev-dependencies]
+# AOZORA_MD_CLASSES: the renderer's class contract, so the theme-coverage
+# test tracks upstream automatically instead of a hand-copied list. Path-only
+# dev-dep (publish = false upstream), same pattern as the lib crate (ADR-0015).
+aozora-flavored-markdown-test-support = { workspace = true }
+insta             = { workspace = true }
+tempfile          = { workspace = true }
+zip               = { workspace = true }
