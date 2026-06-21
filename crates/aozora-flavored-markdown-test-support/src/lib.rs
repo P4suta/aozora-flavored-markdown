@@ -29,9 +29,24 @@
 //! | K    | [`check_markup_completeness`]       | Every `<ruby>` with an `<rp>(</rp>` must also carry its closing `<rp>)</rp>`. |
 //!
 //! Tier H (no setext `<h2>` from a decorative rule) and Tier L (no
-//! empty heading) are unit-test-only for now — they depend on being
-//! able to witness the pre-/post-promotion AST, which the shape-only
-//! HTML predicate cannot observe.
+//! empty promoted heading) are **necessarily unit-test-only**, not a
+//! temporary gap: neither has a sound rendered-HTML witness, because
+//! each bug-shape is byte-identical to a *legitimate* construct, so a
+//! shape-only predicate that fired on it would also fire on valid
+//! output under proptest / corpus / fuzz.
+//!
+//! * Tier H — the failure mode `<h2>prose</h2>` (a decorative rule
+//!   that wrongly promoted its preceding paragraph) is indistinguishable
+//!   from a legitimate setext heading (`Heading\n---`). An always-on
+//!   HTML predicate would have to reject every setext `<h2>`.
+//! * Tier L — an empty *promoted* heading `<hN></hN>` is byte-identical
+//!   to a legitimate empty ATX heading (`##`), which CommonMark renders
+//!   as `<h2></h2>`. A blanket "no empty heading" HTML predicate would
+//!   false-positive on that valid input.
+//!
+//! Both are therefore pinned where the source — and thus the pre-/post-
+//! promotion intent — is known: the heading-promotion integration tests
+//! in `aozora-flavored-markdown/tests/heading_promotion.rs`.
 //!
 //! These predicates live in their own crate (an `aozora-flavored-markdown` dev-dependency)
 //! so they stay out of the production crate's type-check / lint / `cargo doc`
