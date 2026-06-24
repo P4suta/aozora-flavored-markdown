@@ -191,7 +191,7 @@ dhat      = "0.3"
 # renderer crates never pull these — they stay isolated in the epub crate.
 aozora-encoding = "0.4.1" # SJIS input decoding; aozora-flavored-markdown does not re-export it
 quick-xml = { version = "0.39", features = ["serialize"] }
-zip       = { version = "5", default-features = false, features = ["deflate"] }
+zip       = { version = "8", default-features = false, features = ["deflate"] }
 uuid      = { version = "1", features = ["v4"] }
 chrono    = { version = "0.4", features = ["serde"] }
 toml      = "1.1"
