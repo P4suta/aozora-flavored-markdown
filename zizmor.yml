@@ -12,11 +12,8 @@ rules:
   unpinned-uses:
     config:
       policies:
-        # Every action, first- and third-party alike, is referenced by its
-        # 40-hex commit. The `# vX.Y.Z` next to a ref is a comment for humans
-        # and for Dependabot, never the thing GitHub resolves — a tag is
-        # mutable, so a tag pin is an authorisation for its owner to change
-        # what runs in this repo. `*` is a blanket on purpose: a `uses:` added
-        # tomorrow, to an action nobody has listed here, is covered the moment
-        # it is written.
+        # Every action, first- and third-party alike, is referenced by its 40-hex commit.
+        # The `# vX.Y.Z` next to a ref is a comment for humans and Renovate, never the thing GitHub resolves.
+        # A tag is mutable, so a tag pin is an authorisation for its owner to change what runs in this repo.
+        # `*` is a blanket on purpose: a `uses:` added tomorrow, to an action nobody has listed here, is covered the moment it is written.
         "*": hash-pin
