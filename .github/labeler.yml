@@ -1,6 +1,6 @@
-# PR area labels, applied by .github/workflows/labeler.yml (actions/labeler
-# v5) from the paths a PR touches. Labels must already exist in the repo.
-# Dependency PRs are labelled separately by Dependabot.
+# PR area labels are applied by `.github/workflows/labeler.yml` from the paths a PR touches.
+# Labels must already exist in the repository.
+# Renovate owns dependency-update PRs; these rules add only path-based area labels.
 
 "area: markdown":
   - changed-files:
