@@ -1,0 +1,10 @@
+{
+  "config": "github",
+  "keys": [
+    "CARGO_TOKEN"
+  ],
+  "project": "aozora-flavored-markdown",
+  "ref": "refs/heads/main",
+  "repository": "P4suta/aozora-flavored-markdown",
+  "repository_id": "1223338419"
+}
