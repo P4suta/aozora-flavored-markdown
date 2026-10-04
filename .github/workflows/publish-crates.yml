@@ -40,7 +40,7 @@ jobs:
           cache: true
           install_args: >-
             rust@1.96.0 just cargo:cargo-semver-checks
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: publish-crates-preflight
       - run: just changelog-check
@@ -68,7 +68,7 @@ jobs:
           version: 2026.7.13
           cache: true
           install_args: rust@1.96.0
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: publish-crates-publish
       - name: Authenticate to crates.io
