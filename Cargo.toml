@@ -171,7 +171,7 @@ aozora = { version = "0.5.0", default-features = false }
 # in CI and after publication; `Cargo.lock` carries the checksum cargo verifies
 # on every build. `default-features = false` drops the comrak CLI
 # (`cli` / `syntect` / `bon`); aozora-flavored-markdown-cli is our own binary.
-comrak = { version = "0.54.0", default-features = false }
+comrak = { version = "0.56.0", default-features = false }
 
 # Error handling
 thiserror = "2.0.18"
@@ -225,7 +225,7 @@ dhat      = "0.3"
 # EPUB output. Consumed only by aozora-flavored-markdown-epub (+ its CLI),
 # consolidated from the former sibling repo (ADR-0018). The pure parser /
 # renderer crates never pull these — they stay isolated in the epub crate.
-quick-xml = { version = "0.41", features = ["serialize"] }
+quick-xml = { version = "0.42", features = ["serialize"] }
 zip       = { version = "8", default-features = false, features = ["deflate"] }
 uuid      = { version = "1", features = ["v4"] }
 chrono    = { version = "0.4", features = ["serde"] }
