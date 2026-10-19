@@ -226,7 +226,7 @@ dhat      = "0.3"
 # consolidated from the former sibling repo (ADR-0018). The pure parser /
 # renderer crates never pull these — they stay isolated in the epub crate.
 quick-xml = { version = "0.41", features = ["serialize"] }
-zip       = { version = "8", default-features = false, features = ["deflate"] }
+zip       = { version = "9", default-features = false, features = ["deflate"] }
 uuid      = { version = "1", features = ["v4"] }
 chrono    = { version = "0.4", features = ["serde"] }
 toml      = "1.1"
