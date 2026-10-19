@@ -1,10 +1,4 @@
 //! Shared helpers for the integration tests. Cargo does not treat
-
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "integration-test fixture and EPUB inspection helpers stop at the first malformed artifact"
-)]
 //! `tests/common/mod.rs` as its own test target, so this stays a plain
 //! module other test files pull in via `mod common;`.
 
