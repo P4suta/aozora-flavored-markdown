@@ -67,6 +67,10 @@ Run `just ci` before requesting review. A reasoned compiler-lint exception is
 acceptable only at the narrow production site that needs it; the default is
 to remove the panic, output, or warning-producing path.
 
+CI builds every fuzz target and runs parser conformance and saved regression tests.
+Use the local `just fuzz-quick` and `just fuzz-deep` recipes for a specific parser investigation.
+The repository no longer runs recurring hosted fuzz searches.
+
 Architectural decisions use MADR files under `docs/adr/`:
 
 ```sh
