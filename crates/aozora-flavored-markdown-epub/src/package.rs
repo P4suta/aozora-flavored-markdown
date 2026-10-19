@@ -181,7 +181,10 @@ mod tests {
         assert_eq!(mimetype.name().expect("valid ZIP entry name"), "mimetype");
         assert_eq!(mimetype.compression(), zip::CompressionMethod::Stored);
         assert!(
-            mimetype.extra_data().as_deref().is_none_or(<[u8]>::is_empty),
+            mimetype
+                .extra_data()
+                .as_deref()
+                .is_none_or(<[u8]>::is_empty),
             "OCF forbids every extra field on mimetype"
         );
         drop(mimetype);
@@ -194,7 +197,10 @@ mod tests {
             .read_to_string(&mut contents)
             .expect("read container");
         assert!(
-            container.extra_data().as_deref().is_none_or(<[u8]>::is_empty),
+            container
+                .extra_data()
+                .as_deref()
+                .is_none_or(<[u8]>::is_empty),
             "ordinary small entries should not pay for ZIP64"
         );
     }
