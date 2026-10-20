@@ -1,10 +1,4 @@
 //! Shared helpers for the integration tests. Cargo does not treat
-
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "integration-test fixture and EPUB inspection helpers stop at the first malformed artifact"
-)]
 //! `tests/common/mod.rs` as its own test target, so this stays a plain
 //! module other test files pull in via `mod common;`.
 
@@ -74,7 +68,7 @@ fn unpack(path: &Path) -> Vec<Entry> {
     let mut out = Vec::with_capacity(zip.len());
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).expect("zip entry");
-        let name = entry.name().to_owned();
+        let name = entry.name().expect("valid ZIP entry name").into_owned();
         let compression = entry.compression();
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes).expect("read entry");
