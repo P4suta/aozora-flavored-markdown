@@ -11,6 +11,7 @@ use proptest::test_runner::FileFailurePersistence;
 
 const CASES_ENV: &str = "AOZORA_PROPTEST_CASES";
 const DEFAULT_CASES: u32 = 128;
+const MAX_SHRINK_ITERS: u32 = 10_000;
 
 /// Persisted failure seeds land in each test's `proptest-regressions/` file,
 /// which is committed, so a past failure replays first on every later run.
@@ -20,7 +21,7 @@ const DEFAULT_CASES: u32 = 128;
 pub fn default() -> ProptestConfig {
     ProptestConfig {
         cases: cases_from(env::var(CASES_ENV).ok().as_deref()),
-        max_shrink_iters: 10_000,
+        max_shrink_iters: MAX_SHRINK_ITERS,
         failure_persistence: Some(Box::new(FileFailurePersistence::WithSource(
             "proptest-regressions",
         ))),
