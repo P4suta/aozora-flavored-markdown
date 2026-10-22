@@ -66,5 +66,8 @@
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.10"
   },
-  "browserslist": "last 2 Chrome versions, last 2 Safari versions, last 2 Firefox versions, last 2 Edge versions"
+  "browserslist": "last 2 Chrome versions, last 2 Safari versions, last 2 Firefox versions, last 2 Edge versions",
+  "patchedDependencies": {
+    "happy-dom@21.0.4": "patches/happy-dom@21.0.4.patch"
+  }
 }

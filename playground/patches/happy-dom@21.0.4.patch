@@ -1,0 +1,66 @@
+diff --git a/lib/selection/Selection.js b/lib/selection/Selection.js
+index 6cacb40bd0056aa6c1ad95e9aa24ae7ce399a637..c699f53e81f70fa536415d1d225f1723851ec974 100644
+--- a/lib/selection/Selection.js
++++ b/lib/selection/Selection.js
+@@ -18,6 +18,7 @@ export default class Selection {
+     #ownerDocument;
+     #range = null;
+     #direction = SelectionDirectionEnum.directionless;
++    #hasScheduledSelectionChangeEvent = false;
+     /**
+      * Constructor.
+      *
+@@ -438,9 +439,18 @@ export default class Selection {
+         this.#direction =
+             range === null ? SelectionDirectionEnum.directionless : SelectionDirectionEnum.forwards;
+         if (oldRange !== this.#range) {
+-            // https://w3c.github.io/selection-api/#selectionchange-event
+-            this.#ownerDocument.dispatchEvent(new Event('selectionchange'));
++            this.#scheduleSelectionChangeEvent();
+         }
+     }
++    #scheduleSelectionChangeEvent() {
++        if (this.#hasScheduledSelectionChangeEvent) {
++            return;
++        }
++        this.#hasScheduledSelectionChangeEvent = true;
++        this.#ownerDocument[PropertySymbol.window].setTimeout(() => {
++            this.#hasScheduledSelectionChangeEvent = false;
++            this.#ownerDocument.dispatchEvent(new Event('selectionchange'));
++        });
++    }
+ }
+ //# sourceMappingURL=Selection.js.map
+diff --git a/src/selection/Selection.ts b/src/selection/Selection.ts
+index a1d890b073a393bfbf258383c272ae95184b23fd..bbc1c717b5052a82043f3b4825c23eaa687512c4 100644
+--- a/src/selection/Selection.ts
++++ b/src/selection/Selection.ts
+@@ -22,6 +22,7 @@ export default class Selection {
+ 	readonly #ownerDocument: Document;
+ 	#range: Range | null = null;
+ 	#direction: SelectionDirectionEnum = SelectionDirectionEnum.directionless;
++	#hasScheduledSelectionChangeEvent: boolean = false;
+ 
+ 	/**
+ 	 * Constructor.
+@@ -549,8 +550,18 @@ export default class Selection {
+ 			range === null ? SelectionDirectionEnum.directionless : SelectionDirectionEnum.forwards;
+ 
+ 		if (oldRange !== this.#range) {
+-			// https://w3c.github.io/selection-api/#selectionchange-event
+-			this.#ownerDocument.dispatchEvent(new Event('selectionchange'));
++			this.#scheduleSelectionChangeEvent();
++		}
++	}
++
++	#scheduleSelectionChangeEvent(): void {
++		if (this.#hasScheduledSelectionChangeEvent) {
++			return;
+ 		}
++		this.#hasScheduledSelectionChangeEvent = true;
++		this.#ownerDocument[PropertySymbol.window].setTimeout(() => {
++			this.#hasScheduledSelectionChangeEvent = false;
++			this.#ownerDocument.dispatchEvent(new Event('selectionchange'));
++		});
+ 	}
+ }
