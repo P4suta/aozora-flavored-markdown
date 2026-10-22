@@ -70,7 +70,7 @@ jobs:
         with:
           version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # sure would be cool if github gave us proper conditionals...
       # so here's a doubly-nested ternary-via-truthiness to try to provide the best possible
       # functionality based on whether this is a pull_request, and whether it's from a fork.
@@ -133,7 +133,7 @@ jobs:
         with:
           version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # Get the dist-manifest
       - name: Fetch local artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -197,7 +197,7 @@ jobs:
         with:
           version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -257,7 +257,7 @@ jobs:
         with:
           version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # Fetch artifacts from scratch-storage
       - name: Fetch artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c

@@ -25,5 +25,5 @@ jobs:
         with:
           version: 2026.10.15
           cache: true
-          install_args: rust@1.96.0 just cargo:cargo-deny
+          install_args: rust@1.99.1 just cargo:cargo-deny
       - run: just deny

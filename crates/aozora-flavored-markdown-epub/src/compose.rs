@@ -22,7 +22,9 @@ use std::io::{self, Cursor, Write};
 
 use aozora_flavored_markdown::theme;
 use chrono::{DateTime, Utc};
+use quick_xml::events::attributes::Attribute;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::name::QName;
 use quick_xml::writer::Writer;
 use uuid::Uuid;
 
@@ -130,7 +132,7 @@ fn package_opf(
     package.push_attribute(("xmlns", "http://www.idpf.org/2007/opf"));
     package.push_attribute(("version", "3.0"));
     package.push_attribute(("unique-identifier", "bookid"));
-    push_xml_attribute(&mut package, b"xml:lang", &meta.language);
+    push_xml_attribute(&mut package, "xml:lang", &meta.language);
     w.write_event(Event::Start(package))
         .map_err(|e| xml_to_err(&e))?;
 
@@ -254,12 +256,12 @@ fn write_xml_text<W: Write>(w: &mut Writer<W>, text: &str) -> Result<()> {
         .map_err(|e| xml_to_err(&e))
 }
 
-fn push_xml_attribute(tag: &mut BytesStart<'_>, name: &[u8], value: &str) {
-    let escaped = xml::escape(value);
-    // The byte-tuple conversion is the quick_xml API for an already-escaped
-    // attribute. The `(&str, &str)` conversion would escape the `&` in our
-    // numeric whitespace references a second time.
-    tag.push_attribute((name, escaped.as_bytes()));
+fn push_xml_attribute(tag: &mut BytesStart<'_>, name: &str, value: &str) {
+    // Keep numeric whitespace references escaped exactly once.
+    tag.push_attribute(Attribute {
+        key: QName(name),
+        value: Cow::Owned(xml::escape(value)),
+    });
 }
 
 /// One manifest entry, named so call sites read top-down rather than
@@ -295,8 +297,8 @@ fn nav_xhtml(meta: &Metadata, rendered: &RenderOutput) -> Result<String> {
     let mut html = BytesStart::new("html");
     html.push_attribute(("xmlns", "http://www.w3.org/1999/xhtml"));
     html.push_attribute(("xmlns:epub", "http://www.idpf.org/2007/ops"));
-    push_xml_attribute(&mut html, b"xml:lang", &meta.language);
-    push_xml_attribute(&mut html, b"lang", &meta.language);
+    push_xml_attribute(&mut html, "xml:lang", &meta.language);
+    push_xml_attribute(&mut html, "lang", &meta.language);
     w.write_event(Event::Start(html))
         .map_err(|e| xml_to_err(&e))?;
 

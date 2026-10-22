@@ -6,13 +6,14 @@ lockfile = true
 [tools]
 rust = [
     { version = "1.99.1", profile = "minimal", components = ["clippy", "rustfmt", "rust-src", "llvm-tools-preview"], targets = ["wasm32-unknown-unknown"] },
+    { version = "1.96.0", profile = "minimal" },
     { version = "nightly-2026-07-15", profile = "minimal", components = ["rust-src"] },
 ]
 bun = "1.4.3"
 node = "24.22.0"
 just = "1.59.0"
 "cargo:wasm-pack" = "0.15.0"
-"npm:binaryen" = "130.0.0"
+"npm:binaryen" = "132.0.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
 zizmor = "1.31.1"

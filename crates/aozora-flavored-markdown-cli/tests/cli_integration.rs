@@ -862,7 +862,7 @@ fn render_json_diagnostics_go_to_stderr_html_to_stdout() {
     );
     let v = parse_json(stderr_of(&out));
     assert_eq!(v["schema"], "aozora-md.diagnostics.v1");
-    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+    assert_ne!(v["diagnostics"].as_array().unwrap().len(), 0);
 }
 
 #[test]
@@ -883,7 +883,7 @@ fn check_json_strict_stdout_is_pure_json() {
     );
     // No free-form Japanese line is allowed to corrupt the stdout JSON.
     let v = parse_json(stdout_of(&out));
-    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+    assert_ne!(v["diagnostics"].as_array().unwrap().len(), 0);
 }
 
 #[test]

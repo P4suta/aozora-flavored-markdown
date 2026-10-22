@@ -334,7 +334,6 @@ impl ConformanceOptions {
 
     fn comrak(&self) -> comrak::Options<'static> {
         let mut comrak = self.public.comrak();
-        comrak.extension.tagfilter = self.tagfilter;
         comrak.render.r#unsafe = self.raw_html;
         comrak
     }
@@ -601,7 +600,11 @@ fn render_conformance(input: &str, options: &ConformanceOptions) -> Rendered {
     }
     let comrak = options.comrak();
     let (html, diagnostics, ()) =
-        drive_pipeline_with_comrak(input, &options.public, &comrak, |_root, _constructs| ());
+        drive_pipeline_with_comrak(input, &options.public, &comrak, |root, _constructs| {
+            if options.tagfilter {
+                conformance::filter_raw_html(root);
+            }
+        });
     Rendered { html, diagnostics }
 }
 
@@ -878,7 +881,7 @@ mod tests {
     fn plain_text_round_trips_through_html() {
         let r = render("hello, world", &Options::default());
         assert!(r.html.contains("hello, world"), "html: {}", r.html);
-        assert!(r.diagnostics.is_empty());
+        assert_eq!(r.diagnostics, []);
     }
 
     // Moved here with the `html` module's deletion: the shim's own two tests
@@ -1045,14 +1048,14 @@ mod tests {
                 "with_raw_html must move no knob but its own"
             );
         }
+        let filtered = ConformanceOptions::new(Options::commonmark())
+            .with_raw_html(true)
+            .with_tagfilter(true);
         assert!(
-            ConformanceOptions::new(Options::commonmark())
-                .with_raw_html(true)
-                .with_tagfilter(true)
-                .comrak()
-                .extension
-                .tagfilter,
-            "the runner's per-example tagfilter must reach comrak"
+            render_conformance("<script>bad</script>\n", &filtered)
+                .html
+                .contains("&lt;script>"),
+            "the runner's per-example tagfilter must escape disallowed raw tags"
         );
     }
 
@@ -1154,7 +1157,7 @@ mod tests {
         let r = render("# hi\n\nbody", &Options::default());
         assert!(r.html.contains("<h1>hi</h1>"), "html: {}", r.html);
         let ir = render_to_ir("para", &Options::default());
-        assert!(!ir.ir.blocks.is_empty());
+        assert_ne!(ir.ir.blocks, []);
         let RenderedBlocks { blocks, .. } = render_blocks("a\n\nb", &Options::default());
         assert_eq!(blocks.len(), 2);
         assert_eq!(canonicalize("plain"), Ok("plain".to_owned()));

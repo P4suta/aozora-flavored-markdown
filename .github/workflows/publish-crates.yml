@@ -33,7 +33,7 @@ jobs:
           version: 2026.10.15
           cache: true
           install_args: >-
-            rust@1.96.0 just cargo:cargo-semver-checks
+            rust@1.99.1 just cargo:cargo-semver-checks
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: publish-crates-preflight
@@ -61,7 +61,7 @@ jobs:
         with:
           version: 2026.10.15
           cache: true
-          install_args: rust@1.96.0
+          install_args: rust@1.99.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: publish-crates-publish

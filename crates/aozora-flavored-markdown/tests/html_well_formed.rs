@@ -106,10 +106,10 @@ fn stacked_ruby_openers_balanced() {
 
 #[test]
 fn validator_accepts_well_formed_html() {
-    assert!(check_well_formed("<p>hello <em>world</em></p>").is_empty());
-    assert!(check_well_formed("<br>").is_empty()); // void element
-    assert!(check_well_formed("<img src=\"x\">").is_empty()); // void with attrs
-    assert!(check_well_formed("").is_empty());
+    assert_eq!(check_well_formed("<p>hello <em>world</em></p>"), []);
+    assert_eq!(check_well_formed("<br>"), []); // void element
+    assert_eq!(check_well_formed("<img src=\"x\">"), []); // void with attrs
+    assert_eq!(check_well_formed(""), []);
 }
 
 #[test]
@@ -140,11 +140,11 @@ fn validator_rejects_misordered_close() {
 fn validator_tolerates_attributes_with_tag_characters() {
     // Attribute values may contain `>` (but not in unquoted form).
     // Our renderer doesn't emit such shapes, but robustness helps.
-    assert!(check_well_formed("<a href=\"test\">link</a>").is_empty());
+    assert_eq!(check_well_formed("<a href=\"test\">link</a>"), []);
 }
 
 #[test]
 fn validator_handles_void_elements_inside_flow() {
-    assert!(check_well_formed("<p>line<br>break</p>").is_empty());
-    assert!(check_well_formed("<p>image<img src=\"x\">here</p>").is_empty());
+    assert_eq!(check_well_formed("<p>line<br>break</p>"), []);
+    assert_eq!(check_well_formed("<p>image<img src=\"x\">here</p>"), []);
 }

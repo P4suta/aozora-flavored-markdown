@@ -27,7 +27,7 @@ jobs:
           version: 2026.10.15
           cache: true
           install_args: >-
-            rust@1.96.0 bun node just cargo:wasm-pack npm:binaryen
+            rust@1.99.1 bun node just cargo:wasm-pack npm:binaryen
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: docs
