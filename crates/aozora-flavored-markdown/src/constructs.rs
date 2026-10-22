@@ -1663,9 +1663,9 @@ mod tests {
     #[test]
     fn markdown_only_table_is_empty() {
         let constructs = Constructs::none();
-        assert!(constructs.text().is_empty());
+        assert_eq!(constructs.text(), "");
         assert!(constructs.cursor().next().is_none());
-        assert!(constructs.diagnostics().is_empty());
+        assert_eq!(constructs.diagnostics(), []);
     }
 
     /// A range that does not address the text it was measured against
@@ -1720,7 +1720,7 @@ mod tests {
         );
         assert_eq!(table.entries.len(), 1);
         assert_eq!(table.text(), "\u{E001}後");
-        assert!(table.diagnostics().is_empty());
+        assert_eq!(table.diagnostics(), []);
     }
 
     #[test]

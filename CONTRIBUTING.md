@@ -15,9 +15,9 @@ mise install --locked
 just test
 ```
 
-`rust-toolchain.toml`, `Cargo.lock` and `playground/bun.lock` remain the
-language-specific authorities. Fuzzing alone uses the date-pinned nightly
-declared in `mise.toml`; all production crates use Rust 1.96.0.
+`rust-toolchain.toml`, `Cargo.lock` and `playground/bun.lock` remain the language-specific authorities.
+Development uses Rust 1.99.1, and CI also checks the declared Rust 1.96.0 compatibility floor.
+Fuzzing uses the date-pinned nightly declared in `mise.toml`.
 
 The same fixed entry points are used locally and by GitHub Actions:
 

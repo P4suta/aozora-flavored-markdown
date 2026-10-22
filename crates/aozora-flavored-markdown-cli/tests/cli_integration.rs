@@ -24,9 +24,9 @@
 
 use std::env;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
-use std::process::{self, Command, Output, Stdio};
+use std::process::{self, ChildStdin, Command, Output, Stdio};
 use std::str;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -67,6 +67,33 @@ fn run_cli(args: &[&str]) -> Output {
         .expect("spawn aozora-flavored-markdown binary")
 }
 
+fn write_cli_stdin(mut stdin: ChildStdin, input: &[u8]) {
+    if let Err(error) = stdin.write_all(input) {
+        assert_eq!(
+            error.kind(),
+            ErrorKind::BrokenPipe,
+            "write child stdin: {error}"
+        );
+    }
+}
+
+#[test]
+fn closed_child_stdin_preserves_a_rejected_commands_exit_status() {
+    let mut child = Command::new(aozora_bin())
+        .arg("--invalid-option")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn rejected command");
+    let stdin = child.stdin.take().expect("child stdin is piped");
+    assert_eq!(
+        child.wait().expect("wait for rejected command").code(),
+        Some(2)
+    );
+    write_cli_stdin(stdin, b"unused input");
+}
+
 /// Like `run_cli` but feeds `stdin` to the child's standard input, so we can
 /// exercise the `-` (read-from-stdin) input path. The piped `ChildStdin` is
 /// dropped right after the write, closing the pipe so the child sees EOF; our
@@ -79,12 +106,7 @@ fn run_cli_stdin(args: &[&str], stdin: &[u8]) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn aozora-flavored-markdown binary");
-    child
-        .stdin
-        .take()
-        .expect("child stdin is piped")
-        .write_all(stdin)
-        .expect("write child stdin");
+    write_cli_stdin(child.stdin.take().expect("child stdin is piped"), stdin);
     child
         .wait_with_output()
         .expect("wait for aozora-flavored-markdown binary")
@@ -862,7 +884,7 @@ fn render_json_diagnostics_go_to_stderr_html_to_stdout() {
     );
     let v = parse_json(stderr_of(&out));
     assert_eq!(v["schema"], "aozora-md.diagnostics.v1");
-    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+    assert_ne!(v["diagnostics"].as_array().unwrap().len(), 0);
 }
 
 #[test]
@@ -883,7 +905,7 @@ fn check_json_strict_stdout_is_pure_json() {
     );
     // No free-form Japanese line is allowed to corrupt the stdout JSON.
     let v = parse_json(stdout_of(&out));
-    assert!(!v["diagnostics"].as_array().unwrap().is_empty());
+    assert_ne!(v["diagnostics"].as_array().unwrap().len(), 0);
 }
 
 #[test]

@@ -215,7 +215,7 @@ fn unclosed_cr_fence_restores_double_angle_info_without_a_reserved_leak() {
         panic!("expected the unclosed source to stay one code block: {blocks:?}");
     };
     assert_eq!(lang.as_deref(), Some("≪\u{12}≫\u{80}"));
-    assert!(value.is_empty());
+    assert_eq!(value, "");
 }
 
 #[test]
@@ -402,7 +402,7 @@ fn empty_gfm_table_with_only_header_still_projects() {
     let Block::Table { rows, .. } = &result.ir.blocks[0] else {
         panic!("expected Table, got {:?}", result.ir.blocks[0]);
     };
-    assert!(rows.is_empty());
+    assert_eq!(rows.as_slice(), []);
 }
 
 #[test]
@@ -540,8 +540,8 @@ fn render_blocks_empty_aozora_disabled_path() {
         diagnostics,
         ..
     } = render_blocks("", &opts);
-    assert!(blocks.is_empty());
-    assert!(diagnostics.is_empty());
+    assert_eq!(blocks, []);
+    assert_eq!(diagnostics, []);
 }
 
 #[test]

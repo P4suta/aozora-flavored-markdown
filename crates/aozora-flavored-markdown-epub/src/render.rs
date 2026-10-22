@@ -169,20 +169,19 @@ mod tests {
     // the payload happens to open a tag.
     fn read_back(xhtml: &str) -> (String, String) {
         let mut reader = Reader::from_str(xhtml);
-        let decoder = reader.decoder();
         let (mut title, mut lang) = (String::new(), String::new());
         let mut in_title = false;
         loop {
             match reader.read_event().expect("the envelope must parse as XML") {
                 Event::Eof => break,
                 Event::Start(tag) => {
-                    in_title = tag.name().as_ref() == b"title";
-                    if tag.name().as_ref() == b"html" {
+                    in_title = tag.name().as_ref() == "title";
+                    if tag.name().as_ref() == "html" {
                         for attr in tag.attributes() {
                             let attr = attr.expect("every attribute must parse");
-                            if attr.key.as_ref() == b"lang" {
+                            if attr.key.as_ref() == "lang" {
                                 lang = attr
-                                    .decoded_and_normalized_value(XmlVersion::Implicit1_0, decoder)
+                                    .normalized_value(XmlVersion::Implicit1_0)
                                     .expect("the language tag must decode")
                                     .into_owned();
                             }
@@ -190,11 +189,7 @@ mod tests {
                     }
                 }
                 Event::End(_) => in_title = false,
-                Event::Text(text) if in_title => title.push_str(
-                    &text
-                        .xml10_content()
-                        .expect("the title text must decode as XML 1.0"),
-                ),
+                Event::Text(text) if in_title => title.push_str(&text.xml10_content()),
                 Event::GeneralRef(reference) if in_title => {
                     title.push_str(&resolve(&reference));
                 }
@@ -213,8 +208,7 @@ mod tests {
         {
             return ch.into();
         }
-        let name = reference.decode().expect("a reference name must decode");
-        resolve_predefined_entity(&name)
+        resolve_predefined_entity(reference.as_ref())
             .expect("the envelope emits no entity outside the predefined five")
             .to_owned()
     }

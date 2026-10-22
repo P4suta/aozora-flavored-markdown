@@ -134,6 +134,7 @@ miette  = { workspace = true, optional = true }
 aozora-flavored-markdown-test-support = { workspace = true }
 proptest          = { workspace = true }
 pretty_assertions = { workspace = true }
+regex             = { workspace = true }
 serde             = { workspace = true }
 serde_json        = { workspace = true }
 encoding_rs       = { workspace = true }
