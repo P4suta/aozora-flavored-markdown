@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "description": "React 19 and Spectrum 2 authoring playground for Aozora Flavored Markdown.",
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.4.3",
   "scripts": {
     "dev": "vite",
     "build": "bun run typecheck && vite build",
@@ -36,7 +36,7 @@
     "@lezer/highlight": "^1.2.1",
     "@aozora/playground-ui": "file:vendor/playground-ui",
     "@react-spectrum/s2": "^1.5.1",
-    "aozora-flavored-markdown-wasm": "file:../crates/aozora-flavored-markdown-wasm/pkg",
+    "aozora-flavored-markdown-wasm": "file:../crates/aozora-flavored-markdown-wasm",
     "codemirror": "^6.0.1",
     "lz-string": "^1.5.0",
     "react": "^19.0.0",

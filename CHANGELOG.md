@@ -161,84 +161,46 @@ the browser globals `Document` and `Range`.
 
 ### Changed
 
-- **Long `-` / `=` rule rows belong to CommonMark at every width.** A row
-  immediately under prose is therefore a setext heading even when it is ten
-  or more characters long; there is no Aozora-decoration option. The measured
-  compatibility impact and the formatter/EPUB corpus audit are recorded in
-  [ADR-0027](docs/adr/0027-commonmark-owns-rule-rows-at-every-width.md).
-- **Canonicalization preserves every leading BOM and code-region byte.**
-  Outside code, CRLF and lone CR line endings normalize to LF. Rule rows and
-  author-supplied U+0001–U+0003 are tracked out of band instead of borrowing
-  control characters as placeholders.
-- **Release gates validate the artifacts, not configuration text.** Cargo
-  metadata drives the same retry exclusions in package dry-runs and live
-  publishes. Package smoke suppresses only Cargo's exact test/benchmark
-  package-exclusion warnings and preserves every other stderr line and failure
-  status. Every cargo-dist phase is bracketed by `cargo metadata --locked` plus
-  a byte-for-byte `Cargo.lock` guard, and its release workflow is deliberately
-  hand-maintained; the real plan rejects reintroduced dynamic container or
-  package-install matrix fields. Release write permission is scoped to the host
-  job, and ShellCheck 0.11.0 is pinned in mise. Dependabot version-update
-  cooldown is 30/7/3 days for major/minor/patch updates, with a seven-day
-  fallback; security updates are not subject to cooldown.
-- **Native, locked mise is the supported development and CI environment.**
-  The repository now has one `mise.toml` plus `mise.lock`, with Rust, Bun,
-  Node and every directly invoked tool fixed. CI has five static jobs that
-  execute the same `just ci-{rust,web,repo,release,fuzz}` recipes as a local
-  checkout. Correctness is established by compiler lints, official tools and
-  real builds/tests rather than by parsing repository configuration.
-- **Sentinel substitution moved into this crate, in one coordinate
-  space.** `src/sentinel_stream.rs` is replaced by `src/constructs.rs`:
-  the masked source is tiled here — bytes between constructs copied
-  verbatim, each construct's byte range replaced by one of four PUA
-  sentinels declared here rather than re-exported — and both walkers
-  cursor over the resulting table in document order. The tiling is trusted
-  by an exact test: it must equal, byte for byte, the sentinel text the
-  parser produces from the same input. As a consequence an
-  `IrInline::Aozora` / `IrBlock::Aozora` `span` slices *the source you
-  passed in*, and is withheld (rather than published in a coordinate space
-  no consumer holds) only for the documents the parser rewrites before
-  lexing.
-  [ADR-0023](docs/adr/0023-substitute-constructs-in-source-coordinates.md). (#157)
-- **A construct's HTML comes from its own source run.** `src/fragment.rs`
-  hands the run back to the parser, drops the paragraph wrapper an inline
-  construct arrives in, and rebrands the class tokens (ADR-0011) — instead
-  of calling the per-node renderer 0.5.0 removed. Fragments are memoised
-  per run, and the rebrand is scoped to `class="…"` values, so text that
-  happens to say `aozora-` (this repository's name does) survives
-  verbatim. (#158)
-- **`aozora-flavored-markdown-epub` enables the `theme` feature** and its
-  vendored `assets/aozora-md-*.css` copy is gone; `compose` embeds the
-  library's constants. The EPUB crate's own theme-coverage test is
-  removed rather than rewritten — it was a substring search that a longer
-  sibling class satisfied on its own. Coverage is settled once, in the
-  library's tokenised sweep, and the drift gate now runs **both** ways: a
-  class no theme styles fails, *and* a theme rule for a class the renderer
-  cannot emit fails. (#160)
+- Update Markdown parsing to `comrak` 0.56 and EPUB XML handling to `quick-xml` 0.42.
+- **Long `-` / `=` rule rows belong to CommonMark at every width.** A row immediately under prose is therefore a setext heading even when it is ten or more characters long; there is no Aozora-decoration option.
+  The measured compatibility impact and the formatter/EPUB corpus audit are recorded in [ADR-0027](docs/adr/0027-commonmark-owns-rule-rows-at-every-width.md).
+- **Canonicalization preserves every leading BOM and code-region byte.** Outside code, CRLF and lone CR line endings normalize to LF.
+  Rule rows and author-supplied U+0001–U+0003 are tracked out of band instead of borrowing control characters as placeholders.
+- **Release gates validate the artifacts, not configuration text.** Cargo metadata drives the same retry exclusions in package dry-runs and live publishes.
+  Package smoke suppresses only Cargo's exact test/benchmark package-exclusion warnings and preserves every other stderr line and failure status.
+  Every cargo-dist phase is bracketed by `cargo metadata --locked` plus a byte-for-byte `Cargo.lock` guard, and its release workflow is deliberately hand-maintained; the real plan rejects reintroduced dynamic container or package-install matrix fields.
+  Release write permission is scoped to the host job, and ShellCheck 0.11.0 is pinned in mise.
+  Dependabot version-update cooldown is 30/7/3 days for major/minor/patch updates, with a seven-day fallback; security updates are not subject to cooldown.
+- **Native, locked mise is the supported development and CI environment.** The repository now has one `mise.toml` plus `mise.lock`, with Rust, Bun,
+  Node and every directly invoked tool fixed.
+  CI has five static jobs that execute the same `just ci-{rust,web,repo,release,fuzz}` recipes as a local checkout.
+  Correctness is established by compiler lints, official tools and real builds/tests rather than by parsing repository configuration.
+- **Sentinel substitution moved into this crate, in one coordinate space.** `src/sentinel_stream.rs` is replaced by `src/constructs.rs`:
+  the masked source is tiled here — bytes between constructs copied verbatim, each construct's byte range replaced by one of four PUA sentinels declared here rather than re-exported — and both walkers cursor over the resulting table in document order.
+  The tiling is trusted by an exact test: it must equal, byte for byte, the sentinel text the parser produces from the same input.
+  As a consequence an `IrInline::Aozora` / `IrBlock::Aozora` `span` slices *the source you passed in*, and is withheld (rather than published in a coordinate space no consumer holds) only for the documents the parser rewrites before lexing.
+  [ADR-0023](docs/adr/0023-substitute-constructs-in-source-coordinates.md).
+  (#157)
+- **A construct's HTML comes from its own source run.** `src/fragment.rs` hands the run back to the parser, drops the paragraph wrapper an inline construct arrives in, and rebrands the class tokens (ADR-0011) — instead of calling the per-node renderer 0.5.0 removed.
+  Fragments are memoised per run, and the rebrand is scoped to `class="…"` values, so text that happens to say `aozora-` (this repository's name does) survives verbatim.
+  (#158)
+- **`aozora-flavored-markdown-epub` enables the `theme` feature** and its vendored `assets/aozora-md-*.css` copy is gone; `compose` embeds the library's constants.
+  The EPUB crate's own theme-coverage test is removed rather than rewritten — it was a substring search that a longer sibling class satisfied on its own.
+  Coverage is settled once, in the library's tokenised sweep, and the drift gate now runs **both** ways: a class no theme styles fails, *and* a theme rule for a class the renderer cannot emit fails.
+  (#160)
 - **Docs slimmed and gated.** The mdbook site is retired (see *Removed*),
-  `README.md` / `README.ja.md` are compressed to Quickstart + links (both
-  languages stay), and the doc comments under `crates/*/src` no longer
-  name an upstream-internal path — 21% of `src` was doc comments, much of
-  it teaching imports that cannot compile.
+  `README.md` / `README.ja.md` are compressed to Quickstart + links (both languages stay), and the doc comments under `crates/*/src` no longer name an upstream-internal path — 21% of `src` was doc comments, much of it teaching imports that cannot compile.
   (#153)
-- **The Tier-A predicate has exactly one definition.**
-  `check_no_bare_bracket` now excepts `<code>` regions — a code element's
-  body is the author's bytes verbatim per CommonMark §6.1, so notation
-  *must* surface unwrapped there — and the four hand-rolled copies that
-  disagreed about the same HTML all route through it. (#155)
-- **Tier B (no PUA sentinel in the output) is unconditional**, and runs
-  inside `assert_html_invariants` with the rest. Its caveat — "a source may
-  contain U+E001, so gate on a clean parse" — was never true: a PUA
-  codepoint an author types is replaced with U+FFFD. Gating on it had
-  excused the check from every input that raised a diagnostic, which is the
-  recovery path — where an unresolved construct is likeliest to survive.
-  Un-gating it found the leak above on the first run. (#161)
-- **`just changelog` prints a draft instead of overwriting `CHANGELOG.md`.**
-  This file is written by hand — an entry has to say what broke and what to
-  do about it, which no commit subject carries — and `git-cliff -o
-  CHANGELOG.md` regenerated the whole thing, taking every explanation with
-  it. The recipe now prints the Conventional-Commits draft to stdout to
-  check the hand-written section against. (#161)
+- **The Tier-A predicate has exactly one definition.** `check_no_bare_bracket` now excepts `<code>` regions — a code element's body is the author's bytes verbatim per CommonMark §6.1, so notation *must* surface unwrapped there — and the four hand-rolled copies that disagreed about the same HTML all route through it.
+  (#155)
+- **Tier B (no PUA sentinel in the output) is unconditional**, and runs inside `assert_html_invariants` with the rest.
+  Its caveat — "a source may contain U+E001, so gate on a clean parse" — was never true: a PUA codepoint an author types is replaced with U+FFFD.
+  Gating on it had excused the check from every input that raised a diagnostic, which is the recovery path — where an unresolved construct is likeliest to survive.
+  Un-gating it found the leak above on the first run.
+  (#161)
+- **`just changelog` prints a draft instead of overwriting `CHANGELOG.md`.** This file is written by hand — an entry has to say what broke and what to do about it, which no commit subject carries — and `git-cliff -o CHANGELOG.md` regenerated the whole thing, taking every explanation with it.
+  The recipe now prints the Conventional-Commits draft to stdout to check the hand-written section against.
+  (#161)
 
 ### Removed
 

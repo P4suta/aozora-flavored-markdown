@@ -311,7 +311,7 @@ fn strict_json_keeps_stdout_pure_json() {
     let (out, _) = build_in(dir.path(), &["--strict", "--format", "json"]);
     assert_eq!(out.status.code(), Some(2), "strict json still exits 2");
     let json = parse_json(stdout_of(&out));
-    assert!(!json["diagnostics"].as_array().expect("array").is_empty());
+    assert_ne!(json["diagnostics"].as_array().expect("array").len(), 0);
 }
 
 #[test]

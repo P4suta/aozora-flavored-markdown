@@ -26,7 +26,7 @@ use crate::{Options, sentinels};
 // block structure around it was read against. Their positions are carried
 // out-of-band: author-written U+0001–U+0003 therefore remain author text and
 // are never mistaken for one of these substitutions.
-const RULE_CHARS: [u8; 3] = [b'-', b'=', b'_'];
+const RULE_CHARS: [u8; 3] = *b"-=_";
 const HIDDEN_RULE_CHARS: [u8; 3] = [0x01, 0x02, 0x03];
 
 #[derive(Debug, Clone)]

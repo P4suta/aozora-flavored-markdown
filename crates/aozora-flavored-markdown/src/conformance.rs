@@ -43,12 +43,68 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use comrak::nodes::{AstNode, NodeValue};
 use pretty_assertions::assert_eq;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use regex::Regex;
 use serde::Deserialize;
 
 use crate::{ConformanceOptions, Options, render_conformance};
+
+/// Apply GFM section 6.11 to the raw HTML nodes used by the spec runner.
+pub(super) fn filter_raw_html<'a>(root: &'a AstNode<'a>) {
+    let tags = Regex::new(
+        r"(?i-u)<(?P<close>/?)(?P<tag>title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(?P<end>[[:space:]>]|/>)",
+    )
+    .expect("the fixed GFM tag pattern is valid");
+    for node in root.descendants() {
+        match &mut node.data.borrow_mut().value {
+            NodeValue::HtmlInline(literal) => {
+                if tags
+                    .find(literal)
+                    .is_some_and(|matched| matched.start() == 0)
+                {
+                    literal.replace_range(..1, "&lt;");
+                }
+            }
+            NodeValue::HtmlBlock(block) => {
+                block.literal = tags
+                    .replace_all(&block.literal, "&lt;${close}${tag}${end}")
+                    .into_owned();
+            }
+            _ => {}
+        }
+    }
+}
+
+#[test]
+fn raw_tag_filter_preserves_boundaries_and_non_html_nodes() {
+    let options = ConformanceOptions::new(Options::commonmark())
+        .with_raw_html(true)
+        .with_tagfilter(true);
+    for (markdown, expected) in [
+        (
+            "before <ScRiPt>one</sCrIpT> after\n",
+            "<p>before &lt;ScRiPt>one&lt;/sCrIpT> after</p>\n",
+        ),
+        (
+            "<div>\n<script/> <script-widget>\n</div>\n",
+            "<div>\n&lt;script/> <script-widget>\n</div>\n",
+        ),
+        (
+            "before <a title=\"<script>\">x</a> after\n",
+            "<p>before <a title=\"<script>\">x</a> after</p>\n",
+        ),
+        (
+            "<div>\n<ſcript>one</ſcript>\n</div>\n",
+            "<div>\n<ſcript>one</ſcript>\n</div>\n",
+        ),
+        ("`<script>`\n", "<p><code>&lt;script&gt;</code></p>\n"),
+    ] {
+        assert_eq!(render_conformance(markdown, &options).html, expected);
+    }
+}
 
 const COMMONMARK_FIXTURE: &str = include_str!("../spec/commonmark-0.31.2.json");
 const GFM_FIXTURE: &str = include_str!("../spec/gfm-0.29-gfm.json");
@@ -261,14 +317,14 @@ fn canonical_xml(html: &str) -> String {
                         let attribute = attribute
                             .unwrap_or_else(|e| panic!("attribute of {html} does not parse: {e}"));
                         (
-                            String::from_utf8_lossy(attribute.key.as_ref()).into_owned(),
-                            String::from_utf8_lossy(attribute.value.as_ref()).into_owned(),
+                            attribute.key.as_ref().to_owned(),
+                            attribute.value.into_owned(),
                         )
                     })
                     .collect();
                 attributes.sort();
                 out.push('<');
-                out.push_str(&String::from_utf8_lossy(tag.name().as_ref()));
+                out.push_str(tag.name().as_ref());
                 for (key, value) in &attributes {
                     out.push(' ');
                     out.push_str(key);
@@ -280,14 +336,14 @@ fn canonical_xml(html: &str) -> String {
             }
             Event::End(tag) => {
                 out.push_str("</");
-                out.push_str(&String::from_utf8_lossy(tag.name().as_ref()));
+                out.push_str(tag.name().as_ref());
                 out.push('>');
             }
-            Event::Text(text) => out.push_str(&String::from_utf8_lossy(text.as_ref())),
+            Event::Text(text) => out.push_str(text.as_ref()),
             // `BytesRef` is what stands between the `&` and the `;`.
             Event::GeneralRef(reference) => {
                 out.push('&');
-                out.push_str(&String::from_utf8_lossy(reference.as_ref()));
+                out.push_str(reference.as_ref());
                 out.push(';');
             }
             other => panic!("no spec example holds {other:?}, so nothing here canonicalises it"),

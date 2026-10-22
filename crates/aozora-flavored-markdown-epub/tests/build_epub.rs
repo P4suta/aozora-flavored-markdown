@@ -72,13 +72,12 @@ fn resolve_reference(reference: &BytesRef<'_>) -> String {
     {
         return ch.into();
     }
-    let name = reference.decode().expect("an XML reference name decodes");
-    resolve_predefined_entity(&name)
+    resolve_predefined_entity(reference.as_ref())
         .expect("the EPUB emits only predefined named entities")
         .to_owned()
 }
 
-fn first_element_text(xml: &str, name: &[u8]) -> String {
+fn first_element_text(xml: &str, name: &str) -> String {
     let mut reader = Reader::from_str(xml);
     let mut in_element = false;
     let mut value = String::new();
@@ -87,11 +86,7 @@ fn first_element_text(xml: &str, name: &[u8]) -> String {
             Event::Eof => break,
             Event::Start(tag) if tag.name().as_ref() == name => in_element = true,
             Event::End(tag) if tag.name().as_ref() == name => break,
-            Event::Text(text) if in_element => value.push_str(
-                &text
-                    .xml10_content()
-                    .expect("generated character data decodes"),
-            ),
+            Event::Text(text) if in_element => value.push_str(&text.xml10_content()),
             Event::GeneralRef(reference) if in_element => {
                 value.push_str(&resolve_reference(&reference));
             }
@@ -101,9 +96,8 @@ fn first_element_text(xml: &str, name: &[u8]) -> String {
     value
 }
 
-fn attribute_value(xml: &str, element: &[u8], attribute: &[u8]) -> String {
+fn attribute_value(xml: &str, element: &str, attribute: &str) -> String {
     let mut reader = Reader::from_str(xml);
-    let decoder = reader.decoder();
     loop {
         match reader.read_event().expect("the generated document parses") {
             Event::Eof => return String::new(),
@@ -112,7 +106,7 @@ fn attribute_value(xml: &str, element: &[u8], attribute: &[u8]) -> String {
                     let attr = attr.expect("the generated attribute parses");
                     if attr.key.as_ref() == attribute {
                         return attr
-                            .decoded_and_normalized_value(XmlVersion::Implicit1_0, decoder)
+                            .normalized_value(XmlVersion::Implicit1_0)
                             .expect("the generated attribute decodes")
                             .into_owned();
                     }
@@ -202,6 +196,27 @@ fn nav_lists_every_chapter() {
     assert_eq!(nav.matches("chapter-002.xhtml").count(), 1);
 }
 
+#[test]
+fn xml_whitespace_in_metadata_reads_back_exactly() {
+    let book = "title = \"Book\\tOne\\nTwo\\rThree\"\ncreator = \"Author\"\nlanguage = \"ja-JP\"\n";
+    let dir = fixture(book, &[("001-chapter.md", "# 本文\n")]);
+    let entries = read_epub(&build_into(dir.path(), "whitespace.epub"));
+    let package = entry_text(&entries, "OEBPS/package.opf");
+    let nav = entry_text(&entries, "OEBPS/nav.xhtml");
+    let chapter = chapter(&entries, 1);
+
+    assert_eq!(
+        first_element_text(&package, "dc:title"),
+        "Book\tOne\nTwo\rThree"
+    );
+    assert_eq!(first_element_text(&nav, "title"), "Book\tOne\nTwo\rThree");
+    assert_eq!(attribute_value(&chapter, "html", "lang"), "ja-JP");
+    assert!(
+        package.contains("&#9;") && package.contains("&#10;") && package.contains("&#13;"),
+        "metadata whitespace must be numeric XML references: {package}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn xml_whitespace_in_metadata_and_a_chapter_filename_reads_back_exactly() {
@@ -223,12 +238,12 @@ language = \"ja-JP\"
     let nav = entry_text(&entries, "OEBPS/nav.xhtml");
     let chapter = chapter(&entries, 1);
 
-    assert_eq!(first_element_text(&package, b"dc:title"), book_title);
-    assert_eq!(first_element_text(&package, b"dc:language"), language);
-    assert_eq!(first_element_text(&nav, b"title"), book_title);
-    assert_eq!(first_element_text(&nav, b"a"), chapter_title);
-    assert_eq!(first_element_text(&chapter, b"title"), chapter_title);
-    assert_eq!(attribute_value(&chapter, b"html", b"lang"), language);
+    assert_eq!(first_element_text(&package, "dc:title"), book_title);
+    assert_eq!(first_element_text(&package, "dc:language"), language);
+    assert_eq!(first_element_text(&nav, "title"), book_title);
+    assert_eq!(first_element_text(&nav, "a"), chapter_title);
+    assert_eq!(first_element_text(&chapter, "title"), chapter_title);
+    assert_eq!(attribute_value(&chapter, "html", "lang"), language);
     assert!(
         package.contains("&#9;") && package.contains("&#10;") && package.contains("&#13;"),
         "metadata whitespace must be numeric XML references: {package}"
