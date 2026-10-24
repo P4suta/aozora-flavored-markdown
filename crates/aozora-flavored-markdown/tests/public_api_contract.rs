@@ -22,7 +22,7 @@ fn renamed_geometry_is_constructible_without_dom_shadow_names() {
     assert!(range < SourceRange::new(SourcePosition::new(3, 1), SourcePosition::new(3, 2)));
 
     let document = MarkdownDocument::default();
-    assert!(document.blocks.is_empty());
+    assert_eq!(document.blocks, []);
     assert_eq!(TableAlign::default(), TableAlign::Default);
 }
 
@@ -34,9 +34,9 @@ fn every_entry_point_has_the_published_result_shape() {
     let streamed: RenderedBlocks = render_blocks("text", &options);
     let canonical: Result<String, CanonicalizeError> = canonicalize("text");
 
-    assert!(!rendered.html.is_empty());
-    assert!(!rendered_ir.ir.blocks.is_empty());
-    assert!(!streamed.blocks.is_empty());
+    assert_ne!(rendered.html, "");
+    assert_ne!(rendered_ir.ir.blocks, []);
+    assert_ne!(streamed.blocks, []);
     assert_eq!(canonical, Ok("text".to_owned()));
 }
 

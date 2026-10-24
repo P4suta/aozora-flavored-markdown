@@ -1856,7 +1856,7 @@ mod tests {
         let html =
             r#"<ruby>x<rp>(</rp><rt>y</rt></ruby><span class="aozora-md-unknown">［＃X］</span>"#;
         let violations = assert_invariants("x《y》［＃X］", html).expect_err("must fire");
-        assert!(!violations.is_empty());
+        assert_ne!(violations, []);
     }
 
     // -------------------------------------------------------------------
@@ -1865,7 +1865,7 @@ mod tests {
 
     #[test]
     fn invariant_unit_well_formed_accepts_balanced_doc() {
-        assert!(check_well_formed("<p>x<em>y</em></p>").is_empty());
+        assert_eq!(check_well_formed("<p>x<em>y</em></p>"), []);
     }
 
     #[test]
@@ -1888,6 +1888,6 @@ mod tests {
 
     #[test]
     fn invariant_unit_well_formed_accepts_void_elements() {
-        assert!(check_well_formed("<p>x<br>y<hr></p>").is_empty());
+        assert_eq!(check_well_formed("<p>x<br>y<hr></p>"), []);
     }
 }

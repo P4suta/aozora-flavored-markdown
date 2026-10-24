@@ -1,10 +1,9 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,15 +24,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: true
           install_args: >-
-            rust@1.96.0 just cargo:cargo-nextest cargo:cargo-llvm-cov
+            rust@1.99.1 rust@1.96.0 just cargo:cargo-nextest cargo:cargo-llvm-cov
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: ci-rust
+      - name: Check the declared Rust compatibility floor
+        run: mise x -- rustup run 1.96.0 just check
       - run: just ci-rust
 
   web:
@@ -55,12 +56,12 @@ jobs:
           path: .upstream-aozora
           fetch-depth: 1
           persist-credentials: false
-      - uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: true
           install_args: >-
-            rust@1.96.0 bun node just cargo:wasm-pack npm:binaryen
+            rust@1.99.1 bun node just cargo:wasm-pack npm:binaryen
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           key: ci-web
@@ -78,15 +79,14 @@ jobs:
         run: bun run vendor:verify -- ../.upstream-aozora
       - run: just ci-web
       - name: Upload web test reports
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-test-reports-${{ github.sha }}
           path: |
             playground/playwright-report/
             playground/test-results/
-            playground/.lighthouseci/reports/
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: ignore
 
   repo:
@@ -96,54 +96,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: true
           install_args: >-
-            rust@1.96.0 just cargo:cargo-deny actionlint shellcheck zizmor
+            rust@1.99.1 just cargo:cargo-deny actionlint shellcheck zizmor
             github:crate-ci/typos
       - run: just ci-repo
-
-  release:
-    name: release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
-        with:
-          version: 2026.7.13
-          cache: true
-          install_args: >-
-            rust@1.96.0 just cargo:cargo-dist cargo:cargo-release
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
-        with:
-          key: ci-release
-      - run: just ci-release
-
-  fuzz:
-    name: fuzz
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
-        with:
-          version: 2026.7.13
-          cache: true
-          install_args: rust just cargo:cargo-fuzz
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
-        with:
-          key: ci-fuzz
-      - run: just ci-fuzz
 
   ci-success:
     name: ci-success
     if: always()
-    needs: [rust, web, repo, release, fuzz]
+    needs: [rust, web, repo]
     runs-on: ubuntu-latest
     steps:
       - name: Require every fixed CI job

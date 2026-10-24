@@ -15,9 +15,9 @@ mise install --locked
 just test
 ```
 
-`rust-toolchain.toml`, `Cargo.lock` and `playground/bun.lock` remain the
-language-specific authorities. Fuzzing alone uses the date-pinned nightly
-declared in `mise.toml`; all production crates use Rust 1.96.0.
+`rust-toolchain.toml`, `Cargo.lock` and `playground/bun.lock` remain the language-specific authorities.
+Development uses Rust 1.99.1, and CI also checks the declared Rust 1.96.0 compatibility floor.
+Fuzzing uses the date-pinned nightly declared in `mise.toml`.
 
 The same fixed entry points are used locally and by GitHub Actions:
 
@@ -27,7 +27,8 @@ just ci-web       # wasm tests/package and Playground lint/test/build
 just ci-repo      # cargo-deny, typos, actionlint, zizmor
 just ci-release   # generated assets, packages, dist, release mutation
 just ci-fuzz      # build every fuzz target
-just ci           # all five suites
+just ci           # pull-request Rust, Web, and repository suites
+just ci-candidate # all five suites before release
 ```
 
 Biome's formatter and linter are enabled explicitly by the command line in
@@ -67,7 +68,9 @@ Run `just ci` before requesting review. A reasoned compiler-lint exception is
 acceptable only at the narrow production site that needs it; the default is
 to remove the panic, output, or warning-producing path.
 
-CI builds every fuzz target and runs parser conformance and saved regression tests.
+Pull-request CI runs parser conformance and saved regression tests.
+Release verification builds every fuzz target and checks packaging before publication.
+Use `just playground-lighthouse` for on-demand performance diagnostics.
 Use the local `just fuzz-quick` and `just fuzz-deep` recipes for a specific parser investigation.
 The repository no longer runs recurring hosted fuzz searches.
 

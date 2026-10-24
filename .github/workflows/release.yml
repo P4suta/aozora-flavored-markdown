@@ -40,19 +40,72 @@ permissions:
 # If there's a prerelease-style suffix to the version, then the release(s)
 # will be marked as a prerelease.
 on:
-  pull_request:
   push:
     tags:
       - '**[0-9]+.[0-9]+.[0-9]+*'
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Resolve canonical playground UI commit
+        id: playground-ui-lock
+        run: |
+          commit="$(jq -er '.upstreamCommit' playground/vendor/playground-ui.lock.json)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: P4suta/aozora
+          ref: ${{ steps.playground-ui-lock.outputs.commit }}
+          path: .upstream-aozora
+          persist-credentials: false
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+        with:
+          version: 2026.10.15
+          cache: false
+          install_args: >-
+            rust@1.99.1 rust@1.96.0 rust@nightly-2026-07-15
+            bun node just cargo:wasm-pack npm:binaryen
+            cargo:cargo-nextest cargo:cargo-llvm-cov cargo:cargo-deny
+            cargo:cargo-dist cargo:cargo-release cargo:cargo-fuzz
+            actionlint shellcheck zizmor github:crate-ci/typos
+      - name: Install browser and screenshot prerequisites
+        run: |
+          just playground-install
+          cd playground
+          bun x --no-install playwright install --with-deps chromium firefox webkit
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-noto-core fonts-takao-gothic
+      - name: Verify canonical playground UI snapshot
+        working-directory: playground
+        run: bun run vendor:verify -- ../.upstream-aozora
+      - name: Verify the release source without publishing
+        run: just ci-candidate
+      - name: Upload failing web reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-quality-${{ github.sha }}
+          path: |
+            playground/playwright-report/
+            playground/test-results/
+            playground/.lighthouseci/reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
   # Run 'dist plan' (or host) to determine what tasks we need to do
   plan:
     name: plan
+    needs: quality
     runs-on: "ubuntu-22.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
@@ -66,11 +119,11 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea  # v4.2.1
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # sure would be cool if github gave us proper conditionals...
       # so here's a doubly-nested ternary-via-truthiness to try to provide the best possible
       # functionality based on whether this is a pull_request, and whether it's from a fork.
@@ -129,11 +182,11 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea  # v4.2.1
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # Get the dist-manifest
       - name: Fetch local artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -193,11 +246,11 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea  # v4.2.1
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -253,11 +306,11 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea  # v4.2.1
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.7.13
+          version: 2026.10.15
           cache: false
-          install_args: rust@1.96.0 cargo:cargo-dist
+          install_args: rust@1.99.1 cargo:cargo-dist
       # Fetch artifacts from scratch-storage
       - name: Fetch artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c

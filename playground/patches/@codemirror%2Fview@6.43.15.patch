@@ -1,0 +1,44 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index a75cdaf6caef51a98adee80a57536a9ca12a1e85..ee09b891b64fdc2774fe852c4d878d66e7e87b0e 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -7348,7 +7348,7 @@ class DOMObserver {
+             view.inputState.lastTouchTime < Date.now() - 300 &&
+             atElementStart(this.dom, range)) {
+             this.view.inputState.lastFocusTime = 0;
+-            view.docView.updateSelection();
++            view.docView.updateSelection(true);
+             return false;
+         }
+         this.selectionRange.setRange(range);
+@@ -8707,7 +8707,7 @@ class EditorView {
+     focus() {
+         this.observer.ignore(() => {
+             focusPreventScroll(this.contentDOM);
+-            this.docView.updateSelection();
++            this.docView.updateSelection(true);
+         });
+     }
+     /**
+diff --git a/dist/index.js b/dist/index.js
+index bda68ef32c8741c3c3f85bcf877953496ccf6e20..09443e456439bdc7e433d0d8ca5e0fd4e2aab482 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -7343,7 +7343,7 @@ class DOMObserver {
+             view.inputState.lastTouchTime < Date.now() - 300 &&
+             atElementStart(this.dom, range)) {
+             this.view.inputState.lastFocusTime = 0;
+-            view.docView.updateSelection();
++            view.docView.updateSelection(true);
+             return false;
+         }
+         this.selectionRange.setRange(range);
+@@ -8702,7 +8702,7 @@ class EditorView {
+     focus() {
+         this.observer.ignore(() => {
+             focusPreventScroll(this.contentDOM);
+-            this.docView.updateSelection();
++            this.docView.updateSelection(true);
+         });
+     }
+     /**

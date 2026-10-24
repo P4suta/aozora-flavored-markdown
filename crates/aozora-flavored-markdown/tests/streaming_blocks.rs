@@ -28,8 +28,8 @@ fn render_blocks_checked(src: &str, options: &Options) -> (Vec<RenderedBlock>, V
 #[test]
 fn empty_input_yields_no_blocks() {
     let (blocks, diagnostics) = render_blocks_checked("", &Options::default());
-    assert!(blocks.is_empty());
-    assert!(diagnostics.is_empty());
+    assert_eq!(blocks, []);
+    assert_eq!(diagnostics, []);
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn block_notation_does_not_shift_following_source_coordinates() {
 fn aozora_inline_renders_inside_per_block_html() {
     let src = "｜漢字《かんじ》\n\nplain second\n";
     let (blocks, diagnostics) = render_blocks_checked(src, &Options::default());
-    assert!(diagnostics.is_empty());
+    assert_eq!(diagnostics, []);
     assert_eq!(blocks.len(), 2);
     assert!(blocks[0].html.contains("<ruby>"));
     assert!(!blocks[0].html.contains("｜"));
@@ -97,7 +97,7 @@ fn aozora_disabled_path_skips_lex_pre_pass() {
     let opts = Options::commonmark();
     let (blocks, diagnostics) = render_blocks_checked(src, &opts);
     assert_eq!(blocks.len(), 2);
-    assert!(diagnostics.is_empty());
+    assert_eq!(diagnostics, []);
 }
 
 #[test]

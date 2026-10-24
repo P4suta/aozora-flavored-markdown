@@ -1,0 +1,16 @@
+{
+  "name": "aozora-flavored-markdown-wasm",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0 OR MIT",
+  "main": "./pkg/aozora_flavored_markdown_wasm.js",
+  "types": "./pkg/aozora_flavored_markdown_wasm.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/aozora_flavored_markdown_wasm.d.ts",
+      "default": "./pkg/aozora_flavored_markdown_wasm.js"
+    },
+    "./*": "./pkg/*"
+  },
+  "files": ["pkg"]
+}
