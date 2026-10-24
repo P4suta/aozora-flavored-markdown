@@ -39,6 +39,16 @@ async function replaceEditor(page: Page, source: string): Promise<void> {
 }
 
 async function expectNoAxeViolations(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const animations = document
+      .getAnimations()
+      .filter(
+        (animation) =>
+          animation.playState === 'running' &&
+          Number.isFinite(animation.effect?.getComputedTiming().endTime),
+      );
+    await Promise.allSettled(animations.map((animation) => animation.finished));
+  });
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -161,6 +171,7 @@ test.describe('desktop authoring workspace', () => {
     await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.press('Control+Shift+P');
     await page.getByRole('button', { name: /Ruby/ }).click();
+    await expect(page.locator('.cm-content')).toContainText('｜漢字《》');
     await expect(page.locator('.cm-content')).toBeFocused();
     await page.keyboard.insertText('かんじ');
 
