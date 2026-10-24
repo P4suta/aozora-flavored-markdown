@@ -493,4 +493,4 @@ ci-fuzz: fuzz-build
 ci: ci-rust ci-web ci-repo
 
 [group('ci')]
-ci-candidate: ci ci-release ci-fuzz playground-lighthouse
+ci-candidate: ci ci-release ci-fuzz
