@@ -27,7 +27,8 @@ just ci-web       # wasm tests/package and Playground lint/test/build
 just ci-repo      # cargo-deny, typos, actionlint, zizmor
 just ci-release   # generated assets, packages, dist, release mutation
 just ci-fuzz      # build every fuzz target
-just ci           # all five suites
+just ci           # pull-request Rust, Web, and repository suites
+just ci-candidate # all five suites and Lighthouse budgets
 ```
 
 Biome's formatter and linter are enabled explicitly by the command line in
@@ -67,7 +68,8 @@ Run `just ci` before requesting review. A reasoned compiler-lint exception is
 acceptable only at the narrow production site that needs it; the default is
 to remove the panic, output, or warning-producing path.
 
-CI builds every fuzz target and runs parser conformance and saved regression tests.
+Pull-request CI runs parser conformance and saved regression tests.
+Release verification builds every fuzz target and runs the existing Lighthouse budgets before publication.
 Use the local `just fuzz-quick` and `just fuzz-deep` recipes for a specific parser investigation.
 The repository no longer runs recurring hosted fuzz searches.
 

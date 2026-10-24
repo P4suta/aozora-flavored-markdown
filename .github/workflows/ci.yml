@@ -1,10 +1,9 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -80,15 +79,14 @@ jobs:
         run: bun run vendor:verify -- ../.upstream-aozora
       - run: just ci-web
       - name: Upload web test reports
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-test-reports-${{ github.sha }}
           path: |
             playground/playwright-report/
             playground/test-results/
-            playground/.lighthouseci/reports/
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: ignore
 
   repo:
@@ -107,45 +105,10 @@ jobs:
             github:crate-ci/typos
       - run: just ci-repo
 
-  release:
-    name: release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde  # v5.2.1
-        with:
-          version: 2026.10.15
-          cache: true
-          install_args: >-
-            rust@1.99.1 just cargo:cargo-dist cargo:cargo-release
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
-        with:
-          key: ci-release
-      - run: just ci-release
-
-  fuzz:
-    name: fuzz
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde  # v5.2.1
-        with:
-          version: 2026.10.15
-          cache: true
-          install_args: rust just cargo:cargo-fuzz
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
-        with:
-          key: ci-fuzz
-      - run: just ci-fuzz
-
   ci-success:
     name: ci-success
     if: always()
-    needs: [rust, web, repo, release, fuzz]
+    needs: [rust, web, repo]
     runs-on: ubuntu-latest
     steps:
       - name: Require every fixed CI job

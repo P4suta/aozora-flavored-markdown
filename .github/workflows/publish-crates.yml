@@ -20,8 +20,62 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Resolve canonical playground UI commit
+        id: playground-ui-lock
+        run: |
+          commit="$(jq -er '.upstreamCommit' playground/vendor/playground-ui.lock.json)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: P4suta/aozora
+          ref: ${{ steps.playground-ui-lock.outputs.commit }}
+          path: .upstream-aozora
+          persist-credentials: false
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
+        with:
+          version: 2026.10.15
+          cache: false
+          install_args: >-
+            rust@1.99.1 rust@1.96.0 rust@nightly-2026-07-15
+            bun node just cargo:wasm-pack npm:binaryen
+            cargo:cargo-nextest cargo:cargo-llvm-cov cargo:cargo-deny
+            cargo:cargo-dist cargo:cargo-release cargo:cargo-fuzz
+            actionlint shellcheck zizmor github:crate-ci/typos
+      - name: Install browser and screenshot prerequisites
+        run: |
+          just playground-install
+          cd playground
+          bun x --no-install playwright install --with-deps chromium firefox webkit
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-noto-core fonts-takao-gothic
+      - name: Verify canonical playground UI snapshot
+        working-directory: playground
+        run: bun run vendor:verify -- ../.upstream-aozora
+      - name: Verify the release source without publishing
+        run: just ci-candidate
+      - name: Upload failing web reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-quality-${{ github.sha }}
+          path: |
+            playground/playwright-report/
+            playground/test-results/
+            playground/.lighthouseci/reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
   preflight:
     name: preflight
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
