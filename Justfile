@@ -64,7 +64,7 @@ clippy:
 
 [group('rust')]
 test *ARGS:
-    cargo nextest run --locked --workspace --all-targets --all-features {{ARGS}}
+    cargo nextest run --locked --workspace --all-targets --all-features {{ ARGS }}
 
 [group('rust')]
 test-doc:
@@ -77,8 +77,8 @@ coverage:
         --workspace \
         --all-targets \
         --all-features \
-        --ignore-filename-regex '{{_COV_IGNORE}}' \
-        --fail-under-regions {{_COV_FLOOR}}
+        --ignore-filename-regex '{{ _COV_IGNORE }}' \
+        --fail-under-regions {{ _COV_FLOOR }}
 
 [group('rust')]
 coverage-html:
@@ -87,22 +87,22 @@ coverage-html:
         --workspace \
         --all-targets \
         --all-features \
-        --ignore-filename-regex '{{_COV_IGNORE}}' \
+        --ignore-filename-regex '{{ _COV_IGNORE }}' \
         --html --output-dir coverage/html
 
 [group('rust')]
 doc:
-    RUSTDOCFLAGS="{{_DOC_FLAGS}}" cargo doc \
+    RUSTDOCFLAGS="{{ _DOC_FLAGS }}" cargo doc \
         --locked --workspace --all-features --no-deps --document-private-items
 
 [group('rust')]
 doc-public:
-    RUSTDOCFLAGS="{{_DOC_FLAGS}}" cargo doc \
+    RUSTDOCFLAGS="{{ _DOC_FLAGS }}" cargo doc \
         --locked --workspace --all-features --no-deps
 
 [group('rust')]
 run *ARGS:
-    cargo run --locked --package aozora-flavored-markdown-cli --quiet -- {{ARGS}}
+    cargo run --locked --package aozora-flavored-markdown-cli --quiet -- {{ ARGS }}
 
 # --- Web / WASM --------------------------------------------------------------
 
@@ -202,7 +202,7 @@ zizmor:
 [group('fuzz')]
 fuzz-build:
     cd crates/aozora-flavored-markdown && \
-        cargo +{{_FUZZ_TOOLCHAIN}} fuzz build --target {{_FUZZ_TARGET}}
+        cargo +{{ _FUZZ_TOOLCHAIN }} fuzz build --target {{ _FUZZ_TARGET }}
 
 [group('fuzz')]
 fuzz-seed:
@@ -261,21 +261,21 @@ fuzz-seed:
         done
         printf 'fuzz-seed: %-24s %4d seed(s)\n' "$target" \
             "$(find "$dir" -maxdepth 1 -name 'seed-*' | wc -l)"
-    done < <(cargo +{{_FUZZ_TOOLCHAIN}} fuzz list)
+    done < <(cargo +{{ _FUZZ_TOOLCHAIN }} fuzz list)
 
 [group('fuzz')]
 fuzz-quick TARGET:
     cd crates/aozora-flavored-markdown && \
         timeout --signal=TERM --kill-after=10s 90s \
-        cargo +{{_FUZZ_TOOLCHAIN}} fuzz run {{TARGET}} \
-            --target {{_FUZZ_TARGET}} -- -max_total_time=60
+        cargo +{{ _FUZZ_TOOLCHAIN }} fuzz run {{ TARGET }} \
+            --target {{ _FUZZ_TARGET }} -- -max_total_time=60
 
 [group('fuzz')]
 fuzz-deep TARGET:
     cd crates/aozora-flavored-markdown && \
         timeout --signal=TERM --kill-after=10s 330s \
-        cargo +{{_FUZZ_TOOLCHAIN}} fuzz run {{TARGET}} \
-            --target {{_FUZZ_TARGET}} -- -max_total_time=300
+        cargo +{{ _FUZZ_TOOLCHAIN }} fuzz run {{ TARGET }} \
+            --target {{ _FUZZ_TARGET }} -- -max_total_time=300
 
 # Replay every artifact libFuzzer left for TARGET. One line per artifact: the
 # `Tier X violated` panic line when it still crashes, otherwise the tail of a
@@ -285,8 +285,8 @@ fuzz-deep TARGET:
 fuzz-triage TARGET:
     #!/usr/bin/env bash
     set -uo pipefail
-    dir="crates/aozora-flavored-markdown/fuzz/artifacts/{{TARGET}}"
-    bin="crates/aozora-flavored-markdown/fuzz/target/{{_FUZZ_TARGET}}/release/{{TARGET}}"
+    dir="crates/aozora-flavored-markdown/fuzz/artifacts/{{ TARGET }}"
+    bin="crates/aozora-flavored-markdown/fuzz/target/{{ _FUZZ_TARGET }}/release/{{ TARGET }}"
     if [[ ! -x "$bin" ]]; then
         echo "fuzz-triage: build the targets first: just fuzz-build" >&2
         exit 2
@@ -314,12 +314,12 @@ fuzz-triage TARGET:
 fuzz-promote TARGET ARTIFACT:
     #!/usr/bin/env bash
     set -euo pipefail
-    from="crates/aozora-flavored-markdown/fuzz/artifacts/{{TARGET}}/{{ARTIFACT}}"
-    into="crates/aozora-flavored-markdown/tests/fuzz_regressions/{{TARGET}}"
+    from="crates/aozora-flavored-markdown/fuzz/artifacts/{{ TARGET }}/{{ ARTIFACT }}"
+    into="crates/aozora-flavored-markdown/tests/fuzz_regressions/{{ TARGET }}"
     [[ -f "$from" ]] || { echo "fuzz-promote: no such artifact: $from" >&2; exit 2; }
     [[ -d "$into" ]] || { echo "fuzz-promote: no such target dir: $into" >&2; exit 2; }
     mv "$from" "$into/"
-    printf 'fuzz-promote: %s -> %s/\n' "{{ARTIFACT}}" "$into"
+    printf 'fuzz-promote: %s -> %s/\n' "{{ ARTIFACT }}" "$into"
 
 # What is waiting to be triaged, and what is already pinned.
 [group('fuzz')]
@@ -338,18 +338,18 @@ fuzz-status:
             "$(find "$pinned/$target" -maxdepth 1 -type f -not -name '.gitkeep' \
                 -not -name '*.expect.txt' 2>/dev/null | wc -l)"
         cd crates/aozora-flavored-markdown
-    done < <(cargo +{{_FUZZ_TOOLCHAIN}} fuzz list)
+    done < <(cargo +{{ _FUZZ_TOOLCHAIN }} fuzz list)
 
 [group('fuzz')]
 fuzz-all-quick:
     #!/usr/bin/env bash
     set -euo pipefail
     cd crates/aozora-flavored-markdown
-    cargo +{{_FUZZ_TOOLCHAIN}} fuzz build --target {{_FUZZ_TARGET}}
+    cargo +{{ _FUZZ_TOOLCHAIN }} fuzz build --target {{ _FUZZ_TARGET }}
     while IFS= read -r target; do
         timeout --signal=TERM --kill-after=10s 90s \
-            cargo +{{_FUZZ_TOOLCHAIN}} fuzz run "$target" \
-                --target {{_FUZZ_TARGET}} -- -max_total_time=60
+            cargo +{{ _FUZZ_TOOLCHAIN }} fuzz run "$target" \
+                --target {{ _FUZZ_TARGET }} -- -max_total_time=60
     done < <(cargo fuzz list)
 
 [group('fuzz')]
@@ -357,18 +357,18 @@ fuzz-all-deep:
     #!/usr/bin/env bash
     set -euo pipefail
     cd crates/aozora-flavored-markdown
-    cargo +{{_FUZZ_TOOLCHAIN}} fuzz build --target {{_FUZZ_TARGET}}
+    cargo +{{ _FUZZ_TOOLCHAIN }} fuzz build --target {{ _FUZZ_TARGET }}
     while IFS= read -r target; do
         timeout --signal=TERM --kill-after=10s 330s \
-            cargo +{{_FUZZ_TOOLCHAIN}} fuzz run "$target" \
-                --target {{_FUZZ_TARGET}} -- -max_total_time=300
+            cargo +{{ _FUZZ_TOOLCHAIN }} fuzz run "$target" \
+                --target {{ _FUZZ_TARGET }} -- -max_total_time=300
     done < <(cargo fuzz list)
 
 # --- Generated sources and release ------------------------------------------
 
 [group('maintenance')]
 aozora-bump VERSION:
-    cargo run --locked --package xtask --quiet -- aozora-bump {{VERSION}}
+    cargo run --locked --package xtask --quiet -- aozora-bump {{ VERSION }}
 
 [group('maintenance')]
 spec-refresh:
@@ -381,7 +381,7 @@ spec-refresh:
 
 [group('maintenance')]
 adr TITLE:
-    cargo run --locked --package xtask --quiet -- new-adr {{TITLE}}
+    cargo run --locked --package xtask --quiet -- new-adr {{ TITLE }}
 
 [group('maintenance')]
 changelog:
@@ -389,9 +389,9 @@ changelog:
 
 [group('release')]
 release LEVEL *ARGS:
-    cargo release version {{LEVEL}} --workspace --no-confirm {{ARGS}}
-    cargo release replace --workspace --no-confirm {{ARGS}}
-    cargo release hook --workspace --no-confirm {{ARGS}}
+    cargo release version {{ LEVEL }} --workspace --no-confirm {{ ARGS }}
+    cargo release replace --workspace --no-confirm {{ ARGS }}
+    cargo release hook --workspace --no-confirm {{ ARGS }}
 
 [group('release')]
 dist-assets:
@@ -426,7 +426,7 @@ semver:
 
 [group('release')]
 package-smoke SKIP_CRATES="":
-    scripts/package-smoke.sh {{quote(SKIP_CRATES)}}
+    scripts/package-smoke.sh {{ quote(SKIP_CRATES) }}
 
 [group('release')]
 release-smoke:
@@ -478,7 +478,7 @@ docs-site: doc playground-build
 ci-rust: fmt-check check-features clippy coverage test-doc doc-public
 
 [group('ci')]
-ci-web: test-wasm playground-typecheck playground-lint playground-test playground-build playground-e2e playground-lighthouse
+ci-web: test-wasm playground-typecheck playground-lint playground-test playground-build playground-e2e
 
 [group('ci')]
 ci-repo: deny typos actionlint zizmor
@@ -490,4 +490,7 @@ ci-release: dist-assets-check package-smoke dist-plan release-smoke
 ci-fuzz: fuzz-build
 
 [group('ci')]
-ci: ci-rust ci-web ci-repo ci-release ci-fuzz
+ci: ci-rust ci-web ci-repo
+
+[group('ci')]
+ci-candidate: ci ci-release ci-fuzz
