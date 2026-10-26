@@ -70,7 +70,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: >-
             rust@1.99.1 rust@1.96.0 rust@nightly-2026-07-15
@@ -121,7 +121,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # sure would be cool if github gave us proper conditionals...
@@ -184,7 +184,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # Get the dist-manifest
@@ -248,7 +248,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
@@ -308,7 +308,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # Fetch artifacts from scratch-storage
