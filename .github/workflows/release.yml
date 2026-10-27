@@ -50,7 +50,7 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -70,7 +70,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: >-
             rust@1.99.1 rust@1.96.0 rust@nightly-2026-07-15
@@ -106,7 +106,7 @@ jobs:
   plan:
     name: plan
     needs: quality
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-26.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
       tag: ${{ !github.event.pull_request && github.ref_name || '' }}
@@ -121,7 +121,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # sure would be cool if github gave us proper conditionals...
@@ -184,7 +184,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # Get the dist-manifest
@@ -237,7 +237,7 @@ jobs:
       - plan
       - build-local-artifacts
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-26.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BUILD_MANIFEST_NAME: target/distrib/global-dist-manifest.json
@@ -248,7 +248,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
@@ -295,7 +295,7 @@ jobs:
     if: ${{ always() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-26.04"
     permissions:
       # `dist host` and `gh release create` publish the tag's GitHub Release.
       contents: write
@@ -308,7 +308,7 @@ jobs:
           submodules: recursive
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          version: 2026.10.15
+          version: 2026.10.18
           cache: false
           install_args: rust@1.99.1 cargo:cargo-dist
       # Fetch artifacts from scratch-storage
@@ -375,7 +375,7 @@ jobs:
     # still allowing individual publish jobs to skip themselves (for prereleases).
     # "host" however must run to completion, no skipping allowed!
     if: ${{ always() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && needs.host.result == 'success' }}
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-26.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:

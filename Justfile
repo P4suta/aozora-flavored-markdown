@@ -8,7 +8,7 @@ set dotenv-load := false
 
 _DOC_FLAGS := "-D warnings"
 _COV_FLOOR := "95"
-_COV_IGNORE := "(target/|xtask/|aozora-flavored-markdown-test-support/|aozora-flavored-markdown-wasm/)"
+_COV_IGNORE := '(target[/\\]|xtask[/\\]|aozora-flavored-markdown-test-support[/\\]|aozora-flavored-markdown-wasm[/\\])'
 _FUZZ_TOOLCHAIN := "nightly-2026-07-15"
 _FUZZ_TARGET := "x86_64-unknown-linux-gnu"
 
