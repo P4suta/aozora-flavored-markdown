@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { extname, join, relative, resolve } from 'node:path';
+import { extname, join, relative, resolve, sep } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const root = resolve('dist');
@@ -78,7 +78,7 @@ for (const match of indexHtml.matchAll(/<(?:link|script)\b[^>]*>/gi)) {
     type === 'module' ? source : relation === 'modulepreload' ? href : null;
   if (!reference) continue;
   const file = files.find((candidate) =>
-    reference.endsWith(`/${relative(root, candidate)}`),
+    reference.endsWith(`/${relative(root, candidate).split(sep).join('/')}`),
   );
   if (!file) {
     failures.push(
