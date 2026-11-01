@@ -10,7 +10,7 @@ rust = [
     { version = "nightly-2026-07-15", profile = "minimal", components = ["rust-src"] },
 ]
 bun = "1.4.4"
-node = "24.22.1"
+node = "26.13.0"
 just = "1.59.0"
 "cargo:wasm-pack" = "0.15.0"
 "npm:binaryen" = "132.0.0"
