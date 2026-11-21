@@ -45,7 +45,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@biomejs/biome": "^2.5.5",
-    "@lhci/cli": "^0.15.1",
+    "@lhci/cli": "^0.16.0",
     "@playwright/test": "^1.62.0",
     "@react-aria/optimize-locales-plugin": "^2.0.0",
     "@testing-library/jest-dom": "^7.0.0",
