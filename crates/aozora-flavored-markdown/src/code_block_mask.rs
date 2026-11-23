@@ -160,17 +160,43 @@ fn snapshots(source: &str, options: &comrak::Options<'_>) -> Vec<FencedCodeBlock
             }
             Some(FencedCodeBlock {
                 range: verbatim_regions::byte_range(source, &line_starts, data.sourcepos)?,
-                // comrak has already trimmed/unescaped the info string and
-                // normalised the literal's line endings. Preserve that
-                // compiler-owned representation, except for author-written
-                // construct sentinels whose public contract is U+FFFD.
                 info: neutralize_construct_sentinels(&code.info),
-                literal: neutralize_construct_sentinels(&code.literal),
+                literal: fenced_literal(
+                    source,
+                    &line_starts,
+                    data.sourcepos.start.line,
+                    &code.literal,
+                ),
             })
         })
         .collect();
     snapshots.sort_unstable_by_key(|snapshot| snapshot.range.start);
     snapshots
+}
+
+fn fenced_literal(
+    source: &str,
+    line_starts: &[usize],
+    opening_line: usize,
+    literal: &str,
+) -> String {
+    let mut restored = String::with_capacity(literal.len());
+    for (index, line) in literal.split_inclusive('\n').enumerate() {
+        if let Some(body) = line.strip_suffix('\n') {
+            restored.push_str(body);
+            let ending = line_starts
+                .get(opening_line + index + 1)
+                .map(|end| &source.as_bytes()[..*end]);
+            match ending {
+                Some([.., b'\r', b'\n']) => restored.push_str("\r\n"),
+                Some([.., b'\r']) => restored.push('\r'),
+                _ => restored.push('\n'),
+            }
+        } else {
+            restored.push_str(line);
+        }
+    }
+    neutralize_construct_sentinels(&restored)
 }
 
 fn neutralize_construct_sentinels(text: &str) -> String {

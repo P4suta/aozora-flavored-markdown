@@ -11,7 +11,7 @@
 use core::iter::{once, repeat_n};
 use core::ops::Range;
 
-use comrak::nodes::{NodeHeading, NodeValue, Sourcepos};
+use comrak::nodes::{NodeCodeBlock, NodeHeading, NodeValue, Sourcepos};
 
 use crate::code_block_mask::MASK_CHAR;
 use crate::{Options, sentinels};
@@ -222,8 +222,10 @@ fn verbatim_ranges(source: &str) -> Vec<Range<usize>> {
                 NodeValue::Code(_)
                 | NodeValue::HtmlBlock(_)
                 | NodeValue::HtmlInline(_)
-                | NodeValue::ThematicBreak => byte_range(source, &line_starts, pos),
-                NodeValue::CodeBlock(_) => code_block_byte_range(source, &line_starts, pos),
+                | NodeValue::ThematicBreak(_) => byte_range(source, &line_starts, pos),
+                NodeValue::CodeBlock(ref code) => {
+                    code_block_byte_range(source, &line_starts, pos, code)
+                }
                 // A setext heading's own text is prose; the row under it is
                 // the one that also reads as a rule.
                 NodeValue::Heading(NodeHeading { setext: true, .. }) => {
@@ -248,22 +250,20 @@ fn verbatim_ranges(source: &str) -> Vec<Range<usize>> {
     disjoint
 }
 
-/// A code block whose last source position has column zero ends on a blank
-/// line. comrak points at that line's start, so [`byte_range`] deliberately
-/// trims it like any other block boundary. For code, however, the line ending
-/// is literal payload: letting the sibling canonicaliser see it rewrites CRLF
-/// or lone CR to LF. Extend only this node kind through the end of that line.
+/// Include trailing blank lines in an unclosed fence even when its source position ends at the last nonblank line.
 fn code_block_byte_range(
     source: &str,
     line_starts: &[usize],
     pos: Sourcepos,
+    code: &NodeCodeBlock,
 ) -> Option<Range<usize>> {
     let mut range = byte_range(source, line_starts, pos)?;
-    if pos.end.column == 0 {
-        let after_end_line = line_starts
-            .get(pos.end.line)
-            .copied()
-            .unwrap_or(source.len());
+    let mut end_line = pos.end.line;
+    if code.fenced && !code.closed {
+        end_line = end_line.max(pos.start.line + code.literal.split_inclusive('\n').count());
+    }
+    if pos.end.column == 0 || end_line > pos.end.line {
+        let after_end_line = line_starts.get(end_line).copied().unwrap_or(source.len());
         if source.get(range.end..after_end_line).is_some() {
             range.end = after_end_line;
         }

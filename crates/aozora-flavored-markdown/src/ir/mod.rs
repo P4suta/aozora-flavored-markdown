@@ -370,7 +370,7 @@ impl<'t> IrWalker<'t> {
                 })
             }
             NodeValue::CodeBlock(code) => Some(self.project_code_block(code, source_line, range)),
-            NodeValue::ThematicBreak => {
+            NodeValue::ThematicBreak(_) => {
                 drop(data);
                 Some(Block::ThematicBreak { source_line, range })
             }
@@ -533,14 +533,14 @@ impl<'t> IrWalker<'t> {
                 let value = self.rewrite_literal_context(&literal);
                 out.push(Inline::Code { value, range });
             }
-            NodeValue::Strong => {
+            NodeValue::Strong(_) => {
                 drop(data);
                 out.push(Inline::Strong {
                     children: self.collect_inlines(node),
                     range,
                 });
             }
-            NodeValue::Emph => {
+            NodeValue::Emph(_) => {
                 drop(data);
                 out.push(Inline::Emphasis {
                     children: self.collect_inlines(node),

@@ -208,11 +208,9 @@ impl<'a> AstSplicer<'a, '_> {
         for child in children {
             child.detach();
         }
-        paragraph.data.borrow_mut().value = NodeValue::Heading(NodeHeading {
-            level,
-            setext: false,
-            closed: true,
-        });
+        let mut heading = NodeHeading::new(level);
+        heading.closed = true;
+        paragraph.data.borrow_mut().value = NodeValue::Heading(heading);
         paragraph.append(self.new_raw_node(escaped));
     }
 
