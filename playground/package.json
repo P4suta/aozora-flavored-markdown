@@ -58,7 +58,7 @@
     "@vitest/coverage-v8": "^5.0.0",
     "happy-dom": "^21.0.0",
     "lightningcss": "^1.33.0",
-    "stylelint": "^17.14.0",
+    "stylelint": "^18.0.0",
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^7.0.0",
     "unplugin-parcel-macros": "^0.2.0",
