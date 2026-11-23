@@ -21,7 +21,7 @@ use std::borrow::Cow;
 use std::io::{self, Cursor, Write};
 
 use aozora_flavored_markdown::theme;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::name::QName;
@@ -58,7 +58,7 @@ pub(crate) fn compose(manuscript: &Manuscript, rendered: &RenderOutput) -> Resul
         .clone()
         .unwrap_or_else(|| format!("urn:uuid:{}", Uuid::new_v4()));
 
-    let now = Utc::now();
+    let now = Timestamp::now();
     let container = container_xml()?;
     let package_opf = package_opf(&manuscript.metadata, &id, rendered, now)?;
     let nav_xhtml = nav_xhtml(&manuscript.metadata, rendered)?;
@@ -122,7 +122,7 @@ fn package_opf(
     meta: &Metadata,
     id: &str,
     rendered: &RenderOutput,
-    now: DateTime<Utc>,
+    now: Timestamp,
 ) -> Result<String> {
     let mut w = Writer::new_with_indent(Cursor::new(Vec::new()), b' ', 2);
     w.write_event(Event::Decl(BytesDecl::new("1.0", Some("utf-8"), None)))
@@ -151,7 +151,7 @@ fn package_opf(
     modified.push_attribute(("property", "dcterms:modified"));
     w.write_event(Event::Start(modified))
         .map_err(|e| xml_to_err(&e))?;
-    let stamp = now.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let stamp = format!("{now:.0}");
     w.write_event(Event::Text(BytesText::new(&stamp)))
         .map_err(|e| xml_to_err(&e))?;
     w.write_event(Event::End(BytesEnd::new("meta")))
@@ -471,9 +471,7 @@ mod tests {
             items: vec![],
             chapters: vec![],
         };
-        let now = DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let now = "2026-01-01T00:00:00Z".parse::<Timestamp>().unwrap();
         let opf = package_opf(&meta, "urn:uuid:test", &rendered, now).unwrap();
         assert!(opf.contains("Tom &amp; Jerry &lt;draft&gt;"), "opf: {opf}");
         assert!(opf.contains("山田&quot;太郎&quot;"), "opf: {opf}");
@@ -487,9 +485,7 @@ mod tests {
             items: vec![],
             chapters: vec![],
         };
-        let now = DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let now = "2026-01-01T00:00:00Z".parse::<Timestamp>().unwrap();
         package_opf(&meta, "urn:uuid:test", &rendered, now).unwrap()
     }
 
@@ -542,9 +538,9 @@ mod tests {
     #[test]
     fn package_opf_snapshot() {
         let meta = dummy_metadata("Snapshot Book", "Snapshot Author", "ja");
-        let now = DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let now = "2026-01-01T00:00:00.987654321Z"
+            .parse::<Timestamp>()
+            .unwrap();
         let opf = package_opf(
             &meta,
             "urn:uuid:00000000-0000-0000-0000-000000000000",

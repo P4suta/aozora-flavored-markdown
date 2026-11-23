@@ -57,7 +57,7 @@ toml            = { workspace = true }
 quick-xml       = { workspace = true }
 zip             = { workspace = true }
 uuid            = { workspace = true }
-chrono          = { workspace = true }
+jiff            = { workspace = true }
 
 [dev-dependencies]
 insta             = { workspace = true }
